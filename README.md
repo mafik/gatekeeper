@@ -5,7 +5,6 @@ DHCP &amp; DNS server to run on your gateway. Gives you more control &amp; visib
 
 ## TODO
 
-* table with log entries
 * systemd service file
 * explain the project in README
 * investigate empty HTTPS "NO_ERROR" responses

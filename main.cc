@@ -163,6 +163,17 @@ template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 template <typename Iter> Iter next(Iter iter) { return ++iter; }
 
+namespace log_ {
+deque<string> messages;
+
+void Log(string_view message) {
+  messages.emplace_back(message);
+  while (messages.size() > 20) {
+    messages.pop_front();
+  }
+}
+} // namespace log_
+
 namespace rfc1700 {
 
 const char *kHardwareTypeNames[] = {"Not hardware address",
@@ -1257,8 +1268,8 @@ struct Server : UDPListener {
     }
 
     if (response_type == options::MessageType::UNKNOWN) {
-      LOG << "DHCP server received unknown DHCP message:\n"
-          << packet.to_string();
+      log_::Log("DHCP server received unknown DHCP message:\n" +
+                packet.to_string());
       return;
     }
 
@@ -1580,7 +1591,7 @@ struct __attribute__((__packed__)) Header {
     NOTIFY = 4,
     UPDATE = 5,
   };
-  static const char *OperationCodeToString(OperationCode code) {
+  static string OperationCodeToString(OperationCode code) {
     switch (code) {
     case QUERY:
       return "QUERY";
@@ -1593,7 +1604,7 @@ struct __attribute__((__packed__)) Header {
     case UPDATE:
       return "UPDATE";
     default:
-      return "UNKNOWN";
+      return f("UNKNOWN(%d)", code);
     }
   }
   enum ResponseCode {
@@ -1761,7 +1772,10 @@ struct Entry {
   void HandleIncomingRequest(const IncomingRequest &request) const {
     visit(overloaded{
               [&](Ready &r) {
-                LOG << "Answering request from cache: " << question.to_string();
+                log_::Log(f("#%04hx %s:%hu Answering %s (cached)",
+                            request.header.id,
+                            request.client_ip.to_string().c_str(),
+                            request.client_port, question.to_html().c_str()));
                 string err;
                 AnswerRequest(request, *this, err);
                 if (!err.empty()) {
@@ -1773,17 +1787,12 @@ struct Entry {
                   if (r.client_ip == request.client_ip &&
                       r.client_port == request.client_port &&
                       r.header.id == request.header.id) {
-                    LOG << "Ignoring duplicate request from "
-                        << request.client_ip.to_string() << ":"
-                        << request.client_port << ": " << question.to_string();
+                    // Ignore duplicate request
                     return;
                   }
                 }
                 UpdateExpiration(steady_clock::now() + 10s);
                 p.incoming_requests.push_back(request);
-                LOG << "Adding incoming request to waitlist: "
-                    << question.to_string() << ". Currently "
-                    << p.incoming_requests.size() << " requests are waiting.";
               },
           },
           state);
@@ -1823,12 +1832,15 @@ struct Entry {
 
     UpdateExpiration(new_expiration);
 
-    LOG << "Received DNS reply from upstream server: "
-        << msg.question.to_string() << ". Answering "
-        << incoming_requests.size() << " incoming requests.";
+    log_::Log(f("Received %s from upstream. Caching for %s.",
+                question.to_html().c_str(),
+                FormatDuration(new_expiration - steady_clock::now()).c_str()));
 
     for (auto &inc_req : incoming_requests) {
       AnswerRequest(inc_req, *this, err);
+      log_::Log(f("#%04hx %s:%hu Answering %s (from upstream)",
+                  inc_req.header.id, inc_req.client_ip.to_string().c_str(),
+                  inc_req.client_port, msg.question.to_html().c_str()));
       if (!err.empty()) {
         break;
       }
@@ -1866,15 +1878,6 @@ struct QuestionEqual {
   }
 };
 
-// Logging style:
-// For incoming requests:
-//   <id> <ip>:<port> Asks for <question>
-//   <id> <ip>:<port> Answering with <answers> (cached / from upstream)
-// For outgoing requests:
-//   Forwarding <question>
-//   Received <question> from upstream. Caching for <ttl> seconds
-//   Expiring <question>
-
 unordered_set<const Entry *, QuestionHash, QuestionEqual> cache;
 
 unordered_set<Entry, QuestionHash, QuestionEqual> static_cache;
@@ -1898,8 +1901,8 @@ void Entry::UpdateExpiration(steady_clock::time_point new_expiration) const {
 void ExpireEntries() {
   auto now = steady_clock::now();
   while (!expiration_queue.empty() && expiration_queue.begin()->first < now) {
-    LOG << "Expiring entry: "
-        << expiration_queue.begin()->second->question.to_string();
+    log_::Log("Expiring " +
+              expiration_queue.begin()->second->question.to_html());
     cache.erase(expiration_queue.begin()->second);
     expiration_queue.erase(expiration_queue.begin());
   }
@@ -1969,13 +1972,15 @@ struct Client : UDPListener {
         }
         dns_servers += server.to_string();
       }
-      LOG << "DNS client received a packet from an unexpected source: "
-          << source_ip.to_string() << " (expected: " << dns_servers << ")";
+      log_::Log("DNS client received a packet from an unexpected source: " +
+                source_ip.to_string() + " (expected: " + dns_servers + ")");
       return;
     }
     if (source_port != kServerPort) {
-      LOG << "DNS client received a packet from an unexpected source port: "
-          << source_port << " (expected port " << kServerPort << ")";
+      log_::Log(
+          "DNS client received a packet from an unexpected source port: " +
+          to_string(source_port) + " (expected port " + to_string(kServerPort) +
+          ")");
       return;
     }
     Message msg;
@@ -1987,21 +1992,22 @@ struct Client : UDPListener {
     }
 
     if (msg.header.opcode != Header::QUERY) {
-      LOG << "DNS client received a packet with an unsupported opcode: "
-          << msg.header.opcode << ". Full query: " << msg.header.to_string();
+      log_::Log("DNS client received a packet with an unsupported opcode: " +
+                Header::OperationCodeToString(msg.header.opcode) +
+                ". Full query: " + msg.header.to_string());
       return;
     }
 
     if (!msg.header.reply) {
-      LOG << "DNS client received a packet that is not a reply: "
-          << msg.header.to_string();
+      log_::Log("DNS client received a packet that is not a reply: " +
+                msg.header.to_string());
       return;
     }
 
     const Entry *entry = GetCachedEntry(msg.question);
     if (entry == nullptr) {
-      LOG << "DNS client received an unexpected / expired reply: "
-          << msg.question.to_string();
+      log_::Log("DNS client received an unexpected / expired reply: " +
+                msg.question.to_string());
       return;
     }
     entry->HandleAnswer(msg, err);
@@ -2038,9 +2044,7 @@ struct Client : UDPListener {
           etc::resolv[(++server_i) % etc::resolv.size()]; // Round-robin
       ::SendTo(fd, buffer, upstream_ip, kServerPort, err);
       if (err.empty()) {
-        LOG << "Sending a DNS request to upstream server: "
-            << question.to_string() << ". Currently " << cache.size()
-            << " cached entries.";
+        log_::Log(f("Forwarding %s.", question.to_html().c_str()));
       }
     }
     return *entry;
@@ -2116,9 +2120,9 @@ struct Server : UDPListener {
   void HandleRequest(string_view buf, IP source_ip,
                      uint16_t source_port) override {
     if ((source_ip & netmask) != (server_ip & netmask)) {
-      LOG << "DNS server received a packet from an unexpected source: "
-          << source_ip.to_string() << " (expected network "
-          << (server_ip & netmask).to_string() << ")";
+      log_::Log("DNS server received a packet from an unexpected source: " +
+                source_ip.to_string() + " (expected network " +
+                (server_ip & netmask).to_string() + ")");
       return;
     }
     Message msg;
@@ -2130,14 +2134,16 @@ struct Server : UDPListener {
     }
 
     if (msg.header.opcode != Header::QUERY) {
-      LOG << "DNS server received a packet with an unsupported opcode: "
-          << msg.header.opcode << ". Full query: " << msg.header.to_string();
+      log_::Log("DNS server received a packet with an unsupported opcode: " +
+                Header::OperationCodeToString(msg.header.opcode) +
+                ". Full query: " + msg.header.to_string());
       return;
     }
 
-    LOG << "Request " << f("0x%04hx", msg.header.id) << " for "
-        << msg.question.to_string();
-    LOG_Indent();
+    log_::Log(f("#%04hx %s:%hu Asks for %s", msg.header.id,
+                source_ip.to_string().c_str(), source_port,
+                msg.question.to_html().c_str()));
+
     const Entry &entry = client.GetCachedEntryOrSendRequest(msg.question, err);
     if (!err.empty()) {
       ERROR << err;
@@ -2148,7 +2154,6 @@ struct Server : UDPListener {
         .client_ip = source_ip,
         .client_port = source_port,
     });
-    LOG_Unindent();
   }
 
   void NotifyRead(string &abort_error) override {
@@ -2271,7 +2276,8 @@ void Handler(Response &response, Request &request) {
   html.reserve(1024 * 64);
   html += "<!doctype html>";
   html += "<html><head><title>Gatekeeper</title><link rel=\"stylesheet\" "
-          "href=\"/style.css\"></head><body>";
+          "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
+          "href=\"/favicon.ico\"></head><body>";
   html += R"(<script>
 if (localStorage.refresh) {
   window.refresh_timeout = setTimeout(() => location.reload(), 1000);
@@ -2369,6 +2375,13 @@ function ToggleAutoRefresh() {
             html += "</td></tr>";
           }
         });
+  table("Log", {"Message"}, [&]() {
+    for (auto &line : log_::messages) {
+      html += "<tr><td>";
+      html += line;
+      html += "</td></tr>";
+    }
+  });
   table("DNS cache", {"Question", "TTL", "State"}, [&]() {
     auto emit_dns_entry = [&](const dns::Entry &entry) {
       html += "<tr><td>";
@@ -2454,7 +2467,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  LOG << "Starting epoll::Loop()";
+  log_::Log("Gatekeeper started.");
   epoll::Loop(err);
   if (!err.empty()) {
     ERROR << err;
