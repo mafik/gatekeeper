@@ -126,6 +126,35 @@ void SendTo(int fd, const string &buffer, IP ip, uint16_t port, string &error) {
   }
 }
 
+struct UDPListener : epoll::Listener {
+  virtual void HandleRequest(string_view buf, IP source_ip,
+                             uint16_t source_port) = 0;
+
+  void NotifyRead(string &abort_error) override {
+    while (true) {
+      sockaddr_in clientaddr;
+      socklen_t clilen = sizeof(struct sockaddr);
+      ssize_t len = recvfrom(fd, recvbuf, sizeof(recvbuf), 0,
+                             (struct sockaddr *)&clientaddr, &clilen);
+      if (len < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+          break;
+        } else {
+          abort_error = "DNS server recvfrom: ";
+          abort_error += strerror(errno);
+          return;
+        }
+      }
+      IP source_ip(clientaddr.sin_addr.s_addr);
+      uint16_t source_port = ntohs(clientaddr.sin_port);
+      HandleRequest(string_view((char *)recvbuf, len), source_ip, source_port);
+    }
+  }
+
+private:
+  uint8_t recvbuf[65536] = {0};
+};
+
 template <class... Ts> struct overloaded : Ts... {
   using Ts::operator()...;
 };
@@ -961,7 +990,7 @@ struct __attribute__((__packed__)) PacketView : Header {
   }
 };
 
-struct Server : epoll::Listener {
+struct Server : UDPListener {
 
   struct Entry {
     string client_id;
@@ -1138,23 +1167,16 @@ struct Server : epoll::Listener {
     return ip;
   }
 
-  void NotifyRead(string &abort_error) override {
-    char recvbuf[65536] = {0};
-    int len;
-    struct sockaddr_in clientaddr;
-    socklen_t clilen = sizeof(struct sockaddr);
-    len = recvfrom(fd, recvbuf, sizeof(recvbuf), 0,
-                   (struct sockaddr *)&clientaddr, &clilen);
-    IP source_ip(clientaddr.sin_addr.s_addr);
-    if (len < sizeof(PacketView)) {
-      ERROR << "DHCP server received a packet that is too short: " << len
+  void HandleRequest(string_view buf, IP source_ip, uint16_t port) override {
+    if (buf.size() < sizeof(PacketView)) {
+      ERROR << "DHCP server received a packet that is too short: " << buf.size()
             << " bytes:\n"
-            << hex(recvbuf, len);
+            << hex(buf.data(), buf.size());
       return;
     }
-    PacketView &packet = *(PacketView *)recvbuf;
+    PacketView &packet = *(PacketView *)buf.data();
     string log_error;
-    packet.CheckFitsIn(len, log_error);
+    packet.CheckFitsIn(buf.size(), log_error);
     if (!log_error.empty()) {
       ERROR << log_error;
       return;
@@ -1648,7 +1670,7 @@ struct Message {
   Question question;
   vector<Record> answers;
 
-  void Parse(uint8_t *ptr, size_t len, string &err) {
+  void Parse(const uint8_t *ptr, size_t len, string &err) {
     if (len < sizeof(Header)) {
       err = "DNS message buffer is too short: " + std::to_string(len) +
             " bytes. DNS header requires at least 12 bytes. Hex-escaped "
@@ -1904,7 +1926,7 @@ const Entry *GetCachedEntry(const Question &question) {
   }
 }
 
-struct Client : epoll::Listener {
+struct Client : UDPListener {
   uint16_t request_id;
   int server_i = 0;
 
@@ -1936,15 +1958,8 @@ struct Client : epoll::Listener {
     close(fd);
   }
 
-  void NotifyRead(std::string &abort_error) override {
-    ExpireEntries();
-    uint8_t recvbuf[65536] = {0};
-    int len;
-    struct sockaddr_in clientaddr;
-    socklen_t clilen = sizeof(struct sockaddr);
-    len = recvfrom(fd, recvbuf, sizeof(recvbuf), 0,
-                   (struct sockaddr *)&clientaddr, &clilen);
-    IP source_ip(clientaddr.sin_addr.s_addr);
+  void HandleRequest(string_view buf, IP source_ip,
+                     uint16_t source_port) override {
     if (find(etc::resolv.begin(), etc::resolv.end(), source_ip) ==
         etc::resolv.end()) {
       string dns_servers = "";
@@ -1958,7 +1973,6 @@ struct Client : epoll::Listener {
           << source_ip.to_string() << " (expected: " << dns_servers << ")";
       return;
     }
-    uint16_t source_port = ntohs(clientaddr.sin_port);
     if (source_port != kServerPort) {
       LOG << "DNS client received a packet from an unexpected source port: "
           << source_port << " (expected port " << kServerPort << ")";
@@ -1966,7 +1980,7 @@ struct Client : epoll::Listener {
     }
     Message msg;
     string err;
-    msg.Parse(recvbuf, len, err);
+    msg.Parse((const uint8_t *)buf.data(), buf.size(), err);
     if (!err.empty()) {
       ERROR << err;
       return;
@@ -1995,6 +2009,11 @@ struct Client : epoll::Listener {
       ERROR << err;
       return;
     }
+  }
+
+  void NotifyRead(string &abort_error) override {
+    ExpireEntries();
+    UDPListener::NotifyRead(abort_error);
   }
 
   const Entry &GetCachedEntryOrSendRequest(const Question &question,
@@ -2032,7 +2051,7 @@ struct Client : epoll::Listener {
 
 Client client;
 
-struct Server : epoll::Listener {
+struct Server : UDPListener {
 
   // Start listening.
   //
@@ -2094,25 +2113,17 @@ struct Server : epoll::Listener {
     ::SendTo(fd, buffer, ip, port, error);
   }
 
-  void NotifyRead(string &abort_error) override {
-    ExpireEntries();
-    uint8_t recvbuf[65536] = {0};
-    int len;
-    struct sockaddr_in clientaddr;
-    socklen_t clilen = sizeof(struct sockaddr);
-    len = recvfrom(fd, recvbuf, sizeof(recvbuf), 0,
-                   (struct sockaddr *)&clientaddr, &clilen);
-    IP source_ip(clientaddr.sin_addr.s_addr);
+  void HandleRequest(string_view buf, IP source_ip,
+                     uint16_t source_port) override {
     if ((source_ip & netmask) != (server_ip & netmask)) {
       LOG << "DNS server received a packet from an unexpected source: "
           << source_ip.to_string() << " (expected network "
           << (server_ip & netmask).to_string() << ")";
       return;
     }
-    uint16_t source_port = ntohs(clientaddr.sin_port);
     Message msg;
     string err;
-    msg.Parse(recvbuf, len, err);
+    msg.Parse((const uint8_t *)buf.data(), buf.size(), err);
     if (!err.empty()) {
       ERROR << err;
       return;
@@ -2138,6 +2149,11 @@ struct Server : epoll::Listener {
         .client_port = source_port,
     });
     LOG_Unindent();
+  }
+
+  void NotifyRead(string &abort_error) override {
+    ExpireEntries();
+    UDPListener::NotifyRead(abort_error);
   }
 
   const char *Name() const override { return "dns::Server"; }
@@ -2269,7 +2285,10 @@ function ToggleAutoRefresh() {
   location.reload();
 }
 </script>)";
-  html += "<h1><a target=\"_blank\" href=\"https://github.com/mafik/gatekeeper\"><img src=\"/knight.gif\" id=\"knight\"></a>Gatekeeper <button onclick=\"ToggleAutoRefresh()\">Toggle Auto-refresh</button></h1>";
+  html += "<h1><a target=\"_blank\" "
+          "href=\"https://github.com/mafik/gatekeeper\"><img "
+          "src=\"/knight.gif\" id=\"knight\"></a>Gatekeeper <button "
+          "onclick=\"ToggleAutoRefresh()\">Toggle Auto-refresh</button></h1>";
   auto table = [&](const char *caption, initializer_list<const char *> headers,
                    function<void()> inner) {
     html += "<table><caption>";
@@ -2390,7 +2409,6 @@ void Start(string &err) {
 
 } // namespace http
 
-// TODO: table with log entries
 int main(int argc, char *argv[]) {
   string err;
 
@@ -2404,12 +2422,14 @@ int main(int argc, char *argv[]) {
 
   server_ip = IP::FromInterface(interface_name, err);
   if (!err.empty()) {
-    ERROR << "Couldn't obtain IP for interface " << interface_name << ": " << err;
+    ERROR << "Couldn't obtain IP for interface " << interface_name << ": "
+          << err;
     return 1;
   }
   netmask = IP::NetmaskFromInterface(interface_name, err);
   if (!err.empty()) {
-    ERROR << "Couldn't obtain netmask for interface " << interface_name << ": " << err;
+    ERROR << "Couldn't obtain netmask for interface " << interface_name << ": "
+          << err;
     return 1;
   }
 
