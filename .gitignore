@@ -31,3 +31,5 @@
 *.out
 *.app
 gatekeeper
+
+gatekeeper.tar.gz

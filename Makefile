@@ -11,3 +11,11 @@ run : gatekeeper
 
 clean :
 	rm -f gatekeeper
+
+gatekeeper.tar.gz : gatekeeper
+	tar -czf gatekeeper.tar.gz gatekeeper knight.gif favicon.ico style.css
+
+deploy : gatekeeper.tar.gz
+	scp gatekeeper.tar.gz root@protectli:~/
+	# extract into /root/gatekeeper
+	ssh root@protectli 'cd /root/gatekeeper && tar -xzf ~/gatekeeper.tar.gz && rm ~/gatekeeper.tar.gz'
