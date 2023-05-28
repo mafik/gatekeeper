@@ -43,15 +43,14 @@
 using namespace std;
 using chrono::steady_clock;
 
-// User Config
-const string kInterfaceName = "enxe8802ee74415"; // "enp0s31f6";
-const string kDomainName = "local";
+const string kLocalDomain = "local";
 
 // Default values will be overwritten during startup.
 // Those values could actually be fetched from the kernel each time they're
 // needed. This might be useful if the network configuration changes while the
 // program is running. If this ever becomes a problem, just remove those
 // variables.
+string interface_name = "eth0";
 IP server_ip = {192, 168, 1, 1};
 IP netmask = {255, 255, 255, 0};
 
@@ -192,7 +191,7 @@ void Set(IP ip, MAC mac, int af_inet_fd, string &error) {
                                        (char)mac[5]}},
       .flags = ATF_COM,
   };
-  strncpy(r.device, kInterfaceName.c_str(), sizeof(r.device));
+  strncpy(r.device, interface_name.c_str(), sizeof(r.device));
   if (ioctl(af_inet_fd, SIOCSARP, &r) < 0) {
     error = "ioctl(SIOCSARP) failed: " + string(strerror(errno));
   }
@@ -1014,8 +1013,8 @@ struct Server : epoll::Listener {
       return;
     }
 
-    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, kInterfaceName.data(),
-                   kInterfaceName.size()) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, interface_name.data(),
+                   interface_name.size()) < 0) {
       error = "Error when setsockopt bind to device";
       StopListening();
       return;
@@ -1256,7 +1255,7 @@ struct Server : epoll::Listener {
     if (lease_time > 0s) {
       options::IPAddressLeaseTime(request_lease_time_seconds).write_to(buffer);
     }
-    options::DomainName::Make(kDomainName)->write_to(buffer);
+    options::DomainName::Make(kLocalDomain)->write_to(buffer);
     options::ServerIdentifier(server_ip).write_to(buffer);
     options::DomainNameServer::Make({server_ip})->write_to(buffer);
     options::End().write_to(buffer);
@@ -1885,7 +1884,7 @@ void ExpireEntries() {
 }
 
 const Entry *GetCachedEntry(const Question &question) {
-  if (question.domain_name.ends_with("." + kDomainName)) {
+  if (question.domain_name.ends_with("." + kLocalDomain)) {
     auto it = static_cache.find(question);
     if (it != static_cache.end()) {
       it->expiration = steady_clock::now() + 1h;
@@ -2060,8 +2059,8 @@ struct Server : epoll::Listener {
       return;
     }
 
-    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, kInterfaceName.data(),
-                   kInterfaceName.size()) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, interface_name.data(),
+                   interface_name.size()) < 0) {
       error = "Error when setsockopt bind to device";
       StopListening();
       return;
@@ -2197,11 +2196,11 @@ void Start(string &err) {
       continue;
     }
     for (auto &alias : aliases) {
-      string domain = alias + "." + kDomainName;
+      string domain = alias + "." + kLocalDomain;
       InjectAuthoritativeEntry(domain, ip);
     }
   }
-  InjectAuthoritativeEntry(etc::hostname + "." + kDomainName, server_ip);
+  InjectAuthoritativeEntry(etc::hostname + "." + kLocalDomain, server_ip);
   client.Listen(err);
   if (!err.empty()) {
     err = "Failed to start DNS client: " + err;
@@ -2296,8 +2295,8 @@ function ToggleAutoRefresh() {
       html += value;
       html += "</td></tr>";
     };
-    row("interface", kInterfaceName);
-    row("domain_name", kDomainName);
+    row("interface", interface_name);
+    row("domain_name", kLocalDomain);
     row("server_ip", server_ip.to_string());
     row("netmask", netmask.to_string());
     row("/etc/hostname", etc::hostname);
@@ -2382,7 +2381,7 @@ void Start(string &err) {
   server.handler = Handler;
   server.Listen(http::Server::Config{.ip = server_ip,
                                      .port = http::kPort,
-                                     .interface = kInterfaceName},
+                                     .interface = interface_name},
                 err);
   if (!err.empty()) {
     return;
@@ -2395,33 +2394,51 @@ void Start(string &err) {
 int main(int argc, char *argv[]) {
   string err;
 
+  if (argc < 2) {
+    ERROR << "Usage: " << argv[0] << " <interface>";
+    return 1;
+  }
+  interface_name = argv[1];
+
   epoll::Init();
 
-  server_ip = IP::FromInterface(kInterfaceName);
-  netmask = IP::NetmaskFromInterface(kInterfaceName);
+  server_ip = IP::FromInterface(interface_name, err);
+  if (!err.empty()) {
+    ERROR << "Couldn't obtain IP for interface " << interface_name << ": " << err;
+    return 1;
+  }
+  netmask = IP::NetmaskFromInterface(interface_name, err);
+  if (!err.empty()) {
+    ERROR << "Couldn't obtain netmask for interface " << interface_name << ": " << err;
+    return 1;
+  }
 
   etc::ReadConfig();
 
   dhcp::server.Init();
   dhcp::server.Listen(err);
   if (!err.empty()) {
-    FATAL << "Failed to start DHCP server: " << err;
+    ERROR << "Failed to start DHCP server: " << err;
+    return 1;
   }
 
   dns::Start(err);
   if (!err.empty()) {
-    FATAL << err;
+    ERROR << err;
+    return 1;
   }
 
   http::Start(err);
   if (!err.empty()) {
-    FATAL << err;
+    ERROR << err;
+    return 1;
   }
 
   LOG << "Starting epoll::Loop()";
   epoll::Loop(err);
   if (!err.empty()) {
-    FATAL << err;
+    ERROR << err;
+    return 1;
   }
   return 0;
 }

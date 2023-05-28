@@ -17,8 +17,8 @@ union __attribute__((__packed__)) IP {
   }
   // Constructor for address in network byte order
   IP(uint32_t a) : addr(a) {}
-  static IP FromInterface(std::string_view interface_name);
-  static IP NetmaskFromInterface(std::string_view interface_name);
+  static IP FromInterface(std::string_view interface_name, std::string& error);
+  static IP NetmaskFromInterface(std::string_view interface_name, std::string& error);
   std::string to_string() const;
   auto operator<=>(const IP &other) const {
     return (int32_t)ntohl(addr) <=> (int32_t)ntohl(other.addr);
