@@ -1,0 +1,14 @@
+[Unit]
+Description=Gatekeeper - A DHCP+DNS server for your home gateway
+Requires=network.target
+Wants=nss-lookup.target
+Before=nss-lookup.target
+After=network.target
+
+[Service]
+Type=exec
+ExecStart=/root/gatekeeper/gatekeeper br0
+WorkingDirectory=/root/gatekeeper/
+
+[Install]
+WantedBy=multi-user.target

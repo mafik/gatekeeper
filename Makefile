@@ -12,8 +12,8 @@ run : gatekeeper
 clean :
 	rm -f gatekeeper
 
-gatekeeper.tar.gz : gatekeeper
-	tar -czf gatekeeper.tar.gz gatekeeper knight.gif favicon.ico style.css
+gatekeeper.tar.gz : gatekeeper knight.gif favicon.ico style.css gatekeeper.service
+	tar -czf $@ $^
 
 deploy : gatekeeper.tar.gz
 	scp gatekeeper.tar.gz root@protectli:~/
