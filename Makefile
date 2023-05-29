@@ -6,16 +6,18 @@ gatekeeper : *.cc *.hh Makefile
 debug : gatekeeper
 	sudo gdb ./gatekeeper -q -ex run
 
-run : gatekeeper
-	sudo ./gatekeeper enxe8802ee74415
-
 clean :
 	rm -f gatekeeper
 
-gatekeeper.tar.gz : gatekeeper knight.gif favicon.ico style.css gatekeeper.service
+gatekeeper.tar.gz : gatekeeper gatekeeper.gif favicon.ico style.css gatekeeper.service
 	tar -czf $@ $^
 
-deploy : gatekeeper.tar.gz
+# Rules used by maf for development
+
+maf-run : gatekeeper
+	sudo ./gatekeeper enxe8802ee74415
+
+maf-deploy : gatekeeper.tar.gz
 	scp gatekeeper.tar.gz root@protectli:~/
-	# extract into /root/gatekeeper
-	ssh root@protectli 'cd /root/gatekeeper && tar -xzf ~/gatekeeper.tar.gz && rm ~/gatekeeper.tar.gz'
+	# extract into /opt/gatekeeper
+	ssh root@protectli 'cd /opt/gatekeeper && tar -xzf ~/gatekeeper.tar.gz && rm ~/gatekeeper.tar.gz'

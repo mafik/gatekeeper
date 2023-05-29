@@ -7,8 +7,8 @@ After=network.target
 
 [Service]
 Type=exec
-ExecStart=/root/gatekeeper/gatekeeper br0
-WorkingDirectory=/root/gatekeeper/
+ExecStart=/opt/gatekeeper/gatekeeper br0
+WorkingDirectory=/opt/gatekeeper/
 
 [Install]
 WantedBy=multi-user.target

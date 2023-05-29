@@ -2261,7 +2261,7 @@ void WriteFile(Response &response, const char *path) {
 
 unordered_set<string> static_files = {
     "/style.css",
-    "/knight.gif",
+    "/gatekeeper.gif",
     "/favicon.ico",
 };
 
@@ -2293,7 +2293,7 @@ function ToggleAutoRefresh() {
 </script>)";
   html += "<h1><a target=\"_blank\" "
           "href=\"https://github.com/mafik/gatekeeper\"><img "
-          "src=\"/knight.gif\" id=\"knight\"></a>Gatekeeper <button "
+          "src=\"/gatekeeper.gif\" id=\"knight\"></a>Gatekeeper <button "
           "onclick=\"ToggleAutoRefresh()\">Toggle Auto-refresh</button></h1>";
   auto table = [&](const char *caption, initializer_list<const char *> headers,
                    function<void()> inner) {
