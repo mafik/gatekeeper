@@ -11,8 +11,7 @@ code, pre, html {
 }
 table > caption {
   font-weight: bold;
-  font-style: italic;
-  font-size: 1.2em;
+  overflow-wrap: break-word;
 }
 body {
   display: flex;
