@@ -14,3 +14,16 @@ std::string f(const char *fmt, ...) {
   va_end(args);
   return std::string(buf);
 }
+
+std::string IndentString(std::string in, int spaces) {
+  std::string out(spaces, ' ');
+  for (char c : in) {
+    out += c;
+    if (c == '\n') {
+      for (int i = 0; i < spaces; ++i) {
+        out += ' ';
+      }
+    }
+  }
+  return out;
+}

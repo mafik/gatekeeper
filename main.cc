@@ -31,141 +31,22 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "chrono.hh"
+#include "config.hh"
 #include "epoll.hh"
+#include "epoll_udp.hh"
 #include "format.hh"
 #include "hex.hh"
+#include "memory.hh"
 #include "http.hh"
 #include "ip.hh"
 #include "log.hh"
 #include "mac.hh"
 #include "random.hh"
+#include "variant.hh"
 
 using namespace std;
 using chrono::steady_clock;
-
-const string kLocalDomain = "local";
-
-// Default values will be overwritten during startup.
-// Those values could actually be fetched from the kernel each time they're
-// needed. This might be useful if the network configuration changes while the
-// program is running. If this ever becomes a problem, just remove those
-// variables.
-string interface_name = "eth0";
-IP server_ip = {192, 168, 1, 1};
-IP netmask = {255, 255, 255, 0};
-
-// Prefix each line with `spaces` spaces.
-std::string IndentString(std::string in, int spaces = 2) {
-  std::string out(spaces, ' ');
-  for (char c : in) {
-    out += c;
-    if (c == '\n') {
-      for (int i = 0; i < spaces; ++i) {
-        out += ' ';
-      }
-    }
-  }
-  return out;
-}
-
-string FormatDuration(optional<steady_clock::duration> d_opt,
-                      const char *never = "∞") {
-  if (!d_opt) {
-    return never;
-  }
-  steady_clock::duration &d = *d_opt;
-  string r;
-  auto h = duration_cast<chrono::hours>(d);
-  d -= h;
-  if (h.count() != 0) {
-    r += to_string(h.count()) + "h";
-  }
-  auto m = duration_cast<chrono::minutes>(d);
-  d -= m;
-  if (m.count() != 0) {
-    if (!r.empty()) {
-      r += " ";
-    }
-    r += to_string(m.count()) + "m";
-  }
-  auto s = duration_cast<chrono::seconds>(d);
-  d -= s;
-  if (r.empty() || (s.count() != 0)) {
-    if (!r.empty()) {
-      r += " ";
-    }
-    r += to_string(s.count()) + "s";
-  }
-  return r;
-}
-
-void SetNonBlocking(int fd, string &error) {
-  int flags = fcntl(fd, F_GETFL);
-  if (flags < 0) {
-    error = "fcntl(F_GETFL) failed: ";
-    error += strerror(errno);
-    return;
-  }
-
-  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-    error = "fcntl(F_SETFL) failed: ";
-    error += strerror(errno);
-    return;
-  }
-}
-
-void SendTo(int fd, const string &buffer, IP ip, uint16_t port, string &error) {
-  sockaddr_in dest_addr = {
-      .sin_family = AF_INET,
-      .sin_port = htons(port),
-      .sin_addr = {.s_addr = ip.addr},
-  };
-  if (sendto(fd, buffer.data(), buffer.size(), 0, (struct sockaddr *)&dest_addr,
-             sizeof(dest_addr)) < 0) {
-    error = "sendto: " + string(strerror(errno));
-  }
-}
-
-struct UDPListener : epoll::Listener {
-  virtual void HandleRequest(string_view buf, IP source_ip,
-                             uint16_t source_port) = 0;
-
-  void NotifyRead(string &abort_error) override {
-    while (true) {
-      sockaddr_in clientaddr;
-      socklen_t clilen = sizeof(struct sockaddr);
-      ssize_t len = recvfrom(fd, recvbuf, sizeof(recvbuf), 0,
-                             (struct sockaddr *)&clientaddr, &clilen);
-      if (len < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-          break;
-        } else {
-          abort_error = "DNS server recvfrom: ";
-          abort_error += strerror(errno);
-          return;
-        }
-      }
-      IP source_ip(clientaddr.sin_addr.s_addr);
-      uint16_t source_port = ntohs(clientaddr.sin_port);
-      HandleRequest(string_view((char *)recvbuf, len), source_ip, source_port);
-    }
-  }
-
-private:
-  uint8_t recvbuf[65536] = {0};
-};
-
-template <class... Ts> struct overloaded : Ts... {
-  using Ts::operator()...;
-};
-// explicit deduction guide (not needed as of C++20)
-template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
-template <typename Iter> Iter next(Iter iter) { return ++iter; }
-
-struct FreeDeleter {
-  void operator()(void *p) { free(p); }
-};
 
 namespace log_ {
 deque<string> messages;
@@ -1045,7 +926,7 @@ struct Server : UDPListener {
       return;
     }
 
-    SetNonBlocking(fd, error);
+    fd.SetNonBlocking(error);
     if (!error.empty()) {
       StopListening();
       return;
@@ -1066,15 +947,8 @@ struct Server : UDPListener {
       return;
     };
 
-    sockaddr_in addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(kServerPort),
-        .sin_addr = {.s_addr = htonl(INADDR_ANY)},
-    };
-
-    if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
-      error = "bind: ";
-      error += strerror(errno);
+    fd.Bind(INADDR_ANY, kServerPort, error);
+    if (!error.empty()) {
       StopListening();
       return;
     }
@@ -1088,10 +962,6 @@ struct Server : UDPListener {
     epoll::Del(this, error_ignored);
     shutdown(fd, SHUT_RDWR);
     close(fd);
-  }
-
-  void SendTo(const string &buffer, IP ip, string &error) {
-    ::SendTo(fd, buffer, ip, kClientPort, error);
   }
 
   // Function used to validate IP addresses provided by clients.
@@ -1299,7 +1169,7 @@ struct Server : UDPListener {
     options::DomainNameServer::Make({server_ip})->write_to(buffer);
     options::End().write_to(buffer);
 
-    SendTo(buffer, response_ip, log_error);
+    fd.SendTo(response_ip, kClientPort, buffer, log_error);
     if (!log_error.empty()) {
       ERROR << log_error;
       return;
@@ -2075,7 +1945,7 @@ struct Client : UDPListener {
       return;
     }
 
-    SetNonBlocking(fd, error);
+    fd.SetNonBlocking(error);
     if (!error.empty()) {
       StopListening();
       return;
@@ -2173,7 +2043,7 @@ struct Client : UDPListener {
       question.write_to(buffer);
       IP upstream_ip =
           etc::resolv[(++server_i) % etc::resolv.size()]; // Round-robin
-      ::SendTo(fd, buffer, upstream_ip, kServerPort, err);
+      fd.SendTo(upstream_ip, kServerPort, buffer, err);
       if (err.empty()) {
         log_::Log(f("Forwarding %s.", question.to_html().c_str()));
       }
@@ -2199,7 +2069,7 @@ struct Server : UDPListener {
       return;
     }
 
-    SetNonBlocking(fd, error);
+    fd.SetNonBlocking(error);
     if (!error.empty()) {
       StopListening();
       return;
@@ -2220,15 +2090,8 @@ struct Server : UDPListener {
       return;
     };
 
-    sockaddr_in addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(kServerPort),
-        .sin_addr = {.s_addr = htonl(INADDR_ANY)},
-    };
-
-    if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
-      error = "bind: ";
-      error += strerror(errno);
+    fd.Bind(INADDR_ANY, kServerPort, error);
+    if (!error.empty()) {
       StopListening();
       return;
     }
@@ -2242,10 +2105,6 @@ struct Server : UDPListener {
     epoll::Del(this, error_ignored);
     shutdown(fd, SHUT_RDWR);
     close(fd);
-  }
-
-  void SendTo(const string &buffer, IP ip, uint16_t port, string &error) {
-    ::SendTo(fd, buffer, ip, port, error);
   }
 
   void HandleRequest(string_view buf, IP source_ip,
@@ -2331,7 +2190,7 @@ void AnswerRequest(const IncomingRequest &request, const Entry &e,
   for (auto &a : r->additional) {
     a.write_to(buffer);
   }
-  server.SendTo(buffer, request.client_ip, request.client_port, err);
+  server.fd.SendTo(request.client_ip, request.client_port, buffer, err);
 }
 
 void InjectAuthoritativeEntry(const string &domain, IP ip) {

@@ -3,13 +3,15 @@
 #include <cstdint>
 #include <string>
 
+#include "fd.hh"
+
 // C++ wrappers around the Linux epoll facility.
 namespace epoll {
 
 // Base class for objects that would like to receive epoll updates.
 struct Listener {
   // File descriptor monitored by this Listener.
-  int fd;
+  FD fd;
 
   // Whether this Listener is interested in reading data from its file
   // descriptor. Default implementation assumes that derived classses are always

@@ -13,10 +13,7 @@
 //   ERROR << "error message";
 //   FATAL << "stop the execution / print stack trace";
 //
-// Logging can also accept other types - integers & floats. When executed with
-// HYPERDECK_SERVER defined, it will also accept a Client instance:
-//
-//   LOG << client << "Client connected";
+// Logging can also accept other types - integers & floats.
 //
 // In this case a short client identifier (IP address + 4-digit hash) will be
 // printed before the massage. Each client will also get a random color to make
@@ -33,18 +30,21 @@
 // - it's added there automatically.
 
 enum LogLevel {
-  LOG_LEVEL_DISCARD,
+  LOG_LEVEL_IGNORE,
   LOG_LEVEL_INFO,
   LOG_LEVEL_ERROR,
   LOG_LEVEL_FATAL
 };
 
+// Appends the logged message when destroyed.
 struct Logger {
+  LogLevel log_level;
+  std::source_location location;
+  mutable std::string buffer;
+
   Logger(LogLevel,
          const std::source_location location = std::source_location::current());
   ~Logger();
-  struct Impl;
-  Impl *impl;
 };
 
 #define LOG Logger(LOG_LEVEL_INFO, std::source_location::current())
@@ -78,12 +78,3 @@ void LOG_Unindent(int n = 2);
   if (time::now() - last_log_time > time::duration(n)                          \
           ? (last_log_time = time::now(), true)                                \
           : false)
-
-// TODO: remove
-#define LOG_EVERY_N_SEC(n)                                                     \
-  static time::point last_log_time;                                            \
-  (time::now() - last_log_time > time::duration(n)                             \
-       ? (last_log_time = time::now(), Logger(LOG_LEVEL_INFO))                 \
-       : Logger(LOG_LEVEL_DISCARD))
-
-// End of header
