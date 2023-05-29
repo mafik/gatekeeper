@@ -344,7 +344,7 @@ string hostname = "localhost";
 void ReadConfig() {
   hosts = ReadHosts();
   ethers = ReadEthers(hosts);
-  // resolv = ReadResolv();
+  resolv = ReadResolv();
   hostname = ReadHostname();
 }
 
