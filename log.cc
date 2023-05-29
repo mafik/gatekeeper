@@ -9,13 +9,15 @@
 #include "math.h"
 #include "term.hh"
 
+std::vector<Logger> loggers;
+
 static int indent = 0;
 
 void LOG_Indent(int n) { indent += n; }
 
 void LOG_Unindent(int n) { indent -= n; }
 
-Logger::Logger(LogLevel log_level, const std::source_location location)
+LogEntry::LogEntry(LogLevel log_level, const std::source_location location)
     : log_level(log_level), location(location), buffer() {
 #if !defined(__EMSCRIPTEN__)
   // print time
@@ -44,70 +46,78 @@ Logger::Logger(LogLevel log_level, const std::source_location location)
   }
 }
 
-Logger::~Logger() {
-  if (log_level == LOG_LEVEL_IGNORE) {
+LogEntry::~LogEntry() {
+  if (log_level == LogLevel::Ignore) {
     return;
   }
   std::string output = buffer;
 
-  if (log_level == LOG_LEVEL_ERROR || log_level == LOG_LEVEL_FATAL) {
+  if (log_level == LogLevel::Error || log_level == LogLevel::Fatal) {
     output += f(" (%s in %s:%d)", location.function_name(),
                 location.file_name(), location.line());
   }
 
-#if defined(__EMSCRIPTEN__)
-  if (impl->log_level == LOG_LEVEL_ERROR) {
-    EM_ASM({ console.warn(UTF8ToString($0)); }, output.c_str());
-  } else if (impl->log_level == LOG_LEVEL_FATAL) {
-    EM_ASM({ console.error(UTF8ToString($0)); }, output.c_str());
-  } else {
-    EM_ASM({ console.log(UTF8ToString($0)); }, output.c_str());
+  for (auto &logger : loggers) {
+    logger(*this);
   }
-#else
-  printf("%s\n", output.c_str());
-#endif
 
-  if (log_level == LOG_LEVEL_FATAL) {
+  if (log_level == LogLevel::Fatal) {
     abort();
   }
 }
 
-const Logger &operator<<(const Logger &logger, int i) {
+void __attribute__((__constructor__)) InitDefaultLoggers() {
+  loggers.emplace_back([](const LogEntry &e) {
+#if defined(__EMSCRIPTEN__)
+    if (e.log_level == LogLevel::Error) {
+      EM_ASM({ console.warn(UTF8ToString($0)); }, e.buffer.c_str());
+    } else if (e.log_level == LogLevel::Fatal) {
+      EM_ASM({ console.error(UTF8ToString($0)); }, e.buffer.c_str());
+    } else {
+      EM_ASM({ console.log(UTF8ToString($0)); }, e.buffer.c_str());
+    }
+#else
+    printf("%s\n", e.buffer.c_str());
+#endif
+  });
+}
+
+const LogEntry &operator<<(const LogEntry &logger, int i) {
   logger.buffer += std::to_string(i);
   return logger;
 }
 
-const Logger &operator<<(const Logger &logger, unsigned i) {
+const LogEntry &operator<<(const LogEntry &logger, unsigned i) {
   logger.buffer += std::to_string(i);
   return logger;
 }
 
-const Logger &operator<<(const Logger &logger, unsigned long i) {
+const LogEntry &operator<<(const LogEntry &logger, unsigned long i) {
   logger.buffer += std::to_string(i);
   return logger;
 }
 
-const Logger &operator<<(const Logger &logger, unsigned long long i) {
+const LogEntry &operator<<(const LogEntry &logger, unsigned long long i) {
   logger.buffer += std::to_string(i);
   return logger;
 }
 
-const Logger &operator<<(const Logger &logger, float f) {
+const LogEntry &operator<<(const LogEntry &logger, float f) {
   logger.buffer += std::to_string(f);
   return logger;
 }
 
-const Logger &operator<<(const Logger &logger, double d) {
+const LogEntry &operator<<(const LogEntry &logger, double d) {
   logger.buffer += std::to_string(d);
   return logger;
 }
 
-const Logger &operator<<(const Logger &logger, std::string_view s) {
+const LogEntry &operator<<(const LogEntry &logger, std::string_view s) {
   logger.buffer += s;
   return logger;
 }
 
-const Logger &operator<<(const Logger &logger, const unsigned char *s) {
+const LogEntry &operator<<(const LogEntry &logger, const unsigned char *s) {
   logger.buffer += (const char *)s;
   return logger;
 }

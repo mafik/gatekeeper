@@ -1,8 +1,8 @@
 #pragma once
 
-#include "time.h"
-#include <memory>
+#include <functional>
 #include <source_location>
+#include <string>
 #include <string_view>
 
 // Functions for logging human-readable messages.
@@ -29,43 +29,44 @@
 // There is no need to add a new line character at the end of the logged message
 // - it's added there automatically.
 
-enum LogLevel {
-  LOG_LEVEL_IGNORE,
-  LOG_LEVEL_INFO,
-  LOG_LEVEL_ERROR,
-  LOG_LEVEL_FATAL
-};
+enum class LogLevel { Ignore, Info, Error, Fatal };
 
 // Appends the logged message when destroyed.
-struct Logger {
+struct LogEntry {
   LogLevel log_level;
   std::source_location location;
   mutable std::string buffer;
 
-  Logger(LogLevel,
-         const std::source_location location = std::source_location::current());
-  ~Logger();
+  LogEntry(LogLevel, const std::source_location location =
+                         std::source_location::current());
+  ~LogEntry();
 };
 
-#define LOG Logger(LOG_LEVEL_INFO, std::source_location::current())
-#define ERROR Logger(LOG_LEVEL_ERROR, std::source_location::current())
-#define FATAL Logger(LOG_LEVEL_FATAL, std::source_location::current())
+using Logger = std::function<void(const LogEntry &)>;
 
-const Logger &operator<<(const Logger &, int);
-const Logger &operator<<(const Logger &, unsigned);
-const Logger &operator<<(const Logger &, unsigned long);
-const Logger &operator<<(const Logger &, unsigned long long);
-const Logger &operator<<(const Logger &, float);
-const Logger &operator<<(const Logger &, double);
-const Logger &operator<<(const Logger &, std::string_view);
-const Logger &operator<<(const Logger &, const unsigned char *);
+// The default logger prints to stdout (or JavaScript console when running under
+// Emscripten).
+extern std::vector<Logger> loggers;
+
+#define LOG LogEntry(LogLevel::Info, std::source_location::current())
+#define ERROR LogEntry(LogLevel::Error, std::source_location::current())
+#define FATAL LogEntry(LogLevel::Fatal, std::source_location::current())
+
+const LogEntry &operator<<(const LogEntry &, int);
+const LogEntry &operator<<(const LogEntry &, unsigned);
+const LogEntry &operator<<(const LogEntry &, unsigned long);
+const LogEntry &operator<<(const LogEntry &, unsigned long long);
+const LogEntry &operator<<(const LogEntry &, float);
+const LogEntry &operator<<(const LogEntry &, double);
+const LogEntry &operator<<(const LogEntry &, std::string_view);
+const LogEntry &operator<<(const LogEntry &, const unsigned char *);
 
 template <typename T>
 concept loggable = requires(T &v) {
   { v.LoggableString() } -> std::convertible_to<std::string_view>;
 };
 
-const Logger &operator<<(const Logger &logger, loggable auto &t) {
+const LogEntry &operator<<(const LogEntry &logger, loggable auto &t) {
   return logger << t.LoggableString();
 }
 

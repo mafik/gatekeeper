@@ -27,3 +27,38 @@ std::string IndentString(std::string in, int spaces) {
   }
   return out;
 }
+
+std::string Slugify(std::string in) {
+  std::string out;
+  bool unk = false;
+  for (char c : in) {
+    if (c >= 'A' && c <= 'Z') {
+      if (unk) {
+        if (!out.empty()) {
+          out += '-';
+        }
+        unk = false;
+      }
+      out += c - 'A' + 'a';
+    } else if (c >= 'a' && c <= 'z') {
+      if (unk) {
+        if (!out.empty()) {
+          out += '-';
+        }
+        unk = false;
+      }
+      out += c;
+    } else if (c >= '0' && c <= '9') {
+      if (unk) {
+        if (!out.empty()) {
+          out += '-';
+        }
+        unk = false;
+      }
+      out += c;
+    } else {
+      unk = true;
+    }
+  }
+  return out;
+}
