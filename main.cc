@@ -1,8 +1,3 @@
-// Gatekeeper is a combined DHCP server & DNS proxy for home networks. It's
-// designed to run on the gateway router of a home network. It's web interface
-// allows the user to easily inspect the state of the network: see what devices
-// are connected and snoop on DNS requests by IoT devices.
-
 #include <string>
 
 #include "config.hh"
