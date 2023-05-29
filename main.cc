@@ -31,6 +31,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "arp.hh"
 #include "chrono.hh"
 #include "config.hh"
 #include "epoll.hh"
@@ -43,75 +44,11 @@
 #include "mac.hh"
 #include "memory.hh"
 #include "random.hh"
+#include "rfc1700.hh"
 #include "variant.hh"
 
 using namespace std;
 using chrono::steady_clock;
-
-namespace rfc1700 {
-
-const char *kHardwareTypeNames[] = {"Not hardware address",
-                                    "Ethernet (10Mb)",
-                                    "Experimental Ethernet (3Mb)",
-                                    "Amateur Radio AX.25",
-                                    "Proteon ProNET Token Ring",
-                                    "Chaos",
-                                    "IEEE 802 Networks",
-                                    "ARCNET",
-                                    "Hyperchannel",
-                                    "Lanstar",
-                                    "Autonet Short Address",
-                                    "LocalTalk",
-                                    "LocalNet (IBM PCNet or SYTEK LocalNET)",
-                                    "Ultra link",
-                                    "SMDS",
-                                    "Frame Relay",
-                                    "Asynchronous Transmission Mode (ATM)",
-                                    "HDLC",
-                                    "Fibre Channel",
-                                    "Asynchronous Transmission Mode (ATM)",
-                                    "Serial Line",
-                                    "Asynchronous Transmission Mode (ATM)"};
-
-string HardwareTypeToString(uint8_t type) {
-  if (type < sizeof(kHardwareTypeNames) / sizeof(kHardwareTypeNames[0])) {
-    return kHardwareTypeNames[type];
-  }
-  return "Unknown hardware type " + std::to_string(type);
-}
-
-} // namespace rfc1700
-
-namespace arp {
-
-struct IOCtlRequest {
-  struct sockaddr_in protocol_address;
-  struct sockaddr hardware_address;
-  int flags;
-  struct sockaddr netmask; /* Only for proxy arps.  */
-  char device[16];
-};
-
-static_assert(sizeof(IOCtlRequest) == sizeof(arpreq),
-              "IOCtlRequest doesn't match `struct arpreq` from <net/if_arp.h>");
-
-void Set(IP ip, MAC mac, int af_inet_fd, string &error) {
-  IOCtlRequest r{
-      .protocol_address = {.sin_family = AF_INET,
-                           .sin_addr = {.s_addr = ip.addr}},
-      .hardware_address = {.sa_family = AF_UNSPEC,
-                           .sa_data = {(char)mac[0], (char)mac[1], (char)mac[2],
-                                       (char)mac[3], (char)mac[4],
-                                       (char)mac[5]}},
-      .flags = ATF_COM,
-  };
-  strncpy(r.device, interface_name.c_str(), sizeof(r.device));
-  if (ioctl(af_inet_fd, SIOCSARP, &r) < 0) {
-    error = "ioctl(SIOCSARP) failed: " + string(strerror(errno));
-  }
-}
-
-} // namespace arp
 
 namespace etc {
 
@@ -1123,7 +1060,8 @@ struct Server : UDPListener {
 
     if (source_ip == IP(0, 0, 0, 0)) {
       // Set client MAC in the ARP table
-      arp::Set(response_ip, packet.client_mac_address, fd, log_error);
+      arp::Set(interface_name, response_ip, packet.client_mac_address, fd,
+               log_error);
       if (!log_error.empty()) {
         ERROR << "Failed to set the client IP/MAC association in the system "
                  "ARP table: "
