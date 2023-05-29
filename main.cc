@@ -163,6 +163,10 @@ template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 template <typename Iter> Iter next(Iter iter) { return ++iter; }
 
+struct FreeDeleter {
+  void operator()(void *p) { free(p); }
+};
+
 namespace log_ {
 deque<string> messages;
 
@@ -645,10 +649,12 @@ struct __attribute__((__packed__)) Router : Base {
 
 struct __attribute__((__packed__)) DomainNameServer : Base {
   IP dns[0];
-  static unique_ptr<DomainNameServer> Make(initializer_list<IP> ips) {
+  static unique_ptr<DomainNameServer, FreeDeleter>
+  Make(initializer_list<IP> ips) {
     int n = ips.size();
     void *buffer = malloc(sizeof(DomainNameServer) + sizeof(IP) * n);
-    auto r = unique_ptr<DomainNameServer>(new (buffer) DomainNameServer(n));
+    auto r = unique_ptr<DomainNameServer, FreeDeleter>(new (buffer)
+                                                           DomainNameServer(n));
     int i = 0;
     for (auto ip : ips) {
       r->dns[i++] = ip;
@@ -684,10 +690,10 @@ struct __attribute__((__packed__)) HostName : Base {
 struct __attribute__((__packed__)) DomainName : Base {
   static constexpr OptionCode kCode = OptionCode_DomainName;
   const uint8_t value[0];
-  static unique_ptr<DomainName> Make(string domain_name) {
+  static unique_ptr<DomainName, FreeDeleter> Make(string domain_name) {
     int n = domain_name.size();
     void *buffer = malloc(sizeof(DomainName) + n);
-    auto r = unique_ptr<DomainName>(new (buffer) DomainName(n));
+    auto r = unique_ptr<DomainName, FreeDeleter>(new (buffer) DomainName(n));
     memcpy((void *)r->value, domain_name.data(), n);
     return r;
   }
