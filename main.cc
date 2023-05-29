@@ -1322,20 +1322,18 @@ namespace dns {
 static constexpr uint16_t kServerPort = 53;
 static constexpr steady_clock::duration kAuthoritativeTTL = 60s;
 
-#define BIG_ENDIAN_16(x) ((x >> 8) | (x << 8))
-
 enum class Type : uint16_t {
-  A = BIG_ENDIAN_16(1),
-  NS = BIG_ENDIAN_16(2),
-  CNAME = BIG_ENDIAN_16(5),
-  SOA = BIG_ENDIAN_16(6),
-  PTR = BIG_ENDIAN_16(12),
-  MX = BIG_ENDIAN_16(15),
-  TXT = BIG_ENDIAN_16(16),
-  AAAA = BIG_ENDIAN_16(28),
-  SRV = BIG_ENDIAN_16(33),
-  HTTPS = BIG_ENDIAN_16(65),
-  ANY = BIG_ENDIAN_16(255),
+  A = 1,
+  NS = 2,
+  CNAME = 5,
+  SOA = 6,
+  PTR = 12,
+  MX = 15,
+  TXT = 16,
+  AAAA = 28,
+  SRV = 33,
+  HTTPS = 65,
+  ANY = 255,
 };
 
 string TypeToString(Type t) {
@@ -1363,23 +1361,23 @@ string TypeToString(Type t) {
   case Type::ANY:
     return "ANY";
   default:
-    return f("UNKNOWN(%hu)", ntohs((uint16_t)t));
+    return f("UNKNOWN(%hu)", t);
   }
 }
 
 enum class Class : uint16_t {
-  IN = BIG_ENDIAN_16(1),
-  ANY = BIG_ENDIAN_16(255),
+  IN = 1,
+  ANY = 255,
 };
 
-const char *ClassToString(Class c) {
+string ClassToString(Class c) {
   switch (c) {
   case Class::IN:
     return "IN";
   case Class::ANY:
     return "ANY";
   default:
-    return "UNKNOWN";
+    return f("UNKNOWN(%hu)", c);
   }
 }
 
@@ -1463,17 +1461,19 @@ struct Question {
     if (offset + 4 > len) {
       return 0;
     }
-    type = *(Type *)(ptr + offset);
+    type = Type(ntohs(*(uint16_t *)(ptr + offset)));
     offset += 2;
-    class_ = *(Class *)(ptr + offset);
+    class_ = Class(ntohs(*(uint16_t *)(ptr + offset)));
     offset += 2;
     return offset - start_offset;
   }
   void write_to(string &buffer) const {
     string encoded = EncodeDomainName(domain_name);
     buffer.append(encoded);
-    buffer.append((char *)&type, sizeof(type));
-    buffer.append((char *)&class_, sizeof(class_));
+    uint16_t type_big_endian = htons((uint16_t)type);
+    buffer.append((char *)&type_big_endian, 2);
+    uint16_t class_big_endian = htons((uint16_t)class_);
+    buffer.append((char *)&class_big_endian, 2);
   }
   string to_string() const {
     return "dns::Question(" + domain_name + ", type=" + TypeToString(type) +
