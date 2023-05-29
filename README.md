@@ -47,7 +47,6 @@ Eventually, Gatekeeper should take care of this but I'm adding new features as I
 
 ## TODO
 
-* investigate empty HTTPS "NO_ERROR" responses
 * break `main.cc` into separate files
 
 ## Credits

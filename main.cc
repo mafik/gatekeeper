@@ -344,7 +344,7 @@ string hostname = "localhost";
 void ReadConfig() {
   hosts = ReadHosts();
   ethers = ReadEthers(hosts);
-  resolv = ReadResolv();
+  // resolv = ReadResolv();
   hostname = ReadHostname();
 }
 
@@ -1489,10 +1489,70 @@ struct Question {
   }
 };
 
+struct SOA {
+  string primary_name_server;
+  string mailbox;
+  uint32_t serial_number;
+  uint32_t refresh_interval;
+  uint32_t retry_interval;
+  uint32_t expire_limit;
+  uint32_t minimum_ttl;
+
+  size_t LoadFrom(const uint8_t *ptr, size_t len, size_t offset) {
+    size_t start_offset = offset;
+    auto [name1, size1] = LoadDomainName(ptr, len, offset);
+    if (size1 == 0) {
+      return 0;
+    }
+    primary_name_server = name1;
+    offset += size1;
+    auto [name2, size2] = LoadDomainName(ptr, len, offset);
+    if (size2 == 0) {
+      return 0;
+    }
+    mailbox = name2;
+    offset += size2;
+    if (offset + 20 > len) {
+      return 0;
+    }
+    serial_number = ntohl(*(uint32_t *)(ptr + offset));
+    offset += 4;
+    refresh_interval = ntohl(*(uint32_t *)(ptr + offset));
+    offset += 4;
+    retry_interval = ntohl(*(uint32_t *)(ptr + offset));
+    offset += 4;
+    expire_limit = ntohl(*(uint32_t *)(ptr + offset));
+    offset += 4;
+    minimum_ttl = ntohl(*(uint32_t *)(ptr + offset));
+    offset += 4;
+    return offset - start_offset;
+  }
+  void write_to(string &buffer) const {
+    buffer += EncodeDomainName(primary_name_server);
+    buffer += EncodeDomainName(mailbox);
+    uint32_t serial_number_big_endian = htonl(serial_number);
+    buffer.append((char *)&serial_number_big_endian,
+                  sizeof(serial_number_big_endian));
+    uint32_t refresh_interval_big_endian = htonl(refresh_interval);
+    buffer.append((char *)&refresh_interval_big_endian,
+                  sizeof(refresh_interval_big_endian));
+    uint32_t retry_interval_big_endian = htonl(retry_interval);
+    buffer.append((char *)&retry_interval_big_endian,
+                  sizeof(retry_interval_big_endian));
+    uint32_t expire_limit_big_endian = htonl(expire_limit);
+    buffer.append((char *)&expire_limit_big_endian,
+                  sizeof(expire_limit_big_endian));
+    uint32_t minimum_ttl_big_endian = htonl(minimum_ttl);
+    buffer.append((char *)&minimum_ttl_big_endian,
+                  sizeof(minimum_ttl_big_endian));
+  }
+};
+
 struct Record : public Question {
   variant<steady_clock::time_point, steady_clock::duration> expiration;
   uint16_t data_length;
   string data;
+
   size_t LoadFrom(const uint8_t *ptr, size_t len, size_t offset) {
     size_t start_offset = offset;
     size_t base_size = Question::LoadFrom(ptr, len, offset);
@@ -1504,7 +1564,8 @@ struct Record : public Question {
       return 0;
     }
     expiration = steady_clock::now() +
-                 chrono::seconds(ntohl(*(uint32_t *)(ptr + offset)));
+                 chrono::seconds(ntohl(*(uint32_t *)(ptr + offset))) +
+                 chrono::milliseconds(500);
     offset += 4;
     data_length = ntohs(*(uint16_t *)(ptr + offset));
     offset += 2;
@@ -1525,6 +1586,17 @@ struct Record : public Question {
       // Re-encode domain name but without DNS compression
       data = EncodeDomainName(loaded_name);
       data_length = data.size();
+    } else if (type == Type::SOA) {
+      size_t limited_len = offset + data_length;
+      SOA soa;
+      size_t soa_len = soa.LoadFrom(ptr, limited_len, offset);
+      if (soa_len != data_length) {
+        return 0;
+      }
+      offset += data_length;
+      // Re-encode SOA record but without DNS compression
+      data = "";
+      soa.write_to(data);
     } else {
       data = string((const char *)(ptr + offset), data_length);
       offset += data_length;
@@ -1544,8 +1616,10 @@ struct Record : public Question {
     return visit(
         overloaded{
             [&](steady_clock::time_point expiration) {
-              steady_clock::duration d = expiration - steady_clock::now();
-              return (uint32_t)max(d.count(), 0l);
+              auto d = duration_cast<chrono::seconds>(expiration -
+                                                      steady_clock::now())
+                           .count();
+              return (uint32_t)max(d, 0l);
             },
             [&](steady_clock::duration expiration) {
               return (uint32_t)duration_cast<chrono::seconds>(expiration)
@@ -1572,6 +1646,14 @@ struct Record : public Question {
           LoadDomainName((const uint8_t *)data.data(), data.size(), 0);
       if (loaded_size == data.size()) {
         return loaded_name;
+      }
+    } else if (type == Type::SOA) {
+      SOA soa;
+      size_t parsed = soa.LoadFrom((uint8_t *)data.data(), data.size(), 0);
+      if (parsed == data.size()) {
+        return f("%s %s %d %d %d %d %d", soa.primary_name_server.c_str(),
+                 soa.mailbox.c_str(), soa.serial_number, soa.refresh_interval,
+                 soa.retry_interval, soa.expire_limit, soa.minimum_ttl);
       }
     }
     return hex(data.data(), data.size());
@@ -1680,6 +1762,8 @@ struct Message {
   Header header;
   Question question;
   vector<Record> answers;
+  vector<Record> authority;
+  vector<Record> additional;
 
   void Parse(const uint8_t *ptr, size_t len, string &err) {
     if (len < sizeof(Header)) {
@@ -1705,16 +1789,28 @@ struct Message {
       return;
     }
 
-    for (int i = 0; i < ntohs(header.answer_count); ++i) {
-      Record &r = answers.emplace_back();
-      if (auto r_size = r.LoadFrom(ptr, len, offset)) {
-        offset += r_size;
-      } else {
-        err = "Failed to load answer #" + std::to_string(i) +
-              " from DNS query. Full query:\n" + hex(ptr, len);
-        return;
+    auto LoadRecordList = [&](vector<Record> &v, uint16_t n) {
+      for (int i = 0; i < n; ++i) {
+        Record &r = v.emplace_back();
+        if (auto r_size = r.LoadFrom(ptr, len, offset)) {
+          offset += r_size;
+        } else {
+          err = "Failed to load a record from DNS query. Full query:\n" +
+                hex(ptr, len);
+          return;
+        }
       }
-    }
+    };
+
+    LoadRecordList(answers, ntohs(header.answer_count));
+    if (!err.empty())
+      return;
+    LoadRecordList(authority, ntohs(header.authority_count));
+    if (!err.empty())
+      return;
+    LoadRecordList(additional, ntohs(header.additional_count));
+    if (!err.empty())
+      return;
   }
 
   string to_string() const {
@@ -1722,6 +1818,12 @@ struct Message {
     r += IndentString(header.to_string()) + "\n";
     r += "  " + question.to_string() + "\n";
     for (const Record &a : answers) {
+      r += "  " + a.to_string() + "\n";
+    }
+    for (const Record &a : authority) {
+      r += "  " + a.to_string() + "\n";
+    }
+    for (const Record &a : additional) {
       r += "  " + a.to_string() + "\n";
     }
     r += "}";
@@ -1742,9 +1844,17 @@ struct Entry {
   struct Ready {
     Header::ResponseCode response_code;
     vector<Record> answers;
+    vector<Record> authority;
+    vector<Record> additional;
     string to_string() const {
       string r = "Ready(" + string(Header::ResponseCodeToString(response_code));
       for (const Record &a : answers) {
+        r += "  " + a.to_string();
+      }
+      for (const Record &a : authority) {
+        r += "  " + a.to_string();
+      }
+      for (const Record &a : additional) {
         r += "  " + a.to_string();
       }
       r += ")";
@@ -1755,7 +1865,13 @@ struct Entry {
                  string(Header::ResponseCodeToString(response_code)) +
                  "</code>";
       for (const Record &a : answers) {
-        r += "&nbsp;" + a.to_html();
+        r += " " + a.to_html();
+      }
+      for (const Record &a : authority) {
+        r += " " + a.to_html();
+      }
+      for (const Record &a : additional) {
+        r += " " + a.to_html();
       }
       return r;
     }
@@ -1813,8 +1929,10 @@ struct Entry {
 
     vector<IncomingRequest> incoming_requests =
         std::move(pending->incoming_requests);
-    state.emplace<Ready>(
-        Ready{msg.header.response_code, std::move(msg.answers)});
+    state.emplace<Ready>(Ready{.response_code = msg.header.response_code,
+                               .answers = std::move(msg.answers),
+                               .authority = std::move(msg.authority),
+                               .additional = std::move(msg.additional)});
 
     steady_clock::time_point new_expiration =
         steady_clock::now() +
@@ -2186,12 +2304,18 @@ void AnswerRequest(const IncomingRequest &request, const Entry &e,
       .recursion_available = true,
       .question_count = htons(1),
       .answer_count = htons(r->answers.size()),
-      .authority_count = 0,
-      .additional_count = 0,
+      .authority_count = htons(r->authority.size()),
+      .additional_count = htons(r->additional.size()),
   };
   response_header.write_to(buffer);
   e.question.write_to(buffer);
   for (auto &a : r->answers) {
+    a.write_to(buffer);
+  }
+  for (auto &a : r->authority) {
+    a.write_to(buffer);
+  }
+  for (auto &a : r->additional) {
     a.write_to(buffer);
   }
   server.SendTo(buffer, request.client_ip, request.client_port, err);
