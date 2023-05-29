@@ -1500,18 +1500,17 @@ struct SOA {
 
   size_t LoadFrom(const uint8_t *ptr, size_t len, size_t offset) {
     size_t start_offset = offset;
-    auto [name1, size1] = LoadDomainName(ptr, len, offset);
-    if (size1 == 0) {
+    size_t loaded_size;
+    tie(primary_name_server, loaded_size) = LoadDomainName(ptr, len, offset);
+    if (loaded_size == 0) {
       return 0;
     }
-    primary_name_server = name1;
-    offset += size1;
-    auto [name2, size2] = LoadDomainName(ptr, len, offset);
-    if (size2 == 0) {
+    offset += loaded_size;
+    tie(mailbox, loaded_size) = LoadDomainName(ptr, len, offset);
+    if (loaded_size == 0) {
       return 0;
     }
-    mailbox = name2;
-    offset += size2;
+    offset += loaded_size;
     if (offset + 20 > len) {
       return 0;
     }
@@ -1829,6 +1828,18 @@ struct Message {
     r += "}";
     return r;
   }
+
+  void ForEachRecord(function<void(const Record &)> f) const {
+    for (const Record &r : answers) {
+      f(r);
+    }
+    for (const Record &r : authority) {
+      f(r);
+    }
+    for (const Record &r : additional) {
+      f(r);
+    }
+  }
 };
 
 struct IncomingRequest {
@@ -1937,16 +1948,12 @@ struct Entry {
     steady_clock::time_point new_expiration =
         steady_clock::now() +
         (msg.header.response_code == Header::NAME_ERROR ? 60s : 24h);
-    for (auto &answer : msg.answers) {
-      auto record_expiration =
-          get_if<steady_clock::time_point>(&answer.expiration);
-      if (record_expiration == nullptr) {
-        continue;
-      }
-      if (*record_expiration < new_expiration) {
+    msg.ForEachRecord([&](const Record &r) {
+      auto record_expiration = get_if<steady_clock::time_point>(&r.expiration);
+      if (record_expiration != nullptr && *record_expiration < new_expiration) {
         new_expiration = *record_expiration;
       }
-    }
+    });
 
     UpdateExpiration(new_expiration);
 
