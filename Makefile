@@ -1,7 +1,7 @@
 all : gatekeeper
 
 gatekeeper : *.cc *.hh Makefile
-	clang++-17 -std=c++2b -static -g -O0 *.cc -o $@
+	clang++ -std=c++2b -static -g -O0 *.cc -o $@
 
 debug : gatekeeper
 	sudo gdb ./gatekeeper -q -ex run
