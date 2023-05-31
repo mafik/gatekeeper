@@ -13,7 +13,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Clang
-      uses: egor-tensin/setup-clang@v1
+    - name: Install LLVM and Clang
+      uses: KyleMayes/install-llvm-action@v1
+      with:
+        version: "17.0"
     - name: make gatekeeper
       run: make gatekeeper
