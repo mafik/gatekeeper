@@ -17,5 +17,7 @@ jobs:
       uses: KyleMayes/install-llvm-action@v1
       with:
         version: "16"
+    - name: Install libncurses5 (Clang needs it)
+      run: sudo apt install libncurses5
     - name: make gatekeeper
       run: make gatekeeper
