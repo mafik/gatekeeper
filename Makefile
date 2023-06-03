@@ -1,7 +1,7 @@
 all : gatekeeper
 
 gatekeeper : *.cc *.hh Makefile
-	clang++ -std=c++2b -static -g -O0 *.cc -o $@
+	clang++ -std=c++2b -static -g -O0 -ffunction-sections -fdata-sections -Wl,--gc-sections *.cc -o $@
 
 debug : gatekeeper
 	sudo gdb ./gatekeeper -q -ex run
