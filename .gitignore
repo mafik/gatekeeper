@@ -33,3 +33,6 @@
 gatekeeper
 
 gatekeeper.tar.gz
+
+# TODO(https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/2012437): use OS-provided libsystemd
+!libsystemd.a
