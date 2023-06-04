@@ -34,5 +34,7 @@ gatekeeper
 
 gatekeeper.tar.gz
 
+valgrind.log
+
 # TODO(https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/2012437): use OS-provided libsystemd
 !libsystemd.a

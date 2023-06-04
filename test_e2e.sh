@@ -26,7 +26,7 @@ ip netns exec $NS ip link set $DEV_B up
 
 # Start Gatekeeper
 systemctl reset-failed
-systemd-run --service-type=notify --same-dir --unit=gatekeeper-e2e --quiet ./gatekeeper $DEV_A
+systemd-run --service-type=notify --same-dir --unit=gatekeeper-e2e --quiet valgrind --leak-check=yes --track-origins=yes --log-file=valgrind.log ./gatekeeper $DEV_A
 
 # Start dhclient
 cp -f test-dhclient-hook /etc/dhcp/dhclient-enter-hooks.d/
