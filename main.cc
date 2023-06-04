@@ -24,14 +24,14 @@ int main(int argc, char *argv[]) {
 
   server_ip = IP::FromInterface(interface_name, status);
   if (!status.Ok()) {
-    status() = "Couldn't obtain IP for interface " + interface_name;
-    ERROR << status.ToString();
+    status() += "Couldn't obtain IP for interface " + interface_name;
+    ERROR << status;
     return 1;
   }
   netmask = IP::NetmaskFromInterface(interface_name, status);
   if (!status.Ok()) {
-    ERROR << "Couldn't obtain netmask for interface " << interface_name << ": "
-          << status.ToString();
+    status() += "Couldn't obtain netmask for interface " + interface_name;
+    ERROR << status;
     return 1;
   }
 

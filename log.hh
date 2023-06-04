@@ -5,6 +5,8 @@
 #include <string>
 #include <string_view>
 
+#include "status.hh"
+
 // Functions for logging human-readable messages.
 //
 // Usage:
@@ -60,6 +62,7 @@ const LogEntry &operator<<(const LogEntry &, float);
 const LogEntry &operator<<(const LogEntry &, double);
 const LogEntry &operator<<(const LogEntry &, std::string_view);
 const LogEntry &operator<<(const LogEntry &, const unsigned char *);
+const LogEntry &operator<<(const LogEntry &, Status& status);
 
 template <typename T>
 concept loggable = requires(T &v) {

@@ -121,3 +121,8 @@ const LogEntry &operator<<(const LogEntry &logger, const unsigned char *s) {
   logger.buffer += (const char *)s;
   return logger;
 }
+
+const LogEntry &operator<<(const LogEntry &logger, Status& status) {
+  logger.buffer += status.ToString();
+  return logger;
+}
