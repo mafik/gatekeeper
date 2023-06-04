@@ -1,5 +1,4 @@
 #include <string>
-#include <systemd/sd-daemon.h>
 
 #include "config.hh"
 #include "dhcp.hh"
@@ -8,11 +7,14 @@
 #include "etc.hh"
 #include "log.hh"
 #include "status.hh"
+#include "systemd.hh"
 #include "webui.hh"
 
 int main(int argc, char *argv[]) {
   std::string err;
   Status status;
+
+  systemd::PublishErrorsAsStatus();
 
   if (argc < 2) {
     ERROR << "Usage: " << argv[0] << " <interface>";
@@ -57,7 +59,7 @@ int main(int argc, char *argv[]) {
   }
 
   LOG << "Gatekeeper started.";
-  sd_notify(0, "READY=1");
+  systemd::NotifyReady();
 
   epoll::Loop(err);
   if (!err.empty()) {

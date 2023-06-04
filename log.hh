@@ -38,6 +38,7 @@ struct LogEntry {
   LogLevel log_level;
   std::source_location location;
   mutable std::string buffer;
+  mutable int errsv; // saved errno (if any)
 
   LogEntry(LogLevel, const std::source_location location =
                          std::source_location::current());
@@ -62,7 +63,7 @@ const LogEntry &operator<<(const LogEntry &, float);
 const LogEntry &operator<<(const LogEntry &, double);
 const LogEntry &operator<<(const LogEntry &, std::string_view);
 const LogEntry &operator<<(const LogEntry &, const unsigned char *);
-const LogEntry &operator<<(const LogEntry &, Status& status);
+const LogEntry &operator<<(const LogEntry &, Status &status);
 
 template <typename T>
 concept loggable = requires(T &v) {

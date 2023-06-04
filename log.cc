@@ -18,7 +18,7 @@ void LOG_Indent(int n) { indent += n; }
 void LOG_Unindent(int n) { indent -= n; }
 
 LogEntry::LogEntry(LogLevel log_level, const std::source_location location)
-    : log_level(log_level), location(location), buffer() {
+    : log_level(log_level), location(location), buffer(), errsv(errno) {
 #if !defined(__EMSCRIPTEN__)
   // print time
   time_t timestamp = time(nullptr);
@@ -50,10 +50,9 @@ LogEntry::~LogEntry() {
   if (log_level == LogLevel::Ignore) {
     return;
   }
-  std::string output = buffer;
 
   if (log_level == LogLevel::Error || log_level == LogLevel::Fatal) {
-    output += f(" (%s in %s:%d)", location.function_name(),
+    buffer += f(" (%s in %s:%d)", location.function_name(),
                 location.file_name(), location.line());
   }
 
@@ -122,7 +121,8 @@ const LogEntry &operator<<(const LogEntry &logger, const unsigned char *s) {
   return logger;
 }
 
-const LogEntry &operator<<(const LogEntry &logger, Status& status) {
+const LogEntry &operator<<(const LogEntry &logger, Status &status) {
   logger.buffer += status.ToString();
+  logger.errsv = status.errsv;
   return logger;
 }
