@@ -6,7 +6,7 @@ Before=nss-lookup.target
 After=network.target
 
 [Service]
-Type=exec
+Type=notify
 ExecStart=/opt/gatekeeper/gatekeeper br0
 WorkingDirectory=/opt/gatekeeper/
 

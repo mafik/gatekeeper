@@ -45,6 +45,11 @@ Eventually, Gatekeeper should take care of this but I'm adding new features as I
 6. Install systemd service with `sudo systemctl enable --now /opt/gatekeeper/gatekeeper.service`.
 7.  Open web interface by navigating to `http://<IP of the local interface>:1337/` in your browser.
 
+## Building from source
+
+sudo apt install libsystemd-dev
+make gatekeeper
+
 ## Credits
 
 Logo from [aamatniekss.itch.io](https://aamatniekss.itch.io/fantasy-knight-free-pixelart-animated-character) ([Twitter](https://twitter.com/Namatnieks))

@@ -1,4 +1,5 @@
 #include <string>
+#include <systemd/sd-daemon.h>
 
 #include "config.hh"
 #include "dhcp.hh"
@@ -6,10 +7,12 @@
 #include "epoll.hh"
 #include "etc.hh"
 #include "log.hh"
+#include "status.hh"
 #include "webui.hh"
 
 int main(int argc, char *argv[]) {
   std::string err;
+  Status status;
 
   if (argc < 2) {
     ERROR << "Usage: " << argv[0] << " <interface>";
@@ -19,16 +22,16 @@ int main(int argc, char *argv[]) {
 
   epoll::Init();
 
-  server_ip = IP::FromInterface(interface_name, err);
-  if (!err.empty()) {
-    ERROR << "Couldn't obtain IP for interface " << interface_name << ": "
-          << err;
+  server_ip = IP::FromInterface(interface_name, status);
+  if (!status.Ok()) {
+    status() = "Couldn't obtain IP for interface " + interface_name;
+    ERROR << status.ToString();
     return 1;
   }
-  netmask = IP::NetmaskFromInterface(interface_name, err);
-  if (!err.empty()) {
+  netmask = IP::NetmaskFromInterface(interface_name, status);
+  if (!status.Ok()) {
     ERROR << "Couldn't obtain netmask for interface " << interface_name << ": "
-          << err;
+          << status.ToString();
     return 1;
   }
 
@@ -54,6 +57,8 @@ int main(int argc, char *argv[]) {
   }
 
   LOG << "Gatekeeper started.";
+  sd_notify(0, "READY=1");
+
   epoll::Loop(err);
   if (!err.empty()) {
     ERROR << err;
