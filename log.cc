@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -18,29 +19,8 @@ void LOG_Indent(int n) { indent += n; }
 void LOG_Unindent(int n) { indent -= n; }
 
 LogEntry::LogEntry(LogLevel log_level, const std::source_location location)
-    : log_level(log_level), location(location), buffer(), errsv(errno) {
-#if !defined(__EMSCRIPTEN__)
-  // print time
-  time_t timestamp = time(nullptr);
-  char *t = asctime(localtime(&timestamp));
-  char *h = t + 11;
-  h[2] = 0;
-  char *m = t + 14;
-  m[2] = 0;
-  char *s = t + 17;
-  s[2] = 0;
-
-  struct timespec ts;
-  timespec_get(&ts, TIME_UTC);
-  int64_t millis = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-
-  auto dark = term::Gray(12);
-  auto darker = term::Gray(8);
-  auto darkest = term::Gray(4);
-
-  buffer += dark(h) + darkest(":") + dark(m) + darkest(":") + dark(s) +
-            darkest(".") + darker(f("%03d", millis % 1000)) + " ";
-#endif // not defined(__EMSCRIPTEN__)
+    : log_level(log_level), timestamp(std::chrono::system_clock::now()),
+      location(location), buffer(), errsv(errno) {
   for (int i = 0; i < indent; ++i) {
     buffer += " ";
   }

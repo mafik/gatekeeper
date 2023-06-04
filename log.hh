@@ -1,10 +1,12 @@
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <source_location>
 #include <string>
 #include <string_view>
 
+#include "chrono.hh"
 #include "status.hh"
 
 // Functions for logging human-readable messages.
@@ -36,6 +38,7 @@ enum class LogLevel { Ignore, Info, Error, Fatal };
 // Appends the logged message when destroyed.
 struct LogEntry {
   LogLevel log_level;
+  std::chrono::system_clock::time_point timestamp;
   std::source_location location;
   mutable std::string buffer;
   mutable int errsv; // saved errno (if any)
