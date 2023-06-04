@@ -1,5 +1,7 @@
-# ![Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/gatekeeper.gif?raw=true) Gatekeeper
+# [![Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/gatekeeper.gif?raw=true)](https://github.com/mafik/gatekeeper) Gatekeeper
 DHCP &amp; DNS server for your home gateway. Gives you visibility into what's happening inside your network.
+
+[![End-to-end test](https://github.com/mafik/gatekeeper/actions/workflows/test.yml/badge.svg)](https://github.com/mafik/gatekeeper/actions/workflows/test.yml)
 
 ## What is Gatekeeper?
 
