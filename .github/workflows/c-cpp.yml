@@ -19,9 +19,6 @@ jobs:
         chmod +x llvm.sh
         sudo ./llvm.sh 16
     - name: Install libncurses5 (Clang needs it) and libsystemd-dev
-      run: sudo apt-get install -y libncurses5 libsystemd-dev
+      run: sudo apt-get install -y libncurses5 llvm-dev libsystemd-dev
     - name: make gatekeeper
       run: make gatekeeper
-    - name: Debug with tmate on failure
-      if: ${{ failure() }}
-      uses: mxschmitt/action-tmate@v3
