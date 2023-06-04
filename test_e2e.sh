@@ -35,7 +35,7 @@ ip netns exec $NS dhclient -1 -cf ./test-dhclient.conf $DEV_B
 # Collect results
 CLIENT_IP=$(sudo ip netns exec ns0 hostname -I | xargs)
 HOSTNAME=$(hostname)
-DIG_HOSTNAME_LOCAL=$(ip netns exec $NS dig +short $HOSTNAME.local @192.168.0.1)
+DIG_RESULT=$(ip netns exec $NS dig +short TXT gatekeeper.mrogalski.eu @192.168.0.1 | tr -d '"')
 CURL_1337=$(ip netns exec $NS curl -s http://192.168.0.1:1337)
 
 # Stop dhclient
@@ -50,8 +50,10 @@ if [ "$CLIENT_IP" != "192.168.0.2" ]; then
   exit 1
 fi
 
-if [ "$DIG_HOSTNAME_LOCAL" != "192.168.0.1" ]; then
-  echo "dig returned [$DIG_HOSTNAME_LOCAL] but expected [192.168.0.1]"
+DIG_EXPECTED="Network dances flow. DHCP assigns, DNS resolves. Connections thrive, grow."
+
+if [ "$DIG_RESULT" != "$DIG_EXPECTED" ]; then
+  echo "dig returned [$DIG_RESULT] but expected [$DIG_EXPECTED]"
   exit 1
 fi
 
