@@ -946,4 +946,10 @@ void Entry::HandleAnswer(const Message &msg, string &err) const {
     }
   }
 }
+
+void Stop() {
+  client.StopListening();
+  server.StopListening();
+}
+
 } // namespace dns

@@ -143,5 +143,6 @@ struct Entry {
 
 void ForEachEntry(std::function<void(const Entry &)>);
 void Start(string &err);
+void Stop();
 
 } // namespace dns

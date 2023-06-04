@@ -1,3 +1,4 @@
+#include <csignal>
 #include <string>
 
 #include "config.hh"
@@ -6,9 +7,20 @@
 #include "epoll.hh"
 #include "etc.hh"
 #include "log.hh"
+#include "signal.hh"
 #include "status.hh"
 #include "systemd.hh"
 #include "webui.hh"
+
+std::optional<SignalHandler> sigterm;
+
+void HandleSIGTERM(std::string &error) {
+  LOG << "Received SIGTERM. Shutting down.";
+  webui::Stop();
+  dns::Stop();
+  dhcp::server.StopListening();
+  sigterm.reset();
+}
 
 int main(int argc, char *argv[]) {
   std::string err;
@@ -16,13 +28,20 @@ int main(int argc, char *argv[]) {
 
   systemd::PublishErrorsAsStatus();
 
+  epoll::Init();
+
+  sigterm.emplace(SIGTERM);
+  sigterm->handler = HandleSIGTERM;
+  if (!sigterm->status.Ok()) {
+    ERROR << sigterm->status;
+    return 1;
+  }
+
   if (argc < 2) {
     ERROR << "Usage: " << argv[0] << " <interface>";
     return 1;
   }
   interface_name = argv[1];
-
-  epoll::Init();
 
   server_ip = IP::FromInterface(interface_name, status);
   if (!status.Ok()) {

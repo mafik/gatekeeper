@@ -265,16 +265,11 @@ string ANSIToHTML(string_view buf) {
   return r;
 }
 
-void SetupLogInterception() {
-  auto default_logger = std::move(loggers.front());
-  loggers.clear();
-  loggers.push_back([l = std::move(default_logger)](const LogEntry &e) {
+void SetupLogging() {
+  loggers.push_back([](const LogEntry &e) {
     messages.emplace_back(ANSIToHTML(e.buffer));
     while (messages.size() > 20) {
       messages.pop_front();
-    }
-    if (e.log_level >= LogLevel::Error) {
-      l(e);
     }
   });
 }
@@ -288,7 +283,16 @@ void Start(string &err) {
   if (!err.empty()) {
     return;
   }
-  SetupLogInterception();
+  SetupLogging();
+}
+
+void Stop() {
+  server.StopListening();
+  for (auto *c : server.connections) {
+    c->CloseTCP();
+    delete c;
+  }
+  server.connections.clear();
 }
 
 } // namespace webui
