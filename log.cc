@@ -31,9 +31,9 @@ LogEntry::~LogEntry() {
     return;
   }
 
-  if (log_level == LogLevel::Error || log_level == LogLevel::Fatal) {
-    buffer += f(" (%s in %s:%d)", location.function_name(),
-                location.file_name(), location.line());
+  if (log_level == LogLevel::Fatal) {
+    buffer += f(" Crashing in %s:%d [%s].", location.file_name(), location.line(),
+                location.function_name());
   }
 
   for (auto &logger : loggers) {
