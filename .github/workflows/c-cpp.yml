@@ -17,11 +17,11 @@ jobs:
       uses: KyleMayes/install-llvm-action@v1
       with:
         version: "16"
+    - name: Install libncurses5 (Clang needs it), llvm-dev and libsystemd-dev
+      run: sudo apt-get install -y libncurses5 llvm-dev libsystemd-dev
     - name: Symlink LLVMgold.so
-      run: sudo ln -s LLVMgold.so /lib/x86_64-linux-gnu/LLVMgold.so
+      run: sudo ln -s /usr/lib/LLVMgold.so LLVMgold.so
       working-directory: ${{ env.LLVM_PATH }}/lib
-    - name: Install libncurses5 (Clang needs it), and libsystemd-dev
-      run: sudo apt-get install -y libncurses5 libsystemd-dev
     - name: make gatekeeper
       run: make gatekeeper
     - name: Debug with tmate on failure
