@@ -146,7 +146,13 @@ void Start(string &err);
 void Stop();
 
 struct Table : webui::Table {
+  struct Row {
+    string question;
+    string expiration;
+  };
+  vector<Row> rows;
   Table();
+  void Update() override;
   int Size() const override;
   void Get(int row, int col, string &out) const override;
 };

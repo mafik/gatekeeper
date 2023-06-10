@@ -52,7 +52,7 @@ unordered_set<string> static_files = {
 Table::Table(string id, string caption, vector<string> columns)
     : id(id), caption(caption), columns(columns) {}
 
-void Table::EmitTHEAD(string &html) {
+void Table::RenderTHEAD(string &html) {
   html += "<thead><tr>";
   for (auto &h : columns) {
     html += "<th>";
@@ -62,7 +62,7 @@ void Table::EmitTHEAD(string &html) {
   html += "</tr></thead>";
 }
 
-void Table::EmitTR(string &html, int row) {
+void Table::RenderTR(string &html, int row) {
   html += "<tr>";
   for (int col = 0; col < columns.size(); ++col) {
     html += "<td>";
@@ -74,24 +74,26 @@ void Table::EmitTR(string &html, int row) {
   html += "</tr>";
 }
 
-void Table::EmitTBODY(string &html) {
+void Table::RenderTBODY(string &html) {
   html += "<tbody>";
   for (int row = 0; row < Size(); ++row) {
-    EmitTR(html, row);
+    RenderTR(html, row);
   }
   html += "</tbody>";
 }
 
-void Table::EmitTABLE(string &html) {
+void Table::RenderTABLE(string &html) {
   html += "<table id=\"";
   html += id;
   html += "\"><caption>";
   html += caption;
   html += "</caption>";
-  EmitTHEAD(html);
-  EmitTBODY(html);
+  RenderTHEAD(html);
+  RenderTBODY(html);
   html += "</table>";
 }
+
+void Table::Update() {}
 
 struct DevicesTable : Table {
   DevicesTable()
@@ -116,7 +118,7 @@ struct DevicesTable : Table {
     rows.back().ip = ip;
     return rows.back();
   }
-  void Update() {
+  void Update() override {
     rows.clear();
     steady_clock::time_point now = steady_clock::now();
     for (auto &[ip, aliases] : etc::hosts) {
@@ -241,6 +243,7 @@ void Handler(Response &response, Request &request) {
     return;
   }
   devices_table.Update();
+  dns::table.Update();
   steady_clock::time_point now = steady_clock::now();
   string html;
   html.reserve(1024 * 64);
@@ -265,11 +268,11 @@ function ToggleAutoRefresh() {
           "href=\"https://github.com/mafik/gatekeeper\"><img "
           "src=\"/gatekeeper.gif\" id=\"knight\"></a>Gatekeeper <button "
           "onclick=\"ToggleAutoRefresh()\">Toggle Auto-refresh</button></h1>";
-  config_table.EmitTABLE(html);
-  devices_table.EmitTABLE(html);
-  log_table.EmitTABLE(html);
-  dhcp::table.EmitTABLE(html);
-  dns::table.EmitTABLE(html);
+  config_table.RenderTABLE(html);
+  devices_table.RenderTABLE(html);
+  log_table.RenderTABLE(html);
+  dhcp::table.RenderTABLE(html);
+  dns::table.RenderTABLE(html);
   html += "</body></html>";
   response.Write(html);
 }
