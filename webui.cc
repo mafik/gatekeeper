@@ -49,8 +49,15 @@ unordered_set<string> static_files = {
     "/favicon.ico",
 };
 
+map<string, Table *> &Tables() {
+  static map<string, Table *> tables;
+  return tables;
+}
+
 Table::Table(string id, string caption, vector<string> columns)
-    : id(id), caption(caption), columns(columns) {}
+    : id(id), caption(caption), columns(columns) {
+  Tables()[id] = this;
+}
 
 void Table::RenderTHEAD(string &html) {
   html += "<thead><tr>";
@@ -242,8 +249,9 @@ void Handler(Response &response, Request &request) {
     WriteFile(response, path.substr(1).c_str());
     return;
   }
-  devices_table.Update();
-  dns::table.Update();
+  for (auto [id, t] : Tables()) {
+    t->Update();
+  }
   steady_clock::time_point now = steady_clock::now();
   string html;
   html.reserve(1024 * 64);
