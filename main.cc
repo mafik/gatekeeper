@@ -13,13 +13,31 @@
 #include "webui.hh"
 
 std::optional<SignalHandler> sigterm;
+std::optional<SignalHandler> sigint;
 
-void HandleSIGTERM(std::string &error) {
-  LOG << "Received SIGTERM. Shutting down.";
+void StopSignal(const char *signal) {
+  LOG << "Received " << signal << ". Stopping Gatekeeper.";
   webui::Stop();
   dns::Stop();
   dhcp::server.StopListening();
+  // Signal handlers must be stopped so that epoll::Loop would terminate.
   sigterm.reset();
+  sigint.reset();
+}
+
+void HookSignals(Status &status) {
+  sigterm.emplace(SIGTERM);
+  sigterm->handler = [](std::string &) { StopSignal("SIGTERM"); };
+  if (!sigterm->status.Ok()) {
+    status = sigterm->status;
+    return;
+  }
+  sigint.emplace(SIGINT);
+  sigint->handler = [](std::string &) { StopSignal("SIGINT"); };
+  if (!sigint->status.Ok()) {
+    status = sigint->status;
+    return;
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -30,10 +48,9 @@ int main(int argc, char *argv[]) {
 
   epoll::Init();
 
-  sigterm.emplace(SIGTERM);
-  sigterm->handler = HandleSIGTERM;
-  if (!sigterm->status.Ok()) {
-    ERROR << sigterm->status;
+  HookSignals(status);
+  if (!status.Ok()) {
+    ERROR << status;
     return 1;
   }
 
@@ -85,5 +102,6 @@ int main(int argc, char *argv[]) {
     ERROR << err;
     return 1;
   }
+  LOG << "Gatekeeper stopped.";
   return 0;
 }
