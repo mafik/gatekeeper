@@ -31,6 +31,7 @@
 *.out
 *.app
 gatekeeper
+gatekeeper-debug
 
 gatekeeper.tar.gz
 
