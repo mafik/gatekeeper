@@ -774,6 +774,10 @@ void Server::Init() {
     }
   }
 }
+int Server::AvailableIPs() const {
+  int zeros = 32 - popcount(netmask.addr);
+  return (1 << zeros) - entries.size() - 2;
+}
 void Server::Listen(string &error) {
   fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd == -1) {

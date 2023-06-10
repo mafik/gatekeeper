@@ -187,6 +187,89 @@ struct DevicesTable : Table {
 // TODO: pagination
 DevicesTable devices_table;
 
+struct ConfigTable : Table {
+  ConfigTable()
+      : Table("config", "Config",
+              {"Interface", "Domain name", "IP", "Network mask", "Hostname",
+               "DNS servers"}) {}
+  int Size() const override { return 1; }
+  void Get(int row, int col, string &out) const override {
+    switch (col) {
+    case 0:
+      out = interface_name;
+      break;
+    case 1:
+      out = kLocalDomain;
+      break;
+    case 2:
+      out = server_ip.to_string();
+      break;
+    case 3:
+      out = netmask.to_string();
+      break;
+    case 4:
+      out = etc::hostname;
+      break;
+    case 5:
+      for (auto &ip : etc::resolv) {
+        if (!out.empty()) {
+          out += " ";
+        }
+        out += ip.to_string();
+      }
+      break;
+    }
+  }
+};
+
+ConfigTable config_table;
+
+struct LogTable : Table {
+  LogTable() : Table("log", "Log", {"Message"}) {}
+  int Size() const override { return messages.size(); }
+  void Get(int row, int col, string &out) const override {
+    if (row < 0 || row >= messages.size()) {
+      return;
+    }
+    out = messages[row];
+  }
+};
+
+LogTable log_table;
+
+struct DHCPTable : Table {
+  DHCPTable() : Table("dhcp", "DHCP", {"Assigned IPs", "Available IPs"}) {}
+  int Size() const override { return 1; }
+  void Get(int row, int col, string &out) const override {
+    switch (col) {
+    case 0:
+      out = f("%d", dhcp::server.entries.size());
+      break;
+    case 1:
+      out = f("%d", dhcp::server.AvailableIPs());
+      break;
+    }
+  }
+};
+
+DHCPTable dhcp_table;
+
+struct DNSTable : Table {
+  DNSTable() : Table("dns", "DNS", {"Cache size"}) {}
+  int Size() const override { return 1; }
+  void Get(int row, int col, string &out) const override {
+    switch (col) {
+    case 0:
+      int cnt = 0;
+      dns::ForEachEntry([&](const dns::Entry &) { ++cnt; });
+      out = f("%d", cnt);
+      break;
+    }
+  }
+};
+
+DNSTable dns_table;
+
 void Handler(Response &response, Request &request) {
   string path(request.path);
   if (static_files.contains(path)) {
@@ -218,73 +301,11 @@ function ToggleAutoRefresh() {
           "href=\"https://github.com/mafik/gatekeeper\"><img "
           "src=\"/gatekeeper.gif\" id=\"knight\"></a>Gatekeeper <button "
           "onclick=\"ToggleAutoRefresh()\">Toggle Auto-refresh</button></h1>";
-  auto table = [&](const char *caption, initializer_list<const char *> headers,
-                   function<void()> inner) {
-    html += "<table id=\"";
-    html += Slugify(caption);
-    html += "-table\"><caption>";
-    html += caption;
-    html += "</caption>";
-    if (headers.size()) {
-      html += "<thead><tr>";
-      for (auto &h : headers) {
-        html += "<th>";
-        html += h;
-        html += "</th>";
-      }
-      html += "</tr></thead>";
-    }
-    html += "<tbody>";
-    inner();
-    html += "</tbody></table>";
-  };
-  table("Config", {"Key", "Value"}, [&]() {
-    auto row = [&](const char *key, const string &value) {
-      html += "<tr><td>";
-      html += key;
-      html += "</td><td>";
-      html += value;
-      html += "</td></tr>";
-    };
-    row("interface", interface_name);
-    row("domain_name", kLocalDomain);
-    row("server_ip", server_ip.to_string());
-    row("netmask", netmask.to_string());
-    row("/etc/hostname", etc::hostname);
-  });
-  table("/etc/resolv.conf", {"IP"}, [&]() {
-    for (auto &ip : etc::resolv) {
-      html += "<tr><td>";
-      html += ip.to_string();
-      html += "</td></tr>";
-    }
-  });
+  config_table.EmitTABLE(html);
   devices_table.EmitTABLE(html);
-  table("Log", {"Message"}, [&]() {
-    for (auto &line : messages) {
-      html += "<tr><td>";
-      html += line;
-      html += "</td></tr>";
-    }
-  });
-  table("DNS cache", {"Question", "TTL", "State"}, [&]() {
-    auto emit_dns_entry = [&](const dns::Entry &entry) {
-      html += "<tr><td>";
-      html += entry.question.to_html();
-      html += "</td><td>";
-      html += FormatDuration(
-          entry.expiration.transform([&](auto e) { return e - now; }));
-      html += "</td><td>";
-      visit(
-          overloaded{
-              [&](const dns::Entry::Ready &ready) { html += ready.to_html(); },
-              [&](const dns::Entry::Pending &pending) { html += "Pending"; }},
-          entry.state);
-      html += "</td></tr>";
-    };
-
-    dns::ForEachEntry([&](const dns::Entry &entry) { emit_dns_entry(entry); });
-  });
+  log_table.EmitTABLE(html);
+  dhcp_table.EmitTABLE(html);
+  dns_table.EmitTABLE(html);
   html += "</body></html>";
   response.Write(html);
 }
