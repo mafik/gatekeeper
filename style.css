@@ -5,23 +5,30 @@ html {
   background: linear-gradient(to bottom, #b5dcff, #cfe8ff);
   min-height: 100vh;
 }
-code, pre, html {
+
+code,
+pre,
+html {
   font-family: system-ui, sans-serif;
   overflow-wrap: anywhere;
 }
-table > caption {
+
+table>caption {
   font-weight: bold;
   overflow-wrap: break-word;
 }
+
 body {
   display: flex;
   flex-flow: row wrap;
   justify-content: space-evenly;
   align-items: flex-start;
 }
+
 h1 {
   flex-basis: 100%;
 }
+
 table {
   text-align: left;
   border: 1px outset #e0c8bb;
@@ -30,46 +37,60 @@ table {
   margin: .5em;
   /* float: left; */
 }
+
 table {
   border-radius: 9px;
 }
-tr:first-child > *:first-child {
+
+thead>tr:first-child>*:first-child {
   border-top-left-radius: 7px;
 }
-tr:first-child > *:last-child {
+
+thead>tr:first-child>*:last-child {
   border-top-right-radius: 7px;
 }
-tr:last-child > *:first-child {
+
+tbody>tr:last-child>*:first-child {
   border-bottom-left-radius: 7px;
 }
-tr:last-child > *:last-child {
+
+tbody>tr:last-child>*:last-child {
   border-bottom-right-radius: 7px;
 }
+
 td {
   border: 1px inset #e0c8bb;
   background: #fff;
 
 }
+
 th {
   border: 2px groove #e0c8bb;
   text-shadow: 1px 1px 0 #e0c8bb;
 }
-td, th {
+
+td,
+th {
   padding: 0.5rem;
 }
+
 pre {
   margin: 0;
 }
-.dns-question, .dns-record {
+
+.dns-question,
+.dns-record {
   padding: .1em .5em;
   border-radius: .5em;
   display: inline-block;
 
 }
+
 .dns-question {
   background: #ede9ff;
   border: 1px solid #c1afff;
 }
+
 .dns-record {
   border: 1px solid rgb(147, 240, 147);
   background: rgb(225, 255, 225);

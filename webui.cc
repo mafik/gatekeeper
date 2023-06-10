@@ -49,12 +49,151 @@ unordered_set<string> static_files = {
     "/favicon.ico",
 };
 
+struct Table {
+  string id;
+  string caption;
+  vector<string> columns;
+  Table(string id, string caption, vector<string> columns)
+      : id(id), caption(caption), columns(columns) {}
+  void EmitTHEAD(string &html) {
+    html += "<thead><tr>";
+    for (auto &h : columns) {
+      html += "<th>";
+      html += h;
+      html += "</th>";
+    }
+    html += "</tr></thead>";
+  }
+  virtual int Size() const = 0;
+  virtual void Get(int row, int col, string &out) const = 0;
+  void EmitTR(string &html, int row) {
+    html += "<tr>";
+    for (int col = 0; col < columns.size(); ++col) {
+      html += "<td>";
+      string cell;
+      Get(row, col, cell);
+      html += cell;
+      html += "</td>";
+    }
+    html += "</tr>";
+  }
+  void EmitTBODY(string &html) {
+    html += "<tbody>";
+    for (int row = 0; row < Size(); ++row) {
+      EmitTR(html, row);
+    }
+    html += "</tbody>";
+  }
+  void EmitTABLE(string &html) {
+    html += "<table id=\"";
+    html += id;
+    html += "\"><caption>";
+    html += caption;
+    html += "</caption>";
+    EmitTHEAD(html);
+    EmitTBODY(html);
+    html += "</table>";
+  }
+};
+
+struct DevicesTable : Table {
+  DevicesTable()
+      : Table("devices", "Devices",
+              {"IP", "MAC", "Hostnames", "Last activity"}) {}
+  struct Row {
+    IP ip;
+    optional<MAC> mac;
+    vector<string> etc_hosts_aliases;
+    string dhcp_hostname;
+    string last_activity;
+  };
+  vector<Row> rows;
+
+  Row &RowByIP(IP ip) {
+    for (auto &r : rows) {
+      if (r.ip == ip) {
+        return r;
+      }
+    }
+    rows.emplace_back();
+    rows.back().ip = ip;
+    return rows.back();
+  }
+  void Update() {
+    rows.clear();
+    steady_clock::time_point now = steady_clock::now();
+    for (auto &[ip, aliases] : etc::hosts) {
+      Row &row = RowByIP(ip);
+      for (auto &alias : aliases) {
+        row.etc_hosts_aliases.push_back(alias);
+      }
+    }
+    for (auto &[mac, ip] : etc::ethers) {
+      Row &row = RowByIP(ip);
+      row.mac = mac;
+    }
+    for (auto &[ip, entry] : dhcp::server.entries) {
+      Row &row = RowByIP(ip);
+      if (MAC mac; mac.TryParse(entry.client_id.c_str())) {
+        row.mac = mac;
+      }
+      row.dhcp_hostname = entry.hostname;
+      row.last_activity = FormatDuration(
+          entry.last_request.transform([&](auto x) { return x - now; }),
+          "never");
+    }
+  }
+
+  int Size() const override { return rows.size(); }
+  void Get(int row, int col, string &out) const override {
+    if (row < 0 || row >= rows.size()) {
+      return;
+    }
+    const Row &r = rows[row];
+    switch (col) {
+    case 0:
+      out = r.ip.to_string();
+      break;
+    case 1:
+      if (r.mac) {
+        out = r.mac->to_string();
+      }
+      break;
+    case 2:
+      for (auto &h : r.etc_hosts_aliases) {
+        if (!out.empty()) {
+          out += " ";
+        }
+        out += h;
+      }
+      if (!r.dhcp_hostname.empty()) {
+        if (!out.empty()) {
+          out += " ";
+        }
+        out += r.dhcp_hostname;
+      }
+      break;
+    case 3:
+      out = r.last_activity;
+      break;
+    }
+  }
+};
+
+// TODO: status indicator (never/away/active)
+// TODO: DHCP / DNS activity
+// TODO: link to device details page
+// TODO: link to full table
+// TODO: pagination
+DevicesTable devices_table;
+
 void Handler(Response &response, Request &request) {
   string path(request.path);
   if (static_files.contains(path)) {
     WriteFile(response, path.substr(1).c_str());
     return;
   }
+  devices_table.Update();
   steady_clock::time_point now = steady_clock::now();
   string html;
   html.reserve(1024 * 64);
@@ -87,16 +226,17 @@ function ToggleAutoRefresh() {
     html += caption;
     html += "</caption>";
     if (headers.size()) {
-      html += "<tr>";
+      html += "<thead><tr>";
       for (auto &h : headers) {
         html += "<th>";
         html += h;
         html += "</th>";
       }
-      html += "</tr>";
+      html += "</tr></thead>";
     }
+    html += "<tbody>";
     inner();
-    html += "</table>";
+    html += "</tbody></table>";
   };
   table("Config", {"Key", "Value"}, [&]() {
     auto row = [&](const char *key, const string &value) {
@@ -112,26 +252,6 @@ function ToggleAutoRefresh() {
     row("netmask", netmask.to_string());
     row("/etc/hostname", etc::hostname);
   });
-  table("/etc/hosts", {"hostname", "IP"}, [&]() {
-    for (auto &[ip, aliases] : etc::hosts) {
-      for (auto &alias : aliases) {
-        html += "<tr><td>";
-        html += alias;
-        html += "</td><td>";
-        html += ip.to_string();
-        html += "</td></tr>";
-      }
-    }
-  });
-  table("/etc/ethers", {"MAC", "IP"}, [&]() {
-    for (auto &[mac, ip] : etc::ethers) {
-      html += "<tr><td>";
-      html += mac.to_string();
-      html += "</td><td>";
-      html += ip.to_string();
-      html += "</td></tr>";
-    }
-  });
   table("/etc/resolv.conf", {"IP"}, [&]() {
     for (auto &ip : etc::resolv) {
       html += "<tr><td>";
@@ -139,28 +259,7 @@ function ToggleAutoRefresh() {
       html += "</td></tr>";
     }
   });
-  table("DHCP",
-        {"IP", "Client ID", "Hostname", "TTL", "Last activity", "Stable"},
-        [&]() {
-          for (auto &[ip, entry] : dhcp::server.entries) {
-            html += "<tr><td>";
-            html += ip.to_string();
-            html += "</td><td>";
-            html += entry.client_id;
-            html += "</td><td>";
-            html += entry.hostname;
-            html += "</td><td>";
-            html += FormatDuration(
-                entry.expiration.transform([&](auto e) { return e - now; }));
-            html += "</td><td>";
-            html += FormatDuration(
-                entry.last_request.transform([&](auto x) { return x - now; }),
-                "never");
-            html += "</td><td>";
-            html += entry.stable ? "✓" : "";
-            html += "</td></tr>";
-          }
-        });
+  devices_table.EmitTABLE(html);
   table("Log", {"Message"}, [&]() {
     for (auto &line : messages) {
       html += "<tr><td>";
