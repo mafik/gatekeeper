@@ -95,8 +95,11 @@ void Table::RenderTFOOT(std::string &html) {
   html += to_string(columns.size());
   html += "\">";
   html += to_string(Size());
-  html += " rows</td>";
-  html += "</tr></tfoot>";
+  html += " rows";
+  html += " <a href=\"/";
+  html += id;
+  html += ".html\">Full table</a>";
+  html += "</td></tr></tfoot>";
 }
 
 void Table::RenderTABLE(string &html) {
@@ -260,12 +263,31 @@ void Handler(Response &response, Request &request) {
     WriteFile(response, path.substr(1).c_str());
     return;
   }
+  if (request.path.starts_with("/") && request.path.ends_with(".html")) {
+    string id(request.path.substr(1, request.path.size() - 6));
+    auto it = Tables().find(id);
+    if (it == Tables().end()) {
+      response.WriteStatus("404 Not Found");
+      response.Write("Table not found");
+      return;
+    }
+    Table &t = *it->second;
+    string html;
+    html += "<!doctype html>";
+    html += "<html><head><title>";
+    html += t.caption;
+    html += " - Gatekeeper</title><link rel=\"stylesheet\" "
+            "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
+            "href=\"/favicon.ico\"></head><body>";
+    t.RenderTABLE(html);
+    html += "</body></html>";
+    response.Write(html);
+    return;
+  }
   for (auto [id, t] : Tables()) {
     t->Update();
   }
-  steady_clock::time_point now = steady_clock::now();
   string html;
-  html.reserve(1024 * 64);
   html += "<!doctype html>";
   html += "<html><head><title>Gatekeeper</title><link rel=\"stylesheet\" "
           "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
