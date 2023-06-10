@@ -238,15 +238,6 @@ unordered_set<const Entry *, QuestionHash, QuestionEqual> cache;
 
 unordered_set<Entry, QuestionHash, QuestionEqual> static_cache;
 
-void ForEachEntry(std::function<void(const Entry &)> f) {
-  for (auto &e : static_cache) {
-    f(e);
-  }
-  for (auto e : cache) {
-    f(*e);
-  }
-}
-
 multimap<steady_clock::time_point, const Entry *> expiration_queue;
 
 void Entry::UpdateExpiration(steady_clock::time_point new_expiration) const {
@@ -952,16 +943,27 @@ void Stop() {
   server.StopListening();
 }
 
-Table::Table() : webui::Table("dns", "DNS", {"Cache size"}) {}
+Table::Table() : webui::Table("dns", "DNS", {"Expiration", "Entry"}) {}
 
-int Table::Size() const { return 1; }
+int Table::Size() const { return expiration_queue.size(); }
 
 void Table::Get(int row, int col, string &out) const {
   switch (col) {
   case 0:
-    int cnt = 0;
-    dns::ForEachEntry([&](const dns::Entry &) { ++cnt; });
-    out = f("%d", cnt);
+    for (auto [time, entry] : expiration_queue) {
+      if (row-- == 0) {
+        out = FormatDuration(time - steady_clock::now());
+        break;
+      }
+    }
+    break;
+  case 1:
+    for (auto [time, entry] : expiration_queue) {
+      if (row-- == 0) {
+        out = entry->question.to_html();
+        break;
+      }
+    }
     break;
   }
 }

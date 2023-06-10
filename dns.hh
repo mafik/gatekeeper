@@ -142,7 +142,6 @@ struct Entry {
   bool operator==(const Question &other) const { return question == other; }
 };
 
-void ForEachEntry(std::function<void(const Entry &)>);
 void Start(string &err);
 void Stop();
 
