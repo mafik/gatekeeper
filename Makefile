@@ -3,6 +3,9 @@ all : gatekeeper
 gatekeeper : *.cc *.hh Makefile
 	clang++-17 -std=c++2b -static -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections *.cc -l systemd -L. -o $@
 
+gatekeeper-debug : *.cc *.hh Makefile
+	clang++-17 -std=c++2b -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections *.cc -l systemd -L. -o $@
+
 debug : gatekeeper
 	sudo gdb ./gatekeeper -q -ex run
 
@@ -20,8 +23,11 @@ test : gatekeeper test_e2e.sh
 maf-run : gatekeeper
 	sudo ./gatekeeper enxe8802ee74415
 
-maf-valgrind : gatekeeper
-	sudo valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./gatekeeper enxe8802ee74415
+maf-valgrind : gatekeeper-debug
+	sudo valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./gatekeeper-debug enxe8802ee74415
+
+maf-massif : gatekeeper-debug
+	sudo valgrind --tool=massif --stacks=yes --massif-out-file=massif-out.txt ./gatekeeper-debug enxe8802ee74415
 
 maf-deploy : gatekeeper.tar.gz
 	scp gatekeeper.tar.gz root@protectli:~/
