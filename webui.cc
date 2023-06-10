@@ -49,52 +49,49 @@ unordered_set<string> static_files = {
     "/favicon.ico",
 };
 
-struct Table {
-  string id;
-  string caption;
-  vector<string> columns;
-  Table(string id, string caption, vector<string> columns)
-      : id(id), caption(caption), columns(columns) {}
-  void EmitTHEAD(string &html) {
-    html += "<thead><tr>";
-    for (auto &h : columns) {
-      html += "<th>";
-      html += h;
-      html += "</th>";
-    }
-    html += "</tr></thead>";
+Table::Table(string id, string caption, vector<string> columns)
+    : id(id), caption(caption), columns(columns) {}
+
+void Table::EmitTHEAD(string &html) {
+  html += "<thead><tr>";
+  for (auto &h : columns) {
+    html += "<th>";
+    html += h;
+    html += "</th>";
   }
-  virtual int Size() const = 0;
-  virtual void Get(int row, int col, string &out) const = 0;
-  void EmitTR(string &html, int row) {
-    html += "<tr>";
-    for (int col = 0; col < columns.size(); ++col) {
-      html += "<td>";
-      string cell;
-      Get(row, col, cell);
-      html += cell;
-      html += "</td>";
-    }
-    html += "</tr>";
+  html += "</tr></thead>";
+}
+
+void Table::EmitTR(string &html, int row) {
+  html += "<tr>";
+  for (int col = 0; col < columns.size(); ++col) {
+    html += "<td>";
+    string cell;
+    Get(row, col, cell);
+    html += cell;
+    html += "</td>";
   }
-  void EmitTBODY(string &html) {
-    html += "<tbody>";
-    for (int row = 0; row < Size(); ++row) {
-      EmitTR(html, row);
-    }
-    html += "</tbody>";
+  html += "</tr>";
+}
+
+void Table::EmitTBODY(string &html) {
+  html += "<tbody>";
+  for (int row = 0; row < Size(); ++row) {
+    EmitTR(html, row);
   }
-  void EmitTABLE(string &html) {
-    html += "<table id=\"";
-    html += id;
-    html += "\"><caption>";
-    html += caption;
-    html += "</caption>";
-    EmitTHEAD(html);
-    EmitTBODY(html);
-    html += "</table>";
-  }
-};
+  html += "</tbody>";
+}
+
+void Table::EmitTABLE(string &html) {
+  html += "<table id=\"";
+  html += id;
+  html += "\"><caption>";
+  html += caption;
+  html += "</caption>";
+  EmitTHEAD(html);
+  EmitTBODY(html);
+  html += "</table>";
+}
 
 struct DevicesTable : Table {
   DevicesTable()
@@ -237,39 +234,6 @@ struct LogTable : Table {
 
 LogTable log_table;
 
-struct DHCPTable : Table {
-  DHCPTable() : Table("dhcp", "DHCP", {"Assigned IPs", "Available IPs"}) {}
-  int Size() const override { return 1; }
-  void Get(int row, int col, string &out) const override {
-    switch (col) {
-    case 0:
-      out = f("%d", dhcp::server.entries.size());
-      break;
-    case 1:
-      out = f("%d", dhcp::server.AvailableIPs());
-      break;
-    }
-  }
-};
-
-DHCPTable dhcp_table;
-
-struct DNSTable : Table {
-  DNSTable() : Table("dns", "DNS", {"Cache size"}) {}
-  int Size() const override { return 1; }
-  void Get(int row, int col, string &out) const override {
-    switch (col) {
-    case 0:
-      int cnt = 0;
-      dns::ForEachEntry([&](const dns::Entry &) { ++cnt; });
-      out = f("%d", cnt);
-      break;
-    }
-  }
-};
-
-DNSTable dns_table;
-
 void Handler(Response &response, Request &request) {
   string path(request.path);
   if (static_files.contains(path)) {
@@ -304,8 +268,8 @@ function ToggleAutoRefresh() {
   config_table.EmitTABLE(html);
   devices_table.EmitTABLE(html);
   log_table.EmitTABLE(html);
-  dhcp_table.EmitTABLE(html);
-  dns_table.EmitTABLE(html);
+  dhcp::table.EmitTABLE(html);
+  dns::table.EmitTABLE(html);
   html += "</body></html>";
   response.Write(html);
 }

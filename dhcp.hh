@@ -6,6 +6,7 @@
 #include <string>
 
 #include "epoll_udp.hh"
+#include "webui.hh"
 
 namespace dhcp {
 
@@ -41,5 +42,13 @@ struct Server : UDPListener {
 };
 
 extern Server server;
+
+struct Table : webui::Table {
+  Table();
+  int Size() const override;
+  void Get(int row, int col, std::string &out) const override;
+};
+
+extern Table table;
 
 } // namespace dhcp

@@ -9,6 +9,7 @@
 #include "format.hh"
 #include "ip.hh"
 #include "variant.hh"
+#include "webui.hh"
 
 namespace dns {
 
@@ -144,5 +145,13 @@ struct Entry {
 void ForEachEntry(std::function<void(const Entry &)>);
 void Start(string &err);
 void Stop();
+
+struct Table : webui::Table {
+  Table();
+  int Size() const override;
+  void Get(int row, int col, string &out) const override;
+};
+
+extern Table table;
 
 } // namespace dns

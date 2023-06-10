@@ -953,4 +953,21 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   }
 }
 const char *Server::Name() const { return "dhcp::Server"; }
+
+Table table;
+
+Table::Table()
+    : webui::Table("dhcp", "DHCP", {"Assigned IPs", "Available IPs"}) {}
+int Table::Size() const { return 1; }
+void Table::Get(int row, int col, string &out) const {
+  switch (col) {
+  case 0:
+    out = f("%d", dhcp::server.entries.size());
+    break;
+  case 1:
+    out = f("%d", dhcp::server.AvailableIPs());
+    break;
+  }
+}
+
 } // namespace dhcp

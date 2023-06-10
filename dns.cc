@@ -952,4 +952,20 @@ void Stop() {
   server.StopListening();
 }
 
+Table::Table() : webui::Table("dns", "DNS", {"Cache size"}) {}
+
+int Table::Size() const { return 1; }
+
+void Table::Get(int row, int col, string &out) const {
+  switch (col) {
+  case 0:
+    int cnt = 0;
+    dns::ForEachEntry([&](const dns::Entry &) { ++cnt; });
+    out = f("%d", cnt);
+    break;
+  }
+}
+
+Table table;
+
 } // namespace dns
