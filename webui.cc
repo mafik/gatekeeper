@@ -60,7 +60,7 @@ Table::Table(string id, string caption, vector<string> columns)
 }
 
 void Table::RenderTHEAD(string &html) {
-  html += "<thead><tr>";
+  html += "<thead><tr class=round-top>";
   for (auto &h : columns) {
     html += "<th>";
     html += h;
@@ -89,6 +89,16 @@ void Table::RenderTBODY(string &html) {
   html += "</tbody>";
 }
 
+void Table::RenderTFOOT(std::string &html) {
+  html += "<tfoot><tr class=round-bottom>";
+  html += "<td colspan=\"";
+  html += to_string(columns.size());
+  html += "\">";
+  html += to_string(Size());
+  html += " rows</td>";
+  html += "</tr></tfoot>";
+}
+
 void Table::RenderTABLE(string &html) {
   html += "<table id=\"";
   html += id;
@@ -97,6 +107,7 @@ void Table::RenderTABLE(string &html) {
   html += "</caption>";
   RenderTHEAD(html);
   RenderTBODY(html);
+  RenderTFOOT(html);
   html += "</table>";
 }
 

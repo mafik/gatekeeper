@@ -26,6 +26,7 @@ struct Table {
   void RenderTHEAD(std::string &html);
   void RenderTBODY(std::string &html);
   void RenderTR(std::string &html, int row);
+  void RenderTFOOT(std::string &html);
 };
 
 void Start(std::string &err);

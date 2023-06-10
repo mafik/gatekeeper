@@ -42,23 +42,23 @@ table {
   border-radius: 9px;
 }
 
-thead>tr:first-child>*:first-child {
+tr.round-top>*:first-child {
   border-top-left-radius: 7px;
 }
 
-thead>tr:first-child>*:last-child {
+tr.round-top>*:last-child {
   border-top-right-radius: 7px;
 }
 
-tbody>tr:last-child>*:first-child {
+tr.round-bottom>*:first-child {
   border-bottom-left-radius: 7px;
 }
 
-tbody>tr:last-child>*:last-child {
+tr.round-bottom>*:last-child {
   border-bottom-right-radius: 7px;
 }
 
-td {
+tbody>tr>td {
   border: 1px inset #e0c8bb;
   background: #fff;
 
@@ -67,6 +67,11 @@ td {
 th {
   border: 2px groove #e0c8bb;
   text-shadow: 1px 1px 0 #e0c8bb;
+}
+
+tfoot>tr>td {
+  border: 2px groove #f0d8ca;
+  text-shadow: 1px 1px 0 #fbebe2;
 }
 
 td,
