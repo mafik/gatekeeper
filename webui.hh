@@ -27,6 +27,9 @@ struct Table {
   void RenderTBODY(std::string &html);
   void RenderTR(std::string &html, int row);
   void RenderTFOOT(std::string &html);
+
+  // Functions for rendering table to other formats.
+  void RenderCSV(std::string &csv); // RFC 4180
 };
 
 void Start(std::string &err);

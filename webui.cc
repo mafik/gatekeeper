@@ -98,7 +98,9 @@ void Table::RenderTFOOT(std::string &html) {
   html += " rows";
   html += " <a href=\"/";
   html += id;
-  html += ".html\">Full table</a>";
+  html += ".html\">Full table</a> <a href=\"/";
+  html += id;
+  html += ".csv\">CSV</a>";
   html += "</td></tr></tfoot>";
 }
 
@@ -115,6 +117,44 @@ void Table::RenderTABLE(string &html) {
 }
 
 void Table::Update() {}
+
+static void AppendCSVString(string &csv, string_view s) {
+  bool needs_escaping = s.contains(',') || s.contains('"') || s.contains('\n');
+  if (needs_escaping) {
+    csv += '"';
+    for (auto c : s) {
+      if (c == '"') {
+        csv += "\"\"";
+      } else {
+        csv += c;
+      }
+    }
+    csv += '"';
+  } else {
+    csv += s;
+  }
+}
+
+void Table::RenderCSV(std::string &csv) {
+  for (int col = 0; col < columns.size(); ++col) {
+    if (col > 0) {
+      csv += ",";
+    }
+    AppendCSVString(csv, columns[col]);
+  }
+  csv += "\r\n";
+  for (int row = 0; row < Size(); ++row) {
+    for (int col = 0; col < columns.size(); ++col) {
+      if (col > 0) {
+        csv += ",";
+      }
+      string cell;
+      Get(row, col, cell);
+      AppendCSVString(csv, cell);
+    }
+    csv += "\r\n";
+  }
+}
 
 struct DevicesTable : Table {
   DevicesTable()
@@ -257,33 +297,28 @@ struct LogTable : Table {
 
 LogTable log_table;
 
-void Handler(Response &response, Request &request) {
-  string path(request.path);
-  if (static_files.contains(path)) {
-    WriteFile(response, path.substr(1).c_str());
-    return;
-  }
-  if (request.path.starts_with("/") && request.path.ends_with(".html")) {
-    string id(request.path.substr(1, request.path.size() - 6));
-    auto it = Tables().find(id);
-    if (it == Tables().end()) {
-      response.WriteStatus("404 Not Found");
-      response.Write("Table not found");
-      return;
-    }
-    Table &t = *it->second;
-    string html;
-    html += "<!doctype html>";
-    html += "<html><head><title>";
-    html += t.caption;
-    html += " - Gatekeeper</title><link rel=\"stylesheet\" "
-            "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
-            "href=\"/favicon.ico\"></head><body>";
-    t.RenderTABLE(html);
-    html += "</body></html>";
-    response.Write(html);
-    return;
-  }
+void RenderTableHTML(Response &response, Request &request, Table &t) {
+  t.Update();
+  string html;
+  html += "<!doctype html>";
+  html += "<html><head><title>";
+  html += t.caption;
+  html += " - Gatekeeper</title><link rel=\"stylesheet\" "
+          "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
+          "href=\"/favicon.ico\"></head><body>";
+  t.RenderTABLE(html);
+  html += "</body></html>";
+  response.Write(html);
+}
+
+void RenderTableCSV(Response &response, Request &request, Table &t) {
+  t.Update();
+  string csv;
+  t.RenderCSV(csv);
+  response.Write(csv);
+}
+
+void RenderMainPage(Response &response, Request &request) {
   for (auto [id, t] : Tables()) {
     t->Update();
   }
@@ -316,6 +351,32 @@ function ToggleAutoRefresh() {
   dns::table.RenderTABLE(html);
   html += "</body></html>";
   response.Write(html);
+}
+
+void Handler(Response &response, Request &request) {
+  string path(request.path);
+  if (static_files.contains(path)) {
+    WriteFile(response, path.substr(1).c_str());
+    return;
+  } else if (path.starts_with("/") && path.ends_with(".html")) {
+    string id(path.substr(1, path.size() - 6));
+    if (auto it = Tables().find(id); it != Tables().end()) {
+      RenderTableHTML(response, request, *it->second);
+    } else {
+      response.WriteStatus("404 Not Found");
+      response.Write("Table not found");
+    }
+  } else if (path.starts_with("/") && path.ends_with(".csv")) {
+    string id(path.substr(1, path.size() - 5));
+    if (auto it = Tables().find(id); it != Tables().end()) {
+      RenderTableCSV(response, request, *it->second);
+    } else {
+      response.WriteStatus("404 Not Found");
+      response.Write("Table not found");
+    }
+  } else {
+    RenderMainPage(response, request);
+  }
 }
 
 const char *kANSIColorHex[256] = {
