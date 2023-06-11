@@ -48,9 +48,9 @@ Request::Request(std::string &request_buffer) : buffer(request_buffer) {
   // Parse query string
   while (args.starts_with("?") || args.starts_with("&")) {
     args.remove_prefix(1);
-    size_t eq_pos = args.find('=');
-    size_t amp_pos = args.find('&');
-    size_t key_end = std::min(args.size(), std::min(eq_pos, amp_pos));
+    using std::min;
+    size_t key_end = min(min(args.size(), args.find(' ')),
+                         min(args.find('='), args.find('&')));
     if (key_end == 0) {
       continue;
     }
@@ -58,7 +58,7 @@ Request::Request(std::string &request_buffer) : buffer(request_buffer) {
     args.remove_prefix(key_end);
     if (args.starts_with("=")) {
       args.remove_prefix(1);
-      size_t val_end = std::min(args.size(), args.find('&'));
+      size_t val_end = min(args.size(), min(args.find(' '), args.find('&')));
       std::string_view val = args.substr(0, val_end);
       args.remove_prefix(val_end);
       query[key] = val;
