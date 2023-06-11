@@ -546,7 +546,9 @@ function ToggleAutoRefresh() {
           "onclick=\"ToggleAutoRefresh()\">Toggle Auto-refresh</button></h1>";
   config_table.RenderTABLE(html, opts);
   devices_table.RenderTABLE(html, opts);
-  log_table.RenderTABLE(html, opts);
+  Table::RenderOptions log_opts = opts;
+  log_opts.row_offset = std::max<int>(0, messages.size() - opts.row_limit);
+  log_table.RenderTABLE(html, log_opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
   html += "</body></html>";
