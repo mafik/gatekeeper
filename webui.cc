@@ -86,8 +86,8 @@ string TableBeginA(Table &t, Table::RenderOptions opts) {
       html += "&desc";
     }
   }
-  html += "\" hx-boost=\"true\" hx-swap=\"outerHTML\" hx-push-url=\"false\" "
-          "hx-target=\"#";
+  html += "\" class=\"arrow\" hx-boost=\"true\" hx-swap=\"outerHTML\" "
+          "hx-push-url=\"false\" hx-target=\"#";
   html += t.id;
   html += "\" hx-select=\"#";
   html += t.id;

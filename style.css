@@ -100,3 +100,12 @@ pre {
   border: 1px solid rgb(147, 240, 147);
   background: rgb(225, 255, 225);
 }
+
+a {
+  color: #1341cb;
+}
+
+a.arrow {
+  color: inherit;
+  text-decoration: none;
+}
