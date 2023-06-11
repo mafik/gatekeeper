@@ -48,6 +48,7 @@ unordered_set<string> static_files = {
     "/style.css",
     "/gatekeeper.gif",
     "/favicon.ico",
+    "/htmx-1.9.2.min.js",
 };
 
 map<string, Table *> &Tables() {
@@ -123,23 +124,39 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
   html += to_string(s);
   html += " ";
   if (begin > 0) {
-    html += "<a href=\"/";
+    string prev_url = "/";
+    prev_url += id;
+    prev_url += ".html?offset=";
+    prev_url += to_string(std::max(0, begin - opts.row_limit));
+    prev_url += "&limit=";
+    prev_url += to_string(opts.row_limit);
+
+    html += "<a href=\"";
+    html += prev_url;
+    html += "\" hx-boost=\"true\" hx-swap=\"outerHTML\" hx-push-url=\"false\" "
+            "hx-target=\"#";
     html += id;
-    html += ".html?offset=";
-    html += to_string(std::max(0, begin - opts.row_limit));
-    html += "&limit=";
-    html += to_string(opts.row_limit);
+    html += "\" hx-select=\"#";
+    html += id;
     html += "\">Previous ";
     html += to_string(std::min(opts.row_limit, begin));
     html += "</a> ";
   }
   if (end < s) {
-    html += "<a href=\"/";
+    string next_url = "/";
+    next_url += id;
+    next_url += ".html?offset=";
+    next_url += to_string(end);
+    next_url += "&limit=";
+    next_url += to_string(opts.row_limit);
+
+    html += "<a href=\"";
+    html += next_url;
+    html += "\" hx-boost=\"true\" hx-swap=\"outerHTML\" hx-push-url=\"false\" "
+            "hx-target=\"#";
     html += id;
-    html += ".html?offset=";
-    html += to_string(end);
-    html += "&limit=";
-    html += to_string(opts.row_limit);
+    html += "\" hx-select=\"#";
+    html += id;
     html += "\">Next ";
     html += to_string(std::min(opts.row_limit, s - end));
     html += "</a> ";
@@ -458,6 +475,7 @@ void RenderTableHTML(Response &response, Request &request, Table &t) {
   html += " - Gatekeeper</title><link rel=\"stylesheet\" "
           "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
           "href=\"/favicon.ico\"></head><body>";
+  html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
   t.RenderTABLE(html, opts);
   html += "</body></html>";
   response.Write(html);
@@ -494,6 +512,7 @@ void RenderMainPage(Response &response, Request &request) {
   html += "<html><head><title>Gatekeeper</title><link rel=\"stylesheet\" "
           "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
           "href=\"/favicon.ico\"></head><body>";
+  html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
   html += R"(<script>
 if (localStorage.refresh) {
   window.refresh_timeout = setTimeout(() => location.reload(), 1000);
