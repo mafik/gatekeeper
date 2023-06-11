@@ -9,7 +9,7 @@ gatekeeper-debug : *.cc *.hh Makefile
 clean :
 	rm -f gatekeeper
 
-gatekeeper.tar.gz : gatekeeper gatekeeper.gif favicon.ico style.css gatekeeper.service
+gatekeeper.tar.gz : gatekeeper gatekeeper.gif favicon.ico style.css gatekeeper.service htmx-1.9.2.min.js
 	tar -czf $@ $^
 
 test : gatekeeper test_e2e.sh
