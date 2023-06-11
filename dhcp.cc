@@ -774,9 +774,10 @@ void Server::Init() {
     }
   }
 }
-int Server::AvailableIPs() const {
+int AvailableIPs(const Server &server) {
   int zeros = 32 - popcount(netmask.addr);
-  return (1 << zeros) - entries.size() - 2;
+  // 3 IPs are reserved: network, broadcast, and server.
+  return (1 << zeros) - server.entries.size() - 3;
 }
 void Server::Listen(string &error) {
   fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -962,10 +963,10 @@ int Table::Size() const { return 1; }
 void Table::Get(int row, int col, string &out) const {
   switch (col) {
   case 0:
-    out = f("%d", dhcp::server.entries.size());
+    out = f("%d", server.entries.size());
     break;
   case 1:
-    out = f("%d", dhcp::server.AvailableIPs());
+    out = f("%d", AvailableIPs(server));
     break;
   }
 }

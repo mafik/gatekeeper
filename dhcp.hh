@@ -24,8 +24,6 @@ struct Server : UDPListener {
 
   void Init();
 
-  int AvailableIPs() const;
-
   // Start listening.
   //
   // To actually accept new connections, make sure to Poll the `epoll`
