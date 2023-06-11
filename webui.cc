@@ -100,7 +100,9 @@ void Table::RenderTFOOT(std::string &html) {
   html += id;
   html += ".html\">Full table</a> <a href=\"/";
   html += id;
-  html += ".csv\">CSV</a>";
+  html += ".csv\">CSV</a> <a href=\"/";
+  html += id;
+  html += ".json\">JSON</a>";
   html += "</td></tr></tfoot>";
 }
 
@@ -154,6 +156,61 @@ void Table::RenderCSV(std::string &csv) {
     }
     csv += "\r\n";
   }
+}
+
+void EscapeJSONString(string &out, string_view s) {
+  for (auto c : s) {
+    switch (c) {
+    case '\b':
+      out += "\\b";
+      break;
+    case '\f':
+      out += "\\f";
+      break;
+    case '\n':
+      out += "\\n";
+      break;
+    case '\r':
+      out += "\\r";
+      break;
+    case '\t':
+      out += "\\t";
+      break;
+    case '"':
+      out += "\\\"";
+      break;
+    case '\\':
+      out += "\\\\";
+      break;
+    default:
+      out += c;
+      break;
+    }
+  }
+}
+
+void Table::RenderJSON(std::string &json) {
+  json += "[";
+  for (int row = 0; row < Size(); ++row) {
+    if (row > 0) {
+      json += ",";
+    }
+    json += "{";
+    for (int col = 0; col < columns.size(); ++col) {
+      if (col > 0) {
+        json += ",";
+      }
+      json += "\"";
+      EscapeJSONString(json, columns[col]);
+      json += "\":\"";
+      string cell;
+      Get(row, col, cell);
+      EscapeJSONString(json, cell);
+      json += "\"";
+    }
+    json += "}";
+  }
+  json += "]";
 }
 
 struct DevicesTable : Table {
@@ -243,7 +300,6 @@ struct DevicesTable : Table {
 // TODO: status indicator (never/away/active)
 // TODO: DHCP / DNS activity
 // TODO: link to device details page
-// TODO: link to full table
 // TODO: pagination
 DevicesTable devices_table;
 
@@ -318,6 +374,13 @@ void RenderTableCSV(Response &response, Request &request, Table &t) {
   response.Write(csv);
 }
 
+void RenderTableJSON(Response &response, Request &request, Table &t) {
+  t.Update();
+  string json;
+  t.RenderJSON(json);
+  response.Write(json);
+}
+
 void RenderMainPage(Response &response, Request &request) {
   for (auto [id, t] : Tables()) {
     t->Update();
@@ -370,6 +433,14 @@ void Handler(Response &response, Request &request) {
     string id(path.substr(1, path.size() - 5));
     if (auto it = Tables().find(id); it != Tables().end()) {
       RenderTableCSV(response, request, *it->second);
+    } else {
+      response.WriteStatus("404 Not Found");
+      response.Write("Table not found");
+    }
+  } else if (path.starts_with("/") && path.ends_with(".json")) {
+    string id(path.substr(1, path.size() - 6));
+    if (auto it = Tables().find(id); it != Tables().end()) {
+      RenderTableJSON(response, request, *it->second);
     } else {
       response.WriteStatus("404 Not Found");
       response.Write("Table not found");

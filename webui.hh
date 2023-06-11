@@ -30,6 +30,7 @@ struct Table {
 
   // Functions for rendering table to other formats.
   void RenderCSV(std::string &csv); // RFC 4180
+  void RenderJSON(std::string &json);
 };
 
 void Start(std::string &err);
