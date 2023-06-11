@@ -61,11 +61,58 @@ Table::Table(string id, string caption, vector<string> columns)
   Tables()[id] = this;
 }
 
-void Table::RenderTHEAD(string &html, RenderOptions &) {
+std::pair<int, int> RowRange(Table &t, Table::RenderOptions &opts) {
+  int begin = opts.row_offset;
+  int end = t.Size();
+  if (opts.row_limit) {
+    end = std::min(end, opts.row_offset + opts.row_limit);
+  }
+  return {begin, end};
+}
+
+string TableBeginA(Table &t, Table::RenderOptions opts) {
+  auto [begin, end] = RowRange(t, opts);
+  string html;
+  html += "<a href=\"/";
+  html += t.id;
+  html += ".html?offset=";
+  html += to_string(opts.row_offset);
+  html += "&limit=";
+  html += to_string(opts.row_limit);
+  if (opts.sort_column) {
+    html += "&sort=";
+    html += to_string(*opts.sort_column);
+    if (opts.sort_descending) {
+      html += "&desc";
+    }
+  }
+  html += "\" hx-boost=\"true\" hx-swap=\"outerHTML\" hx-push-url=\"false\" "
+          "hx-target=\"#";
+  html += t.id;
+  html += "\" hx-select=\"#";
+  html += t.id;
+  html += "\">";
+  return html;
+}
+
+void Table::RenderTHEAD(string &html, RenderOptions &opts) {
   html += "<thead><tr class=round-top>";
-  for (auto &h : columns) {
+  for (int i = 0; i < columns.size(); ++i) {
+    auto &col = columns[i];
     html += "<th>";
-    html += h;
+    html += col;
+    RenderOptions asc = opts;
+    asc.sort_column = i;
+    asc.sort_descending = false;
+    asc.row_offset = 0;
+    html += TableBeginA(*this, asc);
+    html += "▲";
+    html += "</a>";
+    RenderOptions desc = asc;
+    desc.sort_descending = true;
+    html += TableBeginA(*this, desc);
+    html += "▼";
+    html += "</a>";
     html += "</th>";
   }
   html += "</tr></thead>";
@@ -81,15 +128,6 @@ void Table::RenderTR(string &html, int row) {
     html += "</td>";
   }
   html += "</tr>";
-}
-
-std::pair<int, int> RowRange(Table &t, Table::RenderOptions &opts) {
-  int begin = opts.row_offset;
-  int end = t.Size();
-  if (opts.row_limit) {
-    end = std::min(end, opts.row_offset + opts.row_limit);
-  }
-  return {begin, end};
 }
 
 void Table::RenderTBODY(string &html, RenderOptions &opts) {
@@ -124,41 +162,17 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
   html += to_string(s);
   html += " ";
   if (begin > 0) {
-    string prev_url = "/";
-    prev_url += id;
-    prev_url += ".html?offset=";
-    prev_url += to_string(std::max(0, begin - opts.row_limit));
-    prev_url += "&limit=";
-    prev_url += to_string(opts.row_limit);
-
-    html += "<a href=\"";
-    html += prev_url;
-    html += "\" hx-boost=\"true\" hx-swap=\"outerHTML\" hx-push-url=\"false\" "
-            "hx-target=\"#";
-    html += id;
-    html += "\" hx-select=\"#";
-    html += id;
-    html += "\">Previous ";
-    html += to_string(std::min(opts.row_limit, begin));
+    RenderOptions prev = opts;
+    prev.row_offset = std::max(0, begin - opts.row_limit);
+    html += TableBeginA(*this, prev);
+    html += "◀";
     html += "</a> ";
   }
   if (end < s) {
-    string next_url = "/";
-    next_url += id;
-    next_url += ".html?offset=";
-    next_url += to_string(end);
-    next_url += "&limit=";
-    next_url += to_string(opts.row_limit);
-
-    html += "<a href=\"";
-    html += next_url;
-    html += "\" hx-boost=\"true\" hx-swap=\"outerHTML\" hx-push-url=\"false\" "
-            "hx-target=\"#";
-    html += id;
-    html += "\" hx-select=\"#";
-    html += id;
-    html += "\">Next ";
-    html += to_string(std::min(opts.row_limit, s - end));
+    RenderOptions next = opts;
+    next.row_offset = end;
+    html += TableBeginA(*this, next);
+    html += "▶";
     html += "</a> ";
   }
   html += "<a href=\"/";
