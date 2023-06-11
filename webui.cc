@@ -1,5 +1,6 @@
 #include "webui.hh"
 
+#include <chrono>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -59,7 +60,7 @@ Table::Table(string id, string caption, vector<string> columns)
   Tables()[id] = this;
 }
 
-void Table::RenderTHEAD(string &html) {
+void Table::RenderTHEAD(string &html, RenderOptions &) {
   html += "<thead><tr class=round-top>";
   for (auto &h : columns) {
     html += "<th>";
@@ -81,22 +82,69 @@ void Table::RenderTR(string &html, int row) {
   html += "</tr>";
 }
 
-void Table::RenderTBODY(string &html) {
+std::pair<int, int> RowRange(Table &t, Table::RenderOptions &opts) {
+  int begin = opts.row_offset;
+  int end = t.Size();
+  if (opts.row_limit) {
+    end = std::min(end, opts.row_offset + opts.row_limit);
+  }
+  return {begin, end};
+}
+
+void Table::RenderTBODY(string &html, RenderOptions &opts) {
   html += "<tbody>";
-  for (int row = 0; row < Size(); ++row) {
+  auto [begin, end] = RowRange(*this, opts);
+  for (int row = begin; row < end; ++row) {
     RenderTR(html, row);
   }
   html += "</tbody>";
 }
 
-void Table::RenderTFOOT(std::string &html) {
+void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
+  int s = Size();
+  auto [begin, end] = RowRange(*this, opts);
+  int n = end - begin;
   html += "<tfoot><tr class=round-bottom>";
   html += "<td colspan=\"";
   html += to_string(columns.size());
   html += "\">";
-  html += to_string(Size());
-  html += " rows";
-  html += " <a href=\"/";
+  if (n == 0) {
+    html += "No rows";
+  } else if (n == 1) {
+    html += "Row ";
+    html += to_string(begin + 1);
+  } else {
+    html += "Rows ";
+    html += to_string(begin + 1);
+    html += "-";
+    html += to_string(end);
+  }
+  html += " of ";
+  html += to_string(s);
+  html += " ";
+  if (begin > 0) {
+    html += "<a href=\"/";
+    html += id;
+    html += ".html?offset=";
+    html += to_string(std::max(0, begin - opts.row_limit));
+    html += "&limit=";
+    html += to_string(opts.row_limit);
+    html += "\">Previous ";
+    html += to_string(std::min(opts.row_limit, begin));
+    html += "</a> ";
+  }
+  if (end < s) {
+    html += "<a href=\"/";
+    html += id;
+    html += ".html?offset=";
+    html += to_string(end);
+    html += "&limit=";
+    html += to_string(opts.row_limit);
+    html += "\">Next ";
+    html += to_string(std::min(opts.row_limit, s - end));
+    html += "</a> ";
+  }
+  html += "<a href=\"/";
   html += id;
   html += ".html\">Full table</a> <a href=\"/";
   html += id;
@@ -106,19 +154,19 @@ void Table::RenderTFOOT(std::string &html) {
   html += "</td></tr></tfoot>";
 }
 
-void Table::RenderTABLE(string &html) {
+void Table::RenderTABLE(string &html, RenderOptions &opts) {
   html += "<table id=\"";
   html += id;
   html += "\"><caption>";
   html += caption;
   html += "</caption>";
-  RenderTHEAD(html);
-  RenderTBODY(html);
-  RenderTFOOT(html);
+  RenderTHEAD(html, opts);
+  RenderTBODY(html, opts);
+  RenderTFOOT(html, opts);
   html += "</table>";
 }
 
-void Table::Update() {}
+void Table::Update(RenderOptions &) {}
 
 static void AppendCSVString(string &csv, string_view s) {
   bool needs_escaping = s.contains(',') || s.contains('"') || s.contains('\n');
@@ -223,6 +271,8 @@ struct DevicesTable : Table {
     vector<string> etc_hosts_aliases;
     string dhcp_hostname;
     string last_activity;
+    optional<steady_clock::time_point> last_activity_time;
+    string hostnames;
   };
   vector<Row> rows;
 
@@ -236,7 +286,7 @@ struct DevicesTable : Table {
     rows.back().ip = ip;
     return rows.back();
   }
-  void Update() override {
+  void Update(RenderOptions &opts) override {
     rows.clear();
     steady_clock::time_point now = steady_clock::now();
     for (auto &[ip, aliases] : etc::hosts) {
@@ -258,6 +308,47 @@ struct DevicesTable : Table {
       row.last_activity = FormatDuration(
           entry.last_request.transform([&](auto x) { return x - now; }),
           "never");
+      row.last_activity_time = entry.last_request;
+    }
+    // Fill in the `hostnames` field.
+    for (auto &r : rows) {
+      string &out = r.hostnames;
+      for (auto &h : r.etc_hosts_aliases) {
+        if (!out.empty()) {
+          out += " ";
+        }
+        out += h;
+      }
+      if (!r.dhcp_hostname.empty()) {
+        bool found = false;
+        for (auto &h : r.etc_hosts_aliases) {
+          if (h == r.dhcp_hostname) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          if (!out.empty()) {
+            out += " ";
+          }
+          out += r.dhcp_hostname;
+        }
+      }
+    }
+    if (opts.sort_column) {
+      sort(rows.begin(), rows.end(), [&](const Row &a, const Row &b) {
+        bool result = true;
+        if (opts.sort_column == 0) {
+          result = a.ip.addr < b.ip.addr;
+        } else if (opts.sort_column == 1) {
+          result = a.mac < b.mac;
+        } else if (opts.sort_column == 2) {
+          result = a.hostnames < b.hostnames;
+        } else if (opts.sort_column == 3) {
+          result = a.last_activity_time < b.last_activity_time;
+        }
+        return opts.sort_descending ? !result : result;
+      });
     }
   }
 
@@ -277,18 +368,7 @@ struct DevicesTable : Table {
       }
       break;
     case 2:
-      for (auto &h : r.etc_hosts_aliases) {
-        if (!out.empty()) {
-          out += " ";
-        }
-        out += h;
-      }
-      if (!r.dhcp_hostname.empty()) {
-        if (!out.empty()) {
-          out += " ";
-        }
-        out += r.dhcp_hostname;
-      }
+      out = r.hostnames;
       break;
     case 3:
       out = r.last_activity;
@@ -353,8 +433,24 @@ struct LogTable : Table {
 
 LogTable log_table;
 
+Table::RenderOptions Table::RenderOptions::FromQuery(Request &request) {
+  Table::RenderOptions opts;
+  if (request.query.contains("sort")) {
+    opts.sort_column = atoi(request.query["sort"].data());
+  }
+  opts.sort_descending = request.query.contains("desc");
+  if (request.query.contains("limit")) {
+    opts.row_limit = atoi(request.query["limit"].data());
+  }
+  if (request.query.contains("offset")) {
+    opts.row_offset = atoi(request.query["offset"].data());
+  }
+  return opts;
+}
+
 void RenderTableHTML(Response &response, Request &request, Table &t) {
-  t.Update();
+  auto opts = Table::RenderOptions::FromQuery(request);
+  t.Update(opts);
   string html;
   html += "<!doctype html>";
   html += "<html><head><title>";
@@ -362,28 +458,36 @@ void RenderTableHTML(Response &response, Request &request, Table &t) {
   html += " - Gatekeeper</title><link rel=\"stylesheet\" "
           "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
           "href=\"/favicon.ico\"></head><body>";
-  t.RenderTABLE(html);
+  t.RenderTABLE(html, opts);
   html += "</body></html>";
   response.Write(html);
 }
 
 void RenderTableCSV(Response &response, Request &request, Table &t) {
-  t.Update();
+  auto opts = Table::RenderOptions::FromQuery(request);
+  t.Update(opts);
   string csv;
   t.RenderCSV(csv);
   response.Write(csv);
 }
 
 void RenderTableJSON(Response &response, Request &request, Table &t) {
-  t.Update();
+  auto opts = Table::RenderOptions::FromQuery(request);
+  t.Update(opts);
   string json;
   t.RenderJSON(json);
   response.Write(json);
 }
 
 void RenderMainPage(Response &response, Request &request) {
+  // When rendering the main page use fixed render options.
+  Table::RenderOptions opts{
+      .sort_column = nullopt,
+      .row_limit = 5,
+      .row_offset = 0,
+  };
   for (auto [id, t] : Tables()) {
-    t->Update();
+    t->Update(opts);
   }
   string html;
   html += "<!doctype html>";
@@ -407,11 +511,11 @@ function ToggleAutoRefresh() {
           "href=\"https://github.com/mafik/gatekeeper\"><img "
           "src=\"/gatekeeper.gif\" id=\"knight\"></a>Gatekeeper <button "
           "onclick=\"ToggleAutoRefresh()\">Toggle Auto-refresh</button></h1>";
-  config_table.RenderTABLE(html);
-  devices_table.RenderTABLE(html);
-  log_table.RenderTABLE(html);
-  dhcp::table.RenderTABLE(html);
-  dns::table.RenderTABLE(html);
+  config_table.RenderTABLE(html, opts);
+  devices_table.RenderTABLE(html, opts);
+  log_table.RenderTABLE(html, opts);
+  dhcp::table.RenderTABLE(html, opts);
+  dns::table.RenderTABLE(html, opts);
   html += "</body></html>";
   response.Write(html);
 }

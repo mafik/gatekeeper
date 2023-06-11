@@ -149,10 +149,11 @@ struct Table : webui::Table {
   struct Row {
     string question;
     string expiration;
+    steady_clock::time_point expiration_time;
   };
   vector<Row> rows;
   Table();
-  void Update() override;
+  void Update(RenderOptions &) override;
   int Size() const override;
   void Get(int row, int col, string &out) const override;
 };

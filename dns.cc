@@ -945,13 +945,25 @@ void Stop() {
 
 Table::Table() : webui::Table("dns", "DNS", {"Expiration", "Entry"}) {}
 
-void Table::Update() {
+void Table::Update(RenderOptions &opts) {
   rows.clear();
   auto now = steady_clock::now();
   for (auto [time, entry] : expiration_queue) {
     rows.emplace_back(Row{
         .question = entry->question.to_html(),
         .expiration = FormatDuration(time - now),
+        .expiration_time = time,
+    });
+  }
+  if (opts.sort_column) {
+    sort(rows.begin(), rows.end(), [&](const Row &a, const Row &b) {
+      bool result = true;
+      if (opts.sort_column == 0) {
+        result = a.expiration_time < b.expiration_time;
+      } else if (opts.sort_column == 1) {
+        result = a.question < b.question;
+      }
+      return opts.sort_descending ? !result : result;
     });
   }
 }
