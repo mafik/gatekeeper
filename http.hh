@@ -39,6 +39,9 @@ struct Request {
   // All of the values are case-sensitive.
   std::unordered_map<std::string_view, std::string_view> headers;
 
+  // Mapping of all URL query parameters & their values.
+  std::unordered_map<std::string_view, std::string_view> query;
+
   // Constructor parses the provided request buffer & populates all af the
   // convenience variables in this class.
   Request(std::string &request_buffer);

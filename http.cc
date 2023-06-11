@@ -41,6 +41,32 @@ Request::Request(std::string &request_buffer) : buffer(request_buffer) {
   size_t pos = buffer.find("\r\n", path_end);
   if (pos == std::string::npos)
     return;
+
+  std::string_view args =
+      std::string_view(buffer).substr(path_end, pos - path_end);
+
+  // Parse query string
+  while (args.starts_with("?") || args.starts_with("&")) {
+    args.remove_prefix(1);
+    size_t eq_pos = args.find('=');
+    size_t amp_pos = args.find('&');
+    size_t key_end = std::min(args.size(), std::min(eq_pos, amp_pos));
+    if (key_end == 0) {
+      continue;
+    }
+    std::string_view key = args.substr(0, key_end);
+    args.remove_prefix(key_end);
+    if (args.starts_with("=")) {
+      args.remove_prefix(1);
+      size_t val_end = std::min(args.size(), args.find('&'));
+      std::string_view val = args.substr(0, val_end);
+      args.remove_prefix(val_end);
+      query[key] = val;
+    } else {
+      query[key] = "";
+    }
+  }
+
   while (true) {
     if (buffer.substr(pos, 4) == "\r\n\r\n")
       break;
