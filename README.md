@@ -7,7 +7,7 @@ DHCP &amp; DNS server for your home gateway. Gives you visibility into what's ha
 
 Gatekeeper aims to replace traditional DHCP and DNS servers, such as dnsmasq, for home network management. Gatekeeper is resource efficient thanks to implementation in modern C++. It offers visibility into its configuration & network state with a web interface served on port 1337.
 
-![Screenshot](https://github.com/mafik/gatekeeper/blob/main/screenshot-2023-06-11.png?raw=true)
+[2023-06-12 Gatekeeper Screencast.webm](https://github.com/mafik/gatekeeper/assets/309914/76b61336-205b-4342-8715-d62d37a582c3)
 
 Current feature set covers most of the basic DHCP & DNS functionality and should be usable for most home networks. In the future it may be extended with more "Home Gateway"-oriented features, such as interface configuration, port forwarding, bandwidth accounting, NAT connection tracking, etc.
 
