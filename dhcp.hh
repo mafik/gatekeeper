@@ -45,6 +45,7 @@ struct Table : webui::Table {
   Table();
   int Size() const override;
   void Get(int row, int col, std::string &out) const override;
+  std::string RowID(int row) const override;
 };
 
 extern Table table;

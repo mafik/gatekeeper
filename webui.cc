@@ -45,10 +45,8 @@ void WriteFile(Response &response, const char *path) {
 }
 
 unordered_set<string> static_files = {
-    "/style.css",
-    "/gatekeeper.gif",
-    "/favicon.ico",
-    "/htmx-1.9.2.min.js",
+    "/style.css",         "/gatekeeper.gif", "/favicon.ico",
+    "/htmx-1.9.2.min.js", "/script.js",
 };
 
 map<string, Table *> &Tables() {
@@ -86,8 +84,8 @@ string TableBeginA(Table &t, Table::RenderOptions opts) {
       html += "&desc";
     }
   }
-  html += "\" class=\"arrow\" hx-boost=\"true\" hx-swap=\"outerHTML\" "
-          "hx-push-url=\"false\" hx-target=\"#";
+  html += "\" class=\"arrow\" hx-boost=\"true\" hx-swap=\"outerHTML "
+          "transition:true\" hx-push-url=\"false\" hx-target=\"#";
   html += t.id;
   html += "\" hx-select=\"#";
   html += t.id;
@@ -96,7 +94,9 @@ string TableBeginA(Table &t, Table::RenderOptions opts) {
 }
 
 void Table::RenderTHEAD(string &html, RenderOptions &opts) {
-  html += "<thead><tr class=round-top>";
+  html += "<thead style=\"view-transition-name:";
+  html += id;
+  html += "-thead\"><tr class=round-top>";
   for (int i = 0; i < columns.size(); ++i) {
     auto &col = columns[i];
     html += "<th>";
@@ -119,7 +119,11 @@ void Table::RenderTHEAD(string &html, RenderOptions &opts) {
 }
 
 void Table::RenderTR(string &html, int row) {
-  html += "<tr>";
+  html += "<tr id=\"";
+  html += RowID(row);
+  html += "\" style=\"view-transition-name:";
+  html += RowID(row);
+  html += "\">";
   for (int col = 0; col < columns.size(); ++col) {
     html += "<td>";
     string cell;
@@ -177,7 +181,9 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
   }
   html += "<a href=\"/";
   html += id;
-  html += ".html\">Full table</a> <a href=\"/";
+  html +=
+      ".html\" hx-boost=\"true\" hx-swap=\"outerHTML transition:true\">Full "
+      "table</a> <a href=\"/";
   html += id;
   html += ".csv\">CSV</a> <a href=\"/";
   html += id;
@@ -187,6 +193,8 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
 
 void Table::RenderTABLE(string &html, RenderOptions &opts) {
   html += "<table id=\"";
+  html += id;
+  html += "\" style=\"view-transition-name:";
   html += id;
   html += "\"><caption>";
   html += caption;
@@ -406,6 +414,12 @@ struct DevicesTable : Table {
       break;
     }
   }
+  std::string RowID(int row) const override {
+    if (row < 0 || row >= rows.size()) {
+      return "";
+    }
+    return f("devices-%08x", rows[row].ip.addr);
+  }
 };
 
 // TODO: status indicator (never/away/active)
@@ -447,6 +461,8 @@ struct ConfigTable : Table {
       break;
     }
   }
+
+  std::string RowID(int row) const override { return "config-onlyrow"; }
 };
 
 ConfigTable config_table;
@@ -459,6 +475,12 @@ struct LogTable : Table {
       return;
     }
     out = messages[row];
+  }
+  std::string RowID(int row) const override {
+    if (row < 0 || row >= messages.size()) {
+      return "";
+    }
+    return f("log-%d", row);
   }
 };
 
@@ -490,6 +512,7 @@ void RenderTableHTML(Response &response, Request &request, Table &t) {
           "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
           "href=\"/favicon.ico\"></head><body>";
   html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
+  html += "<script src=\"/script.js\"></script>";
   t.RenderTABLE(html, opts);
   html += "</body></html>";
   response.Write(html);
@@ -527,23 +550,15 @@ void RenderMainPage(Response &response, Request &request) {
           "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
           "href=\"/favicon.ico\"></head><body>";
   html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
-  html += R"(<script>
-if (localStorage.refresh) {
-  window.refresh_timeout = setTimeout(() => location.reload(), 1000);
-}
-function ToggleAutoRefresh() {
-  if (localStorage.refresh) {
-    delete localStorage.refresh;
-  } else {
-    localStorage.refresh = true;
-  }
-  location.reload();
-}
-</script>)";
+  html += "<script src=\"/script.js\"></script>";
   html += "<h1><a target=\"_blank\" "
           "href=\"https://github.com/mafik/gatekeeper\"><img "
-          "src=\"/gatekeeper.gif\" id=\"knight\"></a>Gatekeeper <button "
-          "onclick=\"ToggleAutoRefresh()\">Toggle Auto-refresh</button></h1>";
+          "src=\"/gatekeeper.gif\" id=\"knight\"></a>Gatekeeper</h1>";
+  html += "<div class=options><input type=checkbox id=\"autorefresh\" "
+          "hx-get=\"/\" hx-target=\"body\" hx-preserve=\"true\" "
+          "hx-trigger=\"every 1s "
+          "[AutorefreshChecked()]\"><label "
+          "for=\"autorefresh\">Auto-refresh</label></div>";
   config_table.RenderTABLE(html, opts);
   devices_table.RenderTABLE(html, opts);
   Table::RenderOptions log_opts = opts;

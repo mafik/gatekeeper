@@ -951,6 +951,7 @@ void Table::Update(RenderOptions &opts) {
   for (auto [time, entry] : expiration_queue) {
     rows.emplace_back(Row{
         .question = entry->question.to_html(),
+        .orig_question = entry->question,
         .expiration = FormatDuration(time - now),
         .expiration_time = time,
     });
@@ -982,6 +983,23 @@ void Table::Get(int row, int col, string &out) const {
     out = rows[row].question;
     break;
   }
+}
+
+std::string Table::RowID(int row) const {
+  if (row < 0 || row >= rows.size()) {
+    return "";
+  }
+  string id = "dns-";
+  for (char c : rows[row].orig_question.domain_name) {
+    if (isalnum(c)) {
+      id += c;
+    } else {
+      id += '-';
+    }
+  }
+  id += '-';
+  id += TypeToString(rows[row].orig_question.type);
+  return id;
 }
 
 Table table;

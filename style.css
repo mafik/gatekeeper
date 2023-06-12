@@ -1,6 +1,5 @@
 html {
   text-size-adjust: 100%;
-  text-align: center;
   background: #b5dcff;
   background: linear-gradient(to bottom, #b5dcff, #cfe8ff);
   min-height: 100vh;
@@ -23,9 +22,11 @@ body {
   flex-flow: row wrap;
   justify-content: space-evenly;
   align-items: flex-start;
+  text-align: center;
 }
 
-h1 {
+h1,
+.options {
   flex-basis: 100%;
 }
 
@@ -35,7 +36,6 @@ table {
   background: #b39e99;
   background: linear-gradient(to bottom, #b39e99, #e0c8bb);
   margin: .5em;
-  /* float: left; */
 }
 
 table {

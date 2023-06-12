@@ -31,6 +31,7 @@ struct Table {
 
   // Called during the rendering.
   virtual void Get(int row, int col, std::string &out) const = 0;
+  virtual std::string RowID(int row) const = 0;
 
   // Functions for rendering the table HTML.
   void RenderTABLE(std::string &html, RenderOptions &);

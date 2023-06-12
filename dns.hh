@@ -148,6 +148,7 @@ void Stop();
 struct Table : webui::Table {
   struct Row {
     string question;
+    Question orig_question;
     string expiration;
     steady_clock::time_point expiration_time;
   };
@@ -156,6 +157,7 @@ struct Table : webui::Table {
   void Update(RenderOptions &) override;
   int Size() const override;
   void Get(int row, int col, string &out) const override;
+  string RowID(int row) const override;
 };
 
 extern Table table;

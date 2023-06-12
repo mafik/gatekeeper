@@ -970,5 +970,6 @@ void Table::Get(int row, int col, string &out) const {
     break;
   }
 }
+std::string Table::RowID(int row) const { return "dhcp-onlyrow"; }
 
 } // namespace dhcp
