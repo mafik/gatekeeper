@@ -12,7 +12,6 @@ htmx.defineExtension('morphdom-swap', {
   },
   handleSwap: function (swapStyle, target, fragment) {
     if (swapStyle === 'morphdom') {
-      console.log("morphdom swap", target, fragment);
       if (fragment.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
         morphdom(target, fragment.firstElementChild);
         return [target];
