@@ -483,8 +483,8 @@ struct ConfigTable : Table {
 
 ConfigTable config_table;
 
-struct LogTable : Table {
-  LogTable() : Table("log", "Log", {"Message"}) {}
+struct LogsTable : Table {
+  LogsTable() : Table("logs", "Logs", {"Message"}) {}
   int Size() const override { return messages.size(); }
   void Get(int row, int col, string &out) const override {
     if (row < 0 || row >= messages.size()) {
@@ -500,7 +500,7 @@ struct LogTable : Table {
   }
 };
 
-LogTable log_table;
+LogsTable logs_table;
 
 Table::RenderOptions Table::RenderOptions::FromQuery(Request &request) {
   Table::RenderOptions opts;
@@ -590,7 +590,7 @@ void RenderMainPage(Response &response, Request &request) {
   devices_table.RenderTABLE(html, opts);
   Table::RenderOptions log_opts = opts;
   log_opts.row_offset = std::max<int>(0, messages.size() - opts.row_limit);
-  log_table.RenderTABLE(html, log_opts);
+  logs_table.RenderTABLE(html, log_opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
   html += "</div></body></html>";

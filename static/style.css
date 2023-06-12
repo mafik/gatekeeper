@@ -100,6 +100,57 @@ pre {
   margin: 0;
 }
 
+table>caption {
+  position: relative;
+}
+
+table>caption::before,
+table>caption::after {
+  position: absolute;
+  bottom: calc(-7px);
+}
+
+table>caption::before {
+  transform: translateX(-100%);
+  left: calc(50% - 4em);
+}
+
+table>caption::after {
+  left: calc(50% + 4em);
+}
+
+#config>caption::before {
+  content: url('/config_l.png');
+}
+
+#config>caption::after {
+  content: url('/config_r.png');
+}
+
+#devices>caption::before {
+  content: url('/devices_l.png');
+}
+
+#devices>caption::after {
+  content: url('/devices_r.png');
+}
+
+#logs>caption::before {
+  content: url('/logs.png');
+}
+
+#dhcp>caption::before {
+  content: url('/dhcp_l.png');
+}
+
+#dhcp>caption::after {
+  content: url('/dhcp_r.png');
+}
+
+#dns>caption::before {
+  content: url('/dns.png');
+}
+
 .dns-question,
 .dns-record {
   padding: .1em .5em;
