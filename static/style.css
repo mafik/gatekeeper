@@ -1,10 +1,10 @@
 @keyframes bg-day-keyframes {
   0% {
-    background-position: 0 0;
+    background-position: bottom left 0, bottom center, bottom left 0, bottom center, bottom center, 0 0;
   }
 
   100% {
-    background-position: 480px 0;
+    background-position: bottom left calc(384px * 4), bottom center, bottom left calc(384px * 2), bottom center, bottom center, calc(480px * 4) 0;
   }
 }
 
@@ -12,9 +12,9 @@ html {
   text-size-adjust: 100%;
   background: #b5dcff;
   background: linear-gradient(to bottom, #b5dcff, #cfe8ff);
-  background: url('/bg_day_1.png') repeat-x, linear-gradient(to bottom, #93e3e4 272px, #cfe8ff);
+  background: url('/bg_day_6.png') repeat-x, url('/bg_day_5.png') no-repeat, url('/bg_day_4.png') repeat-x, url('/bg_day_3.png') repeat-x, url('/bg_day_2.png') repeat-x, url('/bg_day_1.png') repeat-x, linear-gradient(to bottom, #93e3e4 272px, #cfe8ff);
   min-height: 100vh;
-  animation: bg-day-keyframes 60s linear infinite;
+  animation: bg-day-keyframes 240s linear infinite;
 }
 
 code,
