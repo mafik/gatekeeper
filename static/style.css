@@ -1,4 +1,4 @@
-@keyframes cloud-animation {
+@keyframes bg-day-keyframes {
   0% {
     background-position: 0 0;
   }
@@ -12,9 +12,9 @@ html {
   text-size-adjust: 100%;
   background: #b5dcff;
   background: linear-gradient(to bottom, #b5dcff, #cfe8ff);
-  background: url('/clouds-day.png') repeat-x, linear-gradient(to bottom, #93e3e4 272px, #cfe8ff);
+  background: url('/bg_day_1.png') repeat-x, linear-gradient(to bottom, #93e3e4 272px, #cfe8ff);
   min-height: 100vh;
-  animation: cloud-animation 60s linear infinite;
+  animation: bg-day-keyframes 60s linear infinite;
 }
 
 code,
@@ -45,10 +45,14 @@ h1,
 }
 
 table {
+  --bg-bright2: #ffdcc8;
+  --bg-bright: #e0c8bb;
+  --bg-dark: #b39e99;
+  --bg-cell: #fff;
   text-align: left;
-  border: 1px outset #e0c8bb;
-  background: #b39e99;
-  background: linear-gradient(to bottom, #b39e99, #e0c8bb);
+  border: 1px outset var(--bg-bright);
+  background: var(--bg-dark);
+  background: linear-gradient(to bottom, var(--bg-dark), var(--bg-bright));
   margin: .5em;
 }
 
@@ -73,19 +77,18 @@ tr.round-bottom>*:last-child {
 }
 
 tbody>tr>td {
-  border: 1px inset #e0c8bb;
-  background: #fff;
-
+  border: 1px inset var(--bg-bright);
+  background: var(--bg-cell);
 }
 
 th {
-  border: 2px groove #e0c8bb;
-  text-shadow: 1px 1px 0 #e0c8bb;
+  border: 2px groove var(--bg-bright);
+  text-shadow: 1px 1px 0 var(--bg-bright);
 }
 
 tfoot>tr>td {
-  border: 2px groove #f0d8ca;
-  text-shadow: 1px 1px 0 #ffdcc8;
+  border: 2px groove var(--bg-bright2);
+  text-shadow: 1px 1px 0 var(--bg-bright2);
 }
 
 td,
@@ -122,4 +125,53 @@ a {
 a.arrow {
   color: inherit;
   text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  @keyframes bg-dark-keyframes {
+    0% {
+      background-position: bottom 0 left 0, bottom left, top 0 left 10%, top left, 0 0;
+    }
+
+    100% {
+      background-position: bottom 0 left -320px, bottom left, top 0 left 10%, top left, 0 0;
+    }
+  }
+
+  html {
+    background: url('/bg_night_3.png') repeat-x bottom left,
+      url('/bg_night_2.png') repeat-x bottom left,
+      url('/bg_night_1.png') no-repeat top left,
+      url('/bg_night_1_repeat.png') repeat-x top left,
+      linear-gradient(to bottom, #152039, #154271 180px, #191621);
+    color: white;
+    animation: bg-dark-keyframes 60s linear infinite;
+  }
+
+  table {
+    --bg-bright2: #226297;
+    --bg-bright: #192d4c;
+    --bg-dark: #10111c;
+    --bg-cell: radial-gradient(closest-corner, #c06228, #71300d);
+  }
+
+  th {
+    border-color: var(--bg-dark);
+    text-shadow: 1px 1px 0 var(--bg-bright);
+  }
+
+  tfoot>tr>td {
+    border-color: var(--bg-bright);
+    text-shadow: 1px 1px 0 var(--bg-dark);
+  }
+
+  .dns-question {
+    background: #362e5c;
+    border: 1px solid #c1afff;
+
+  }
+
+  a {
+    color: #bdc7ff;
+  }
 }
