@@ -46,7 +46,7 @@ void WriteFile(Response &response, const char *path) {
 
 unordered_set<string> static_files = {
     "/style.css",         "/gatekeeper.gif", "/favicon.ico",
-    "/htmx-1.9.2.min.js", "/script.js",
+    "/htmx-1.9.2.min.js", "/script.js",      "/morphdom-umd-2.7.0.min.js",
 };
 
 map<string, Table *> &Tables() {
@@ -84,8 +84,9 @@ string TableBeginA(Table &t, Table::RenderOptions opts) {
       html += "&desc";
     }
   }
-  html += "\" class=\"arrow\" hx-boost=\"true\" hx-swap=\"outerHTML "
-          "transition:true\" hx-push-url=\"false\" hx-target=\"#";
+  html += "\" class=\"arrow\" hx-boost=\"true\" hx-swap=\"morphdom outerHTML "
+          "transition:true\" hx-ext=\"morphdom-swap\" "
+          "hx-push-url=\"false\" hx-target=\"#";
   html += t.id;
   html += "\" hx-select=\"#";
   html += t.id;
@@ -181,9 +182,11 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
   }
   html += "<a href=\"/";
   html += id;
-  html +=
-      ".html\" hx-boost=\"true\" hx-swap=\"outerHTML transition:true\">Full "
-      "table</a> <a href=\"/";
+  html += ".html\" hx-boost=\"true\" hx-target=\"#content\" "
+          "hx-select=\"#content\" hx-ext=\"morphdom-swap\" "
+          "hx-swap=\"morphdom outerHTML "
+          "transition:true\">Full "
+          "table</a> <a href=\"/";
   html += id;
   html += ".csv\">CSV</a> <a href=\"/";
   html += id;
@@ -510,11 +513,14 @@ void RenderTableHTML(Response &response, Request &request, Table &t) {
   html += t.caption;
   html += " - Gatekeeper</title><link rel=\"stylesheet\" "
           "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
-          "href=\"/favicon.ico\"></head><body>";
+          "href=\"/favicon.ico\">";
+  html += "<script src=\"/morphdom-umd-2.7.0.min.js\"></script>";
   html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
   html += "<script src=\"/script.js\"></script>";
+  html += "</head><body>";
+  html += "<div id=content>";
   t.RenderTABLE(html, opts);
-  html += "</body></html>";
+  html += "</div></body></html>";
   response.Write(html);
 }
 
@@ -546,16 +552,24 @@ void RenderMainPage(Response &response, Request &request) {
   }
   string html;
   html += "<!doctype html>";
-  html += "<html><head><title>Gatekeeper</title><link rel=\"stylesheet\" "
-          "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
-          "href=\"/favicon.ico\"></head><body>";
+  html += "<html><head>";
+  html += "<title>Gatekeeper</title>";
+  html += "<link rel=\"stylesheet\" href=\"/style.css\">";
+  html += "<link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\">";
+  html += "<script src=\"/morphdom-umd-2.7.0.min.js\"></script>";
   html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
   html += "<script src=\"/script.js\"></script>";
+  html += "</head>";
+  html += "<body>";
+  html += "<div id=content>";
   html += "<h1><a target=\"_blank\" "
           "href=\"https://github.com/mafik/gatekeeper\"><img "
           "src=\"/gatekeeper.gif\" id=\"knight\"></a>Gatekeeper</h1>";
   html += "<div class=options><input type=checkbox id=\"autorefresh\" "
-          "hx-get=\"/\" hx-target=\"body\" hx-preserve=\"true\" "
+          "hx-get=\"/\" hx-target=\"#content\" hx-select=\"#content\" "
+          "hx-ext=\"morphdom-swap\" "
+          "hx-swap=\"morphdom\" "
+          "hx-preserve=\"true\" "
           "hx-trigger=\"every 1s "
           "[AutorefreshChecked()]\"><label "
           "for=\"autorefresh\">Auto-refresh</label></div>";
@@ -566,7 +580,7 @@ void RenderMainPage(Response &response, Request &request) {
   log_table.RenderTABLE(html, log_opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
-  html += "</body></html>";
+  html += "</div></body></html>";
   response.Write(html);
 }
 

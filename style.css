@@ -17,7 +17,9 @@ table>caption {
   overflow-wrap: break-word;
 }
 
-body {
+/* Top-level page is wrapped in div#content because `morphdom` has problems updating `<body>` element.
+   When `morphdom` is replaced with `idiomorph` (part of htmx-2.0), the top level div may be removed. */
+#content {
   display: flex;
   flex-flow: row wrap;
   justify-content: space-evenly;
