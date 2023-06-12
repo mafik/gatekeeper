@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <deque>
@@ -26,28 +27,40 @@ static constexpr int kPort = 1337;
 Server server;
 deque<string> messages;
 
-void WriteFile(Response &response, const char *path) {
-  int f = open(path, O_RDONLY);
+bool WriteStaticFile(Response &response, Request &request) {
+  if (request.path.size() <= 1) {
+    return false;
+  }
+  // no slashes allowed (except the mandatory first one)
+  if (!request.path.starts_with("/")) {
+    return false;
+  }
+  if (request.path.find('/', 1) != string::npos) {
+    return false;
+  }
+  struct stat buffer;
+  string static_path = "static";
+  static_path += request.path;
+  if (stat(static_path.c_str(), &buffer) != 0) {
+    return false;
+  }
+  int f = open(static_path.c_str(), O_RDONLY);
   if (f == -1) {
     response.WriteStatus("500 Internal Server Error");
-    response.Write("Failed to open style.css");
-    return;
+    response.Write("Failed to open " + static_path);
+    return true;
   }
-  char buf[1024 * 64];
+  char buf[buffer.st_size + 1];
   int len = read(f, buf, sizeof(buf));
   close(f);
   if (len == -1) {
     response.WriteStatus("500 Internal Server Error");
-    response.Write("Failed to read style.css");
-    return;
+    response.Write("Failed to read " + static_path);
+    return true;
   }
   response.Write(string_view(buf, len));
+  return true;
 }
-
-unordered_set<string> static_files = {
-    "/style.css",         "/gatekeeper.gif", "/favicon.ico",
-    "/htmx-1.9.2.min.js", "/script.js",      "/morphdom-umd-2.7.0.min.js",
-};
 
 map<string, Table *> &Tables() {
   static map<string, Table *> tables;
@@ -586,8 +599,7 @@ void RenderMainPage(Response &response, Request &request) {
 
 void Handler(Response &response, Request &request) {
   string path(request.path);
-  if (static_files.contains(path)) {
-    WriteFile(response, path.substr(1).c_str());
+  if (WriteStaticFile(response, request)) {
     return;
   } else if (path.starts_with("/") && path.ends_with(".html")) {
     string id(path.substr(1, path.size() - 6));
