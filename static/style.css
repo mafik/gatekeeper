@@ -108,6 +108,7 @@ table>caption::before,
 table>caption::after {
   position: absolute;
   bottom: calc(-7px);
+  filter: saturate(150%) brightness(120%);
 }
 
 table>caption::before {
@@ -214,6 +215,11 @@ a.arrow {
   tfoot>tr>td {
     border-color: var(--bg-bright);
     text-shadow: 1px 1px 0 var(--bg-dark);
+  }
+
+  table>caption::before,
+  table>caption::after {
+    filter: none;
   }
 
   .dns-question {
