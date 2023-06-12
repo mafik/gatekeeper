@@ -8,6 +8,12 @@
   }
 }
 
+@font-face {
+  font-family: 'Texturina';
+  src: url('/Texturina-VariableFont_opsz,wght.ttf') format('truetype-variations');
+  ascent-override: 90%;
+}
+
 html {
   text-size-adjust: 100%;
   background: #b5dcff;
@@ -20,13 +26,12 @@ html {
 code,
 pre,
 html {
-  font-family: system-ui, sans-serif;
+  font-family: 'Texturina', system-ui, sans-serif;
   overflow-wrap: anywhere;
 }
 
-table>caption {
-  font-weight: bold;
-  overflow-wrap: break-word;
+h1 {
+  font-weight: 800;
 }
 
 /* Top-level page is wrapped in div#content because `morphdom` has problems updating `<body>` element.
@@ -54,9 +59,6 @@ table {
   background: var(--bg-dark);
   background: linear-gradient(to bottom, var(--bg-dark), var(--bg-bright));
   margin: .5em;
-}
-
-table {
   border-radius: 9px;
 }
 
@@ -101,6 +103,9 @@ pre {
 }
 
 table>caption {
+  font-size: 1.3em;
+  line-height: 1em;
+  font-weight: 800;
   position: relative;
 }
 
@@ -113,11 +118,11 @@ table>caption::after {
 
 table>caption::before {
   transform: translateX(-100%);
-  left: calc(50% - 4em);
+  left: calc(50% - 3em);
 }
 
 table>caption::after {
-  left: calc(50% + 4em);
+  left: calc(50% + 3em);
 }
 
 #config>caption::before {
@@ -215,6 +220,12 @@ a.arrow {
   tfoot>tr>td {
     border-color: var(--bg-bright);
     text-shadow: 1px 1px 0 var(--bg-dark);
+  }
+
+  h1,
+  table>caption,
+  .options {
+    filter: drop-shadow(1px 2px 0 black);
   }
 
   table>caption::before,
