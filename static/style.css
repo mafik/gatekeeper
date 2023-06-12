@@ -1,8 +1,20 @@
+@keyframes cloud-animation {
+  0% {
+    background-position: 0 0;
+  }
+
+  100% {
+    background-position: 480px 0;
+  }
+}
+
 html {
   text-size-adjust: 100%;
   background: #b5dcff;
   background: linear-gradient(to bottom, #b5dcff, #cfe8ff);
+  background: url('/clouds-day.png') repeat-x, linear-gradient(to bottom, #93e3e4 272px, #cfe8ff);
   min-height: 100vh;
+  animation: cloud-animation 60s linear infinite;
 }
 
 code,
