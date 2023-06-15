@@ -6,6 +6,8 @@ gatekeeper : src/*.cc src/*.hh generated/embedded.hh generated/embedded.cc Makef
 gatekeeper-debug : src/*.cc src/*.hh generated/embedded.hh generated/embedded.cc Makefile
 	clang++-17 -std=c++2b -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc generated/*.cc -l systemd -L. -o $@
 
+# Note: command for crushing png files
+# pngcrush -ow -rem alla -brute -reduce static/*
 generated/embedded.hh generated/embedded.cc : gatekeeper.service static/* generate_embedded.py
 	./generate_embedded.py
 
