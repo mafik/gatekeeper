@@ -22,6 +22,7 @@ union __attribute__((__packed__)) IP {
   static IP FromInterface(std::string_view interface_name, Status &status);
   static IP NetmaskFromInterface(std::string_view interface_name,
                                  Status &status);
+  static IP NetmaskFromPrefixLength(int prefix_length);
   std::string to_string() const;
   auto operator<=>(const IP &other) const {
     return (int32_t)ntohl(addr) <=> (int32_t)ntohl(other.addr);
