@@ -3,9 +3,8 @@
 #include <cassert>
 #include <cerrno>
 #include <cstring>
+#include <fcntl.h>
 #include <sys/epoll.h>
-
-// Build for: HYPERDECK_SERVER
 
 // #define DEBUG_EPOLL
 
@@ -21,7 +20,10 @@ static constexpr int kMaxEpollEvents = 10;
 static epoll_event events[kMaxEpollEvents];
 static int events_count = 0;
 
-void Init() { fd = epoll_create1(0); }
+void Init() {
+  fd = epoll_create1(0);
+  fcntl(fd, F_SETFD, FD_CLOEXEC);
+}
 
 static epoll_event MakeEpollEvent(Listener *listener) {
   epoll_event ev = {.events = EPOLLET, .data = {.ptr = listener}};
@@ -34,28 +36,27 @@ static epoll_event MakeEpollEvent(Listener *listener) {
   return ev;
 }
 
-
 void Add(Listener *listener, std::string &error) {
   epoll_event ev = MakeEpollEvent(listener);
-  if (int r = epoll_ctl(fd, EPOLL_CTL_ADD, listener->fd, &ev);
-      r == -1) {
+  if (int r = epoll_ctl(fd, EPOLL_CTL_ADD, listener->fd, &ev); r == -1) {
     error = "epoll_ctl(EPOLL_CTL_ADD): ";
     error += strerror(errno);
     return;
   }
   ++listener_count;
 #ifdef DEBUG_EPOLL
-  LOG << "Added listener for " << listener->Name() << listener->fd << ". Currently " << listener_count << " active listeners.";
+  LOG << "Added listener for " << listener->Name() << listener->fd
+      << ". Currently " << listener_count << " active listeners.";
 #endif
 }
 
 void Mod(Listener *listener, std::string &error) {
   epoll_event ev = MakeEpollEvent(listener);
 #ifdef DEBUG_EPOLL
-  LOG << "epoll_ctl " << listener->Name() << listener->fd << " " << (ev.events & EPOLLOUT ? "RDWR" : "RD");
+  LOG << "epoll_ctl " << listener->Name() << listener->fd << " "
+      << (ev.events & EPOLLOUT ? "RDWR" : "RD");
 #endif
-  if (int r = epoll_ctl(fd, EPOLL_CTL_MOD, listener->fd, &ev);
-      r == -1) {
+  if (int r = epoll_ctl(fd, EPOLL_CTL_MOD, listener->fd, &ev); r == -1) {
     error = "epoll_ctl(EPOLL_CTL_MOD): ";
     error += strerror(errno);
   }
@@ -74,7 +75,8 @@ void Del(Listener *l, std::string &error) {
     }
   }
 #ifdef DEBUG_EPOLL
-  LOG << "Removed listener for " << l->Name() << l->fd << ". Currently " << listener_count << " active listeners.";
+  LOG << "Removed listener for " << l->Name() << l->fd << ". Currently "
+      << listener_count << " active listeners.";
 #endif
 }
 
@@ -95,12 +97,14 @@ void Loop(std::string &error) {
 
     for (int i = 0; i < events_count; ++i) {
       Listener *l = (Listener *)events[i].data.ptr;
-      if (events[i].data.ptr == nullptr) continue;
+      if (events[i].data.ptr == nullptr)
+        continue;
 #ifdef DEBUG_EPOLL
       if (strcmp(l->Name(), "Timer")) {
         bool in = events[i].events & EPOLLIN;
         bool out = events[i].events & EPOLLOUT;
-        LOG << "epoll_wait[" << i << "/" << events_count << "] " << l->Name() << l->fd << " " << (in ? "RD" : "") << (out ? "WR" : "");
+        LOG << "epoll_wait[" << i << "/" << events_count << "] " << l->Name()
+            << l->fd << " " << (in ? "RD" : "") << (out ? "WR" : "");
       }
 #endif
       if (events[i].events & EPOLLIN) {
@@ -109,7 +113,8 @@ void Loop(std::string &error) {
           return;
         }
       }
-      if (events[i].data.ptr == nullptr) continue;
+      if (events[i].data.ptr == nullptr)
+        continue;
       if (events[i].events & EPOLLOUT) {
         l->NotifyWrite(error);
         if (!error.empty()) {
