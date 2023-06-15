@@ -3,7 +3,7 @@
 #include <csignal>
 #include <sys/signalfd.h>
 
-SignalHandler::SignalHandler(int signal) {
+SignalHandler::SignalHandler(int signal) : signal(signal) {
   sigset_t mask;
   sigemptyset(&mask);
   sigaddset(&mask, signal);
@@ -32,6 +32,10 @@ SignalHandler::~SignalHandler() {
     epoll::Del(this, error);
     close(fd);
   }
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, signal);
+  sigprocmask(SIG_UNBLOCK, &mask, NULL);
 }
 
 void SignalHandler::NotifyRead(std::string &error) {

@@ -8,6 +8,7 @@
 struct SignalHandler : epoll::Listener {
   Status status;
   std::function<void(std::string &error)> handler;
+  int signal;
 
   SignalHandler(int signal);
   ~SignalHandler();
