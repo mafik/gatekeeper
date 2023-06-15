@@ -32,8 +32,8 @@ LogEntry::~LogEntry() {
   }
 
   if (log_level == LogLevel::Fatal) {
-    buffer += f(" Crashing in %s:%d [%s].", location.file_name(), location.line(),
-                location.function_name());
+    buffer += f(" Crashing in %s:%d [%s].", location.file_name(),
+                location.line(), location.function_name());
   }
 
   for (auto &logger : loggers) {
@@ -62,6 +62,11 @@ void __attribute__((__constructor__)) InitDefaultLoggers() {
 }
 
 const LogEntry &operator<<(const LogEntry &logger, int i) {
+  logger.buffer += std::to_string(i);
+  return logger;
+}
+
+const LogEntry &operator<<(const LogEntry &logger, long i) {
   logger.buffer += std::to_string(i);
   return logger;
 }

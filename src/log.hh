@@ -59,6 +59,7 @@ extern std::vector<Logger> loggers;
 #define FATAL LogEntry(LogLevel::Fatal, std::source_location::current())
 
 const LogEntry &operator<<(const LogEntry &, int);
+const LogEntry &operator<<(const LogEntry &, long);
 const LogEntry &operator<<(const LogEntry &, unsigned);
 const LogEntry &operator<<(const LogEntry &, unsigned long);
 const LogEntry &operator<<(const LogEntry &, unsigned long long);
