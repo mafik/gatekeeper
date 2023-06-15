@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <string>
+#include <sys/types.h>
 
 #include "status.hh"
 
@@ -13,6 +14,10 @@ struct VFile {
 };
 
 // Read the given file and call the callback with the file content.
+void ReadRealFile(const char *path,
+                  std::function<void(std::string_view)> callback, Status &);
+
+// Read the given file and call the callback with the file content.
 //
 // Files are usually served from the embedded filesystem. However if a real file
 // with the same path exists - it overrides the embedded one. This can be used
@@ -20,5 +25,12 @@ struct VFile {
 // you change a file.
 void ReadFile(const char *path, std::function<void(std::string_view)> callback,
               Status &);
+
+// Write the given file with the given contents.
+void WriteFile(const char *path, std::string_view contents, Status &,
+               mode_t mode = 0644);
+
+void CopyFile(const char *from_path, const char *to_path, Status &status,
+              mode_t mode = 0644);
 
 } // namespace gatekeeper
