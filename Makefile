@@ -1,15 +1,18 @@
 all : gatekeeper
 
-gatekeeper : src/*.cc src/*.hh Makefile
-	clang++-17 -std=c++2b -static -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc -l systemd -L. -o $@
+gatekeeper : src/*.cc src/*.hh generated/embedded.hh generated/embedded.cc Makefile
+	clang++-17 -std=c++2b -static -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc generated/*.cc -l systemd -L. -o $@
 
-gatekeeper-debug : src/*.cc src/*.hh Makefile
-	clang++-17 -std=c++2b -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc -l systemd -L. -o $@
+gatekeeper-debug : src/*.cc src/*.hh generated/embedded.hh generated/embedded.cc Makefile
+	clang++-17 -std=c++2b -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc generated/*.cc -l systemd -L. -o $@
+
+generated/embedded.hh generated/embedded.cc : gatekeeper.service static/* generate_embedded.py
+	./generate_embedded.py
 
 clean :
 	rm -f gatekeeper
 
-gatekeeper.tar.gz : gatekeeper gatekeeper.gif favicon.ico style.css gatekeeper.service htmx-1.9.2.min.js
+gatekeeper.tar.gz : gatekeeper gatekeeper.service
 	tar -czf $@ $^
 
 test : gatekeeper test_e2e.sh

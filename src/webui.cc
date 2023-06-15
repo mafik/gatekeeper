@@ -8,6 +8,7 @@
 #include <deque>
 #include <unordered_set>
 
+#include "../generated/embedded.hh"
 #include "chrono.hh"
 #include "config.hh"
 #include "dhcp.hh"
@@ -38,28 +39,13 @@ bool WriteStaticFile(Response &response, Request &request) {
   if (request.path.find('/', 1) != string::npos) {
     return false;
   }
-  struct stat buffer;
-  string static_path = "static";
-  static_path += request.path;
-  if (stat(static_path.c_str(), &buffer) != 0) {
-    return false;
-  }
-  int f = open(static_path.c_str(), O_RDONLY);
-  if (f == -1) {
-    response.WriteStatus("500 Internal Server Error");
-    response.Write("Failed to open " + static_path);
-    return true;
-  }
-  char buf[buffer.st_size + 1];
-  int len = read(f, buf, sizeof(buf));
-  close(f);
-  if (len == -1) {
-    response.WriteStatus("500 Internal Server Error");
-    response.Write("Failed to read " + static_path);
-    return true;
-  }
-  response.Write(string_view(buf, len));
-  return true;
+  string path = "static";
+  path += request.path;
+  Status status;
+  gatekeeper::ReadFile(
+      path.c_str(), [&](string_view content) { response.Write(content); },
+      status);
+  return status.Ok();
 }
 
 map<string, Table *> &Tables() {
