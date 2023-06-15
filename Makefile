@@ -1,10 +1,10 @@
 all : gatekeeper
 
-gatekeeper : *.cc *.hh Makefile
-	clang++-17 -std=c++2b -static -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections *.cc -l systemd -L. -o $@
+gatekeeper : src/*.cc src/*.hh Makefile
+	clang++-17 -std=c++2b -static -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc -l systemd -L. -o $@
 
-gatekeeper-debug : *.cc *.hh Makefile
-	clang++-17 -std=c++2b -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections *.cc -l systemd -L. -o $@
+gatekeeper-debug : src/*.cc src/*.hh Makefile
+	clang++-17 -std=c++2b -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc -l systemd -L. -o $@
 
 clean :
 	rm -f gatekeeper
