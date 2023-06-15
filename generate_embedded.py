@@ -7,8 +7,11 @@ import string
 from pathlib import Path
 from datetime import datetime, timezone
 
-embedded_paths = list(Path('static').glob('*'))
+embedded_paths = list(Path('static').glob('**/*'))
 embedded_paths.append(Path('gatekeeper.service'))
+
+# retain only files
+embedded_paths = [path for path in embedded_paths if path.is_file()]
 
 Path('generated').mkdir(exist_ok=True)
 
