@@ -16,4 +16,5 @@ struct Status {
 
   bool Ok() const;
   std::string ToString() const;
+  void Reset();
 };

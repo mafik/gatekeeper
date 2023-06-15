@@ -15,7 +15,7 @@ std::string &Status::operator()(const std::source_location location_arg) {
   return messages.back();
 }
 
-bool Status::Ok() const { return errsv == 0; }
+bool Status::Ok() const { return errsv == 0 && messages.empty(); }
 
 std::string Status::ToString() const {
   std::string ret;
@@ -40,4 +40,10 @@ std::string Status::ToString() const {
   }
   ret += ".";
   return ret;
+}
+
+void Status::Reset() {
+  errsv = 0;
+  locations.clear();
+  messages.clear();
 }
