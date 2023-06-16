@@ -21,31 +21,36 @@ The key idea that distinguishes Gatekeeper from most other network management so
 
 ## ![Running Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/gatekeeper-running.gif?raw=true) Running Gatekeeper
 
-### Interface configuration
+```bash
+curl https://github.com/mafik/gatekeeper/releases/latest/download/gatekeeper -o gatekeeper \
+  && chmod +x gatekeeper \
+  && sudo ./gatekeeper
+```
 
-Before running Gatekeeper you should configure the home network interface. This means:
+That's it. Gatekeeper will copy itself to `/opt/gatekeeper`, register as a systemd service and start. You can remove the downloaded binary with `rm gatekeeper` now. After installation it's no longer needed.
 
-1. The gateway machine should be able to access internet. This usually means plugging the internet cable & running DHCP client on the external interface: `dhclient <external interface name>`.
-2. Assign IP & netmask to the interface. You can see current interface configuration with `ip addr show`. Adding IP addresses can be done with `ip addr add 192.168.1.1/24 dev <local interface name>`.
-3. The interface should be in "up" state. You can bring it up with `ip link set <local interface name> up`.
-4. The interface should have "forwarding" enabled. You can enable it with `sysctl -w net.ipv4.ip_forward=1`.
-5. Enable NAT Masquerading. You can do it with `iptables -t nat -A POSTROUTING -o <external interface name> -j MASQUERADE`.
+To remove Gatekeeper, run `sudo systemctl disable --now gatekeeper` (this stops Gatekeeper and prevents it from starting again on next reboot) and `rm -rf /opt/gatekeeper`.
 
-This config will be lost after reboot - so add those commands to `/etc/rc.local` & `sudo chmod a+x /etc/rc.local` to make it executable.
+### Portable mode
 
-Interface configuration can also be done with other tools, such as `systemd-networkd` (Debian), `netplan` (Ubuntu) or other, distro-specific mechanisms.
+You can also start Gatekeeper without installing it by running `sudo PORTABLE=1 ./gatekeeper`.
 
-Eventually, Gatekeeper should take care of this but I'm adding new features as I need them.
+### LAN interface selection
 
-### Installation
+Gatekeeper will manage the first interface without IP address that it finds. It your LAN interface is already configured you can either flush it with `sudo ip addr flush dev <interface>` or tell Gatekeeper to use it by running it with `LAN=<interface>` environment variable. This can be easiest done by running `sudo systemctl edit gatekeeper` and adding the following lines:
 
-1. Create `/opt/gatekeeper/` directory.
-2. Download .tar.gz file from the [Releases page](https://github.com/mafik/gatekeeper/releases).
-3. Extract it with `cd /opt/gatekeeper && tar -xzf <path to downloaded gatekeeper.tar.gz>`.
-4. (Optionally) Do a test run with `sudo ./gatekeeper <interface name>`. Ctrl+C to stop.
-5. Edit `/opt/gatekeeper/gatekeeper.service` file and change the interface name from `br0` to the name of your local interface.
-6. Install systemd service with `sudo systemctl enable --now /opt/gatekeeper/gatekeeper.service`.
-7.  Open web interface by navigating to `http://<IP of the local interface>:1337/` in your browser.
+```
+[Service]
+Environment="LAN=<interface>"
+```
+
+### Limitations
+
+Gatekeeper doesn't configure the WAN interface. It has to be done using stardard OS-supplied tools (most likely just DHCP). In the future Gatekeeper will take care of this.
+
+Gatekeeper doesn't set up the NAT masquerade _yet_. You can do this manually by running `iptables -t nat -A POSTROUTING -o <external interface name> -j MASQUERADE`.
+
+Gatekeeper only runs on x86_64 Linux. In the future I'd like to also port it to ARM (32 & 64-bit) & MIPS (for those dirt-cheap OpenWRT routers).
 
 ## Building from source
 
