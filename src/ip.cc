@@ -39,9 +39,13 @@ IP IP::NetmaskFromPrefixLength(int prefix_length) {
   for (int i = 0; i < prefix_length; i++) {
     mask |= 1 << (31 - i);
   }
-  return IP(mask);
+  return IP(htonl(mask));
 }
 
 std::string IP::to_string() const {
   return f("%d.%d.%d.%d", bytes[0], bytes[1], bytes[2], bytes[3]);
+}
+
+std::string Network::LoggableString() const {
+  return ip.to_string() + "/" + std::to_string(std::countr_one(netmask.addr));
 }

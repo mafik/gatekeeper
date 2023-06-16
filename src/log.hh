@@ -6,7 +6,6 @@
 #include <string>
 #include <string_view>
 
-#include "chrono.hh"
 #include "status.hh"
 
 // Functions for logging human-readable messages.
@@ -71,6 +70,7 @@ const LogEntry &operator<<(const LogEntry &, Status &status);
 
 template <typename T>
 concept loggable = requires(T &v) {
+  // TODO: Switch to `ToString`.
   { v.LoggableString() } -> std::convertible_to<std::string_view>;
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <bit>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -24,6 +25,7 @@ union __attribute__((__packed__)) IP {
                                  Status &status);
   static IP NetmaskFromPrefixLength(int prefix_length);
   std::string to_string() const;
+  std::string LoggableString() const { return to_string(); }
   auto operator<=>(const IP &other) const {
     return (int32_t)ntohl(addr) <=> (int32_t)ntohl(other.addr);
   }
@@ -38,4 +40,10 @@ union __attribute__((__packed__)) IP {
     return *this;
   }
   bool TryParse(const char *cp) { return inet_pton(AF_INET, cp, &addr) == 1; }
+};
+
+struct Network {
+  IP ip; // this can be either IP of the network or IP of the host
+  IP netmask;
+  std::string LoggableString() const;
 };
