@@ -421,7 +421,6 @@ void OnReceive(uint16_t type, void *fixed_message, nlattr **attrs) {
 void Loop() {
   prctl(PR_SET_NAME, "Firewall loop", 0, 0, 0);
   Status status;
-  LOG << "Loop is starting";
   while (status.Ok()) {
     queue->Receive(sizeof(nfgenmsg), NFQA_MAX, OnReceive, status);
   }
