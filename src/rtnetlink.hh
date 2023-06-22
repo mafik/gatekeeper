@@ -12,7 +12,7 @@
 // Utilities for interacting with the Linux routing table.
 //
 // See `man 7 rtnetlink`.
-namespace maf::route {
+namespace maf::rtnetlink {
 
 struct Route {
   rtmsg rtm;
@@ -31,4 +31,4 @@ struct Route {
 void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
               Status &status);
 
-} // namespace maf::route
+} // namespace maf::rtnetlink

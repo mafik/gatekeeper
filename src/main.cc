@@ -16,7 +16,7 @@
 #include "interface.hh"
 #include "log.hh"
 #include "netlink.hh"
-#include "route.hh"
+#include "rtnetlink.hh"
 #include "signal.hh"
 #include "status.hh"
 #include "systemd.hh"
@@ -157,9 +157,9 @@ Interface PickWANInterface(Status &status) {
   }
   Interface if_WAN = {};
   // Check the routing table for `default` route.
-  route::GetRoute(
+  rtnetlink::GetRoute(
       netlink_route,
-      [&](route::Route &r) {
+      [&](rtnetlink::Route &r) {
         if (r.dst == IP(0, 0, 0, 0) && r.dst_mask == IP(0, 0, 0, 0) &&
             r.gateway.has_value() && r.oif.has_value()) {
           // Save the index of the interface that has the default route.
