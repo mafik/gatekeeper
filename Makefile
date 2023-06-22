@@ -1,7 +1,7 @@
 all : gatekeeper
 
 gatekeeper : src/*.cc src/*.hh generated/embedded.hh generated/embedded.cc Makefile
-	clang++-17 -std=c++2b -static -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc generated/*.cc -l systemd -L. -o $@
+	clang++-17 -std=c++2b -static -g -gdwarf-4 -O3 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc generated/*.cc -l systemd -L. -o $@
 
 gatekeeper-debug : src/*.cc src/*.hh generated/embedded.hh generated/embedded.cc Makefile
 	clang++-17 -std=c++2b -g -gdwarf-4 -O0 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections src/*.cc generated/*.cc -l systemd -L. -o $@
