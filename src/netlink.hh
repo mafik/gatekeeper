@@ -17,9 +17,6 @@ namespace maf {
 // Users of this class should be intimately familiar with the netlink protocol.
 // See: https://docs.kernel.org/userspace-api/netlink/intro.html.
 struct Netlink {
-  // Status can be read to check for communication errors.
-  Status status;
-
   // The netlink socket.
   FD fd;
 
@@ -32,7 +29,7 @@ struct Netlink {
   //
   // See: https://docs.kernel.org/userspace-api/netlink/intro.html for an
   // explanation of NETLINK_GENERIC protocol.
-  Netlink(int protocol);
+  Netlink(int protocol, Status &status);
 
   // Send a simple netlink message.
   //
@@ -41,7 +38,7 @@ struct Netlink {
   //
   // Optional `status` will be used instead of the default `status` of this
   // object to report errors.
-  void Send(nlmsghdr &msg, Status *status = nullptr);
+  void Send(nlmsghdr &msg, Status &status);
 
   // Send a netlink message with a single extra attribute of variable size.
   //
@@ -55,7 +52,7 @@ struct Netlink {
   //
   // Optional `status` will be used instead of the default `status` of this
   // object to report errors.
-  void SendWithAttr(nlmsghdr &msg, nlattr &attr, Status *status = nullptr);
+  void SendWithAttr(nlmsghdr &msg, nlattr &attr, Status &status);
 
   // Send an arbitrary sequence of bytes as a netlink message.
   //
@@ -66,7 +63,7 @@ struct Netlink {
   //
   // Optional `status` will be used instead of the default `status` of this
   // object to report errors.
-  void SendRaw(std::string_view, Status *status = nullptr);
+  void SendRaw(std::string_view, Status &status);
 
   using ReceiveCallback = std::function<void(uint16_t type, void *fixed_message,
                                              nlattr **attributes)>;
@@ -94,10 +91,7 @@ struct Netlink {
   // Errors will be reported using either the `status` argument or the `status`
   // field of this netlink connection.
   void Receive(size_t fixed_message_size, int attribute_max,
-               ReceiveCallback callback, Status *status = nullptr);
-
-  // Shortcut for checking the `status` field of this netlink connection.
-  bool Ok();
+               ReceiveCallback callback, Status &status);
 };
 
 } // namespace maf

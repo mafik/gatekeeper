@@ -14,7 +14,7 @@ static constexpr sockaddr_nl kKernelSockaddr{
     .nl_groups = 0,
 };
 
-Netlink::Netlink(int protocol) {
+Netlink::Netlink(int protocol, Status &status) {
   fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, protocol);
   if (fd < 0) {
     status() += "socket(AF_NETLINK, SOCK_RAW, " + f("%x", protocol) + ")";
@@ -59,15 +59,12 @@ Netlink::Netlink(int protocol) {
   }
 }
 
-bool Netlink::Ok() { return status.Ok(); }
-
-void Netlink::Send(nlmsghdr &msg, Status *status_arg) {
+void Netlink::Send(nlmsghdr &msg, Status &status) {
   msg.nlmsg_seq = seq++;
-  SendRaw(std::string_view((char *)&msg, msg.nlmsg_len), status_arg);
+  SendRaw(std::string_view((char *)&msg, msg.nlmsg_len), status);
 }
 
-void Netlink::SendWithAttr(nlmsghdr &hdr, nlattr &attr, Status *status_arg) {
-  Status &out_status = status_arg ? *status_arg : status;
+void Netlink::SendWithAttr(nlmsghdr &hdr, nlattr &attr, Status &status) {
   uint16_t hdr_len = hdr.nlmsg_len;
 
   hdr.nlmsg_seq = seq++;
@@ -92,30 +89,28 @@ void Netlink::SendWithAttr(nlmsghdr &hdr, nlattr &attr, Status *status_arg) {
 
   ssize_t len = sendmsg(fd, &msg, 0);
   if (len < 0) {
-    out_status() += "sendmsg(AF_NETLINK)";
+    status() += "sendmsg(AF_NETLINK)";
     return;
   }
 }
 
-void Netlink::SendRaw(std::string_view raw, Status *status_arg) {
-  Status &out_status = status_arg ? *status_arg : status;
+void Netlink::SendRaw(std::string_view raw, Status &status) {
   ssize_t len = sendto(fd, raw.data(), raw.size(), 0,
                        (sockaddr *)&kKernelSockaddr, sizeof(kKernelSockaddr));
   if (len < 0) {
-    out_status() += "sendto(AF_NETLINK)";
+    status() += "sendto(AF_NETLINK)";
     return;
   }
 }
 
 void Netlink::Receive(size_t message_size, int attribute_max,
-                      ReceiveCallback callback, Status *status_arg) {
-  Status &out_status = status_arg ? *status_arg : status;
+                      ReceiveCallback callback, Status &status) {
   bool expect_more_messages = true;
   while (expect_more_messages) {
     char buf[1024 * 32];
     ssize_t len = recv(fd, buf, sizeof(buf), 0);
     if (len < 0) {
-      out_status() += "recv(AF_NETLINK)";
+      status() += "recv(AF_NETLINK)";
       return;
     }
 
@@ -175,15 +170,14 @@ void Netlink::Receive(size_t message_size, int attribute_max,
 
         if (buf_iter != end) {
 
-          out_status() += "Netlink error had " +
-                          std::to_string(end - buf_iter) +
-                          " extra bytes at the end (header says " +
-                          std::to_string(hdr->nlmsg_len) +
-                          "B, flags=" + f("%x", hdr->nlmsg_flags) + ")";
+          status() += "Netlink error had " + std::to_string(end - buf_iter) +
+                      " extra bytes at the end (header says " +
+                      std::to_string(hdr->nlmsg_len) +
+                      "B, flags=" + f("%x", hdr->nlmsg_flags) + ")";
         }
 
         errno = -err;
-        out_status() += msg;
+        status() += msg;
 
         return;
       } // if NLMSG_ERROR
@@ -204,13 +198,13 @@ void Netlink::Receive(size_t message_size, int attribute_max,
         i = NLA_ALIGN(i);
         nlattr *a = (nlattr *)(buf_iter + i);
         if (a->nla_type > attribute_max) {
-          out_status() += "Attribute type " + std::to_string(a->nla_type) +
-                          " is out of range";
+          status() += "Attribute type " + std::to_string(a->nla_type) +
+                      " is out of range";
           return;
         }
         if (a->nla_len < sizeof(nlattr)) {
-          out_status() += "Attribute length " + std::to_string(a->nla_len) +
-                          " is too small";
+          status() += "Attribute length " + std::to_string(a->nla_len) +
+                      " is too small";
           return;
         }
         attrs[a->nla_type] = a;
@@ -218,7 +212,7 @@ void Netlink::Receive(size_t message_size, int attribute_max,
       }
 
       if (i != attr_size) {
-        out_status() += f("i = %d, attr_size = %d", i, attr_size);
+        status() += f("i = %d, attr_size = %d", i, attr_size);
         assert(false);
       }
 
@@ -232,7 +226,7 @@ void Netlink::Receive(size_t message_size, int attribute_max,
     } // while (buf_iter < buf_end - sizeof(nlmsghdr))
 
     if (buf_iter != buf_end) {
-      out_status() += "Extra data at the end of netlink recv buffer";
+      status() += "Extra data at the end of netlink recv buffer";
       assert(false);
     }
   }
