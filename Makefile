@@ -23,18 +23,22 @@ test : gatekeeper test_e2e.sh
 # Rules used by maf for development
 
 maf-run : gatekeeper
-	sudo ./gatekeeper enxe8802ee74415
+	sudo PORTABLE=1 LAN=enxe8802ee74415 ./gatekeeper
 
 maf-debug : gatekeeper
-	sudo gdb ./gatekeeper -q -ex "run enxe8802ee74415"
+	sudo PORTABLE=1 LAN=enxe8802ee74415 gdb ./gatekeeper -q -ex run
 
 maf-valgrind : gatekeeper-debug
-	sudo valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./gatekeeper-debug enxe8802ee74415
+	sudo PORTABLE=1 LAN=enxe8802ee74415 valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./gatekeeper-debug
 
 maf-massif : gatekeeper-debug
-	sudo valgrind --tool=massif --stacks=yes --massif-out-file=massif-out.txt ./gatekeeper-debug enxe8802ee74415
+	sudo PORTABLE=1 LAN=enxe8802ee74415 valgrind --tool=massif --stacks=yes --massif-out-file=massif-out.txt ./gatekeeper-debug
 
 maf-deploy : gatekeeper.tar.gz
 	scp gatekeeper.tar.gz root@protectli:~/
 	# extract into /opt/gatekeeper
 	ssh root@protectli 'cd /opt/gatekeeper && tar -xzf ~/gatekeeper.tar.gz && rm ~/gatekeeper.tar.gz'
+
+maf-reset:
+	sudo nft delete table gatekeeper
+	sudo ip addr flush dev enxe8802ee74415
