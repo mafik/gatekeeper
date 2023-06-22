@@ -11,6 +11,7 @@
 union __attribute__((__packed__)) IP {
   uint32_t addr; // network byte order
   uint8_t bytes[4];
+  uint16_t halves[2];
   IP() : addr(0) {}
   IP(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
     bytes[0] = a;
