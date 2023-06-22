@@ -12,14 +12,20 @@
 #include "dns.hh"
 #include "epoll.hh"
 #include "etc.hh"
+#include "firewall.hh"
 #include "interface.hh"
 #include "log.hh"
+#include "netlink.hh"
+#include "route.hh"
 #include "signal.hh"
 #include "status.hh"
 #include "systemd.hh"
 #include "timer.hh"
 #include "virtual_fs.hh"
 #include "webui.hh"
+
+using namespace gatekeeper;
+using namespace maf;
 
 std::optional<SignalHandler> sigterm;
 std::optional<SignalHandler> sigint;
@@ -134,7 +140,45 @@ Press Ctrl+C to stop.
   }
 }
 
-Interface PickInterface(Status &status) {
+Interface PickWANInterface(Status &status) {
+  if (auto env_WAN = getenv("WAN")) {
+    Interface if_WAN = {.name = env_WAN, .index = 0};
+    ForEachInetrface([&](Interface &iface) {
+      if (iface.name == env_WAN) {
+        if_WAN = iface;
+      }
+    });
+    return if_WAN;
+  }
+  Netlink netlink_route(NETLINK_ROUTE, status);
+  if (!status.Ok()) {
+    status() += "Couldn't establish netlink to NETLINK_ROUTE";
+    return {};
+  }
+  Interface if_WAN = {};
+  // Check the routing table for `default` route.
+  route::GetRoute(
+      netlink_route,
+      [&](route::Route &r) {
+        if (r.dst == IP(0, 0, 0, 0) && r.dst_mask == IP(0, 0, 0, 0) &&
+            r.gateway.has_value() && r.oif.has_value()) {
+          // Save the index of the interface that has the default route.
+          if_WAN.index = r.oif.value();
+        }
+      },
+      status);
+  if (if_WAN.index) {
+    // Find the interface with the saved index.
+    ForEachInetrface([&](Interface &iface) {
+      if (iface.index == if_WAN.index) {
+        if_WAN = iface;
+      }
+    });
+  }
+  return if_WAN;
+}
+
+Interface PickLANInterface(Status &status) {
   if (auto env_LAN = getenv("LAN")) {
     Interface if_LAN = {.name = env_LAN, .index = 0};
     ForEachInetrface([&](Interface &iface) {
@@ -210,8 +254,7 @@ Network PickUnusedSubnet(Status status) {
 
 void Deconfigure() {
   Status status;
-  Interface iface = {.name = interface_name, .index = 0};
-  iface.Deconfigure(status);
+  lan.Deconfigure(status);
   if (!status.Ok()) {
     ERROR << status;
   }
@@ -239,21 +282,33 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  Interface iface = PickInterface(status);
+  lan = PickLANInterface(status);
   if (!status.Ok()) {
     ERROR << status;
     return 1;
   }
 
-  Network network = iface.Network(status);
+  wan = PickWANInterface(status);
+  if (!status.Ok()) {
+    ERROR << status;
+    return 1;
+  }
+  wan_ip = wan.IP(status);
+  if (!status.Ok()) {
+    ERROR << status;
+    return 1;
+  }
+  LOG << "Found WAN interface " << wan.name << " with IP " << wan_ip;
+
+  lan_network = lan.Network(status);
   bool externally_configured;
   if (status.Ok()) {
-    LOG << "Using preconfigured " << iface.name << " with IP " << network;
+    LOG << "Using preconfigured " << lan.name << " with IP " << lan_network;
     externally_configured = true;
   } else {
     externally_configured = false;
     Status pick_status;
-    network = PickUnusedSubnet(pick_status);
+    lan_network = PickUnusedSubnet(pick_status);
     if (!pick_status.Ok()) {
       ERROR << status;
       ERROR << pick_status;
@@ -261,9 +316,10 @@ int main(int argc, char *argv[]) {
     }
     status.Reset();
     // Select the first IP in the subnet.
-    ++network.ip;
-    LOG << "Configuring " << iface.name << " with IP " << network;
-    iface.Configure(network, status);
+    lan_ip = lan_network.ip;
+    ++lan_ip;
+    LOG << "Configuring " << lan.name << " with IP " << lan_ip;
+    lan.Configure(lan_ip, lan_network, status);
     if (!status.Ok()) {
       ERROR << status;
       return 1;
@@ -271,13 +327,15 @@ int main(int argc, char *argv[]) {
     atexit(Deconfigure);
   }
 
-  // The rest of the code uses these globals.
-  // TODO: Replace them with proper structs.
-  interface_name = iface.name;
-  server_ip = network.ip;
-  netmask = network.netmask;
-
   etc::ReadConfig();
+
+  // Note: firewall can be started only after LAN & WAN are configured.
+  firewall::Start(status);
+  if (!status.Ok()) {
+    status() += "Couldn't set up firewall";
+    ERROR << status;
+    return 1;
+  }
 
   dhcp::server.Init();
   dhcp::server.Listen(err);
@@ -298,7 +356,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  LOG << "Gatekeeper running at http://" << server_ip << ":1337/";
+  LOG << "Gatekeeper running at http://" << lan_ip << ":1337/";
   systemd::NotifyReady();
 
   epoll::Loop(err);

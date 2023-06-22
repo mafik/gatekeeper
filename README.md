@@ -48,8 +48,6 @@ Environment="LAN=<interface>"
 
 Gatekeeper doesn't configure the WAN interface. It has to be done using stardard OS-supplied tools (most likely just DHCP). In the future Gatekeeper will take care of this.
 
-Gatekeeper doesn't set up the NAT masquerade _yet_. You can do this manually by running `iptables -t nat -A POSTROUTING -o <external interface name> -j MASQUERADE`.
-
 Gatekeeper only runs on x86_64 Linux. In the future I'd like to also port it to ARM (32 & 64-bit) & MIPS (for those dirt-cheap OpenWRT routers).
 
 ## Building from source

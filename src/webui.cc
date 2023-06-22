@@ -8,7 +8,6 @@
 #include <deque>
 #include <unordered_set>
 
-#include "../generated/embedded.hh"
 #include "chrono.hh"
 #include "config.hh"
 #include "dhcp.hh"
@@ -17,6 +16,7 @@
 #include "format.hh"
 #include "http.hh"
 #include "log.hh"
+#include "virtual_fs.hh"
 
 namespace webui {
 
@@ -433,22 +433,22 @@ DevicesTable devices_table;
 struct ConfigTable : Table {
   ConfigTable()
       : Table("config", "Config",
-              {"Interface", "Domain name", "IP", "Network mask", "Hostname",
+              {"Interface", "Domain name", "IP", "Network", "Hostname",
                "DNS servers"}) {}
   int Size() const override { return 1; }
   void Get(int row, int col, string &out) const override {
     switch (col) {
     case 0:
-      out = interface_name;
+      out = lan.name;
       break;
     case 1:
       out = kLocalDomain;
       break;
     case 2:
-      out = server_ip.to_string();
+      out = lan_ip.to_string();
       break;
     case 3:
-      out = netmask.to_string();
+      out = lan_network.LoggableString();
       break;
     case 4:
       out = etc::hostname;
@@ -702,10 +702,9 @@ void SetupLogging() {
 
 void Start(string &err) {
   server.handler = Handler;
-  server.Listen(http::Server::Config{.ip = server_ip,
-                                     .port = kPort,
-                                     .interface = interface_name},
-                err);
+  server.Listen(
+      http::Server::Config{.ip = lan_ip, .port = kPort, .interface = lan.name},
+      err);
   if (!err.empty()) {
     return;
   }

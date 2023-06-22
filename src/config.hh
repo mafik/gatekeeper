@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "interface.hh"
 #include "ip.hh"
 
 extern const std::string kLocalDomain;
@@ -11,6 +12,9 @@ extern const std::string kLocalDomain;
 // program is running. If this ever becomes a problem, just remove those
 // variables.
 
-extern std::string interface_name;
-extern IP server_ip;
-extern IP netmask;
+extern Interface lan;
+extern IP lan_ip;
+extern Network lan_network;
+
+extern Interface wan;
+extern IP wan_ip;

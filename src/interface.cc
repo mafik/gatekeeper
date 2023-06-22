@@ -38,17 +38,19 @@ IP Interface::IP(Status &status) { return IP::FromInterface(name, status); }
 }
 
 Network Interface::Network(Status &status) {
-  return {.ip = IP(status), .netmask = Netmask(status)};
+  auto ip = IP(status);
+  auto netmask = Netmask(status);
+  return {.ip = ip & netmask, .netmask = netmask};
 }
 
-void Interface::Configure(::Network network, Status &status) {
+void Interface::Configure(::IP ip, ::Network network, Status &status) {
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
   ifreq ifr = {};
   strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
   sockaddr_in *addr = (sockaddr_in *)&ifr.ifr_addr;
   // Assign IP
   addr->sin_family = AF_INET;
-  addr->sin_addr.s_addr = network.ip.addr;
+  addr->sin_addr.s_addr = ip.addr;
   if (ioctl(fd, SIOCSIFADDR, &ifr) < 0) {
     status() += "Couldn't set IP on interface " + name +
                 " because ioctl(SIOCSIFADDR) failed";

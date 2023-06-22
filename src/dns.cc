@@ -435,8 +435,8 @@ struct Server : UDPListener {
       return;
     }
 
-    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, interface_name.data(),
-                   interface_name.size()) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, lan.name.data(),
+                   lan.name.size()) < 0) {
       error = "Error when setsockopt bind to device";
       StopListening();
       return;
@@ -461,10 +461,10 @@ struct Server : UDPListener {
 
   void HandleRequest(string_view buf, IP source_ip,
                      uint16_t source_port) override {
-    if ((source_ip & netmask) != (server_ip & netmask)) {
+    if (!lan_network.Contains(source_ip)) {
       LOG << "DNS server received a packet from an unexpected source: "
-          << source_ip.to_string() << " (expected network "
-          << (server_ip & netmask).to_string() << ")";
+          << source_ip.to_string() << " (expected network " << lan_network
+          << ")";
       return;
     }
     Message msg;
@@ -569,7 +569,7 @@ void Start(string &err) {
       InjectAuthoritativeEntry(domain, ip);
     }
   }
-  InjectAuthoritativeEntry(etc::hostname + "." + kLocalDomain, server_ip);
+  InjectAuthoritativeEntry(etc::hostname + "." + kLocalDomain, lan_ip);
   client.Listen(err);
   if (!err.empty()) {
     err = "Failed to start DNS client: " + err;

@@ -671,21 +671,19 @@ struct __attribute__((__packed__)) PacketView : Header {
 
 // Function used to validate IP addresses provided by clients.
 bool IsValidClientIP(IP requested_ip) {
-  const IP network_ip = server_ip & netmask;
-  const IP broadcast_ip = network_ip | ~netmask;
-  if (network_ip != (requested_ip & netmask)) {
+  if (!lan_network.Contains(requested_ip)) {
     // Requested IP outside of our network.
     return false;
   }
-  if (requested_ip == network_ip) {
+  if (requested_ip == lan_network.ip) {
     // Requested IP is the network address.
     return false;
   }
-  if (requested_ip == broadcast_ip) {
+  if (requested_ip == lan_network.BroadcastIP()) {
     // Requested IP is the broadcast address.
     return false;
   }
-  if (requested_ip == server_ip) {
+  if (requested_ip == lan_ip) {
     // Requested IP is our own IP.
     return false;
   }
@@ -693,8 +691,6 @@ bool IsValidClientIP(IP requested_ip) {
 }
 
 IP ChooseIP(Server &server, const PacketView &request, string &error) {
-  const IP network_ip = server_ip & netmask;
-  const IP broadcast_ip = network_ip | ~netmask;
   string client_id = request.client_id();
   // Try to find entry with matching client_id.
   for (auto it : server.entries) {
@@ -724,8 +720,8 @@ IP ChooseIP(Server &server, const PacketView &request, string &error) {
     }
   }
   // Try to find unused IP.
-  for (IP ip = network_ip + 1; ip < broadcast_ip; ++ip) {
-    if (ip == server_ip) {
+  for (IP ip = lan_network.ip + 1; ip < lan_network.BroadcastIP(); ++ip) {
+    if (ip == lan_ip) {
       continue;
     }
     if (auto it = server.entries.find(ip); it == server.entries.end()) {
@@ -775,7 +771,7 @@ void Server::Init() {
   }
 }
 int AvailableIPs(const Server &server) {
-  int zeros = 32 - popcount(netmask.addr);
+  int zeros = lan_network.Zeros();
   // 3 IPs are reserved: network, broadcast, and server.
   return (1 << zeros) - server.entries.size() - 3;
 }
@@ -800,8 +796,8 @@ void Server::Listen(string &error) {
     return;
   }
 
-  if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, interface_name.data(),
-                 interface_name.size()) < 0) {
+  if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, lan.name.data(),
+                 lan.name.size()) < 0) {
     error = "Error when setsockopt bind to device";
     StopListening();
     return;
@@ -840,7 +836,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
           << hex(&packet.magic_cookie, sizeof(packet.magic_cookie));
     return;
   }
-  if ((packet.server_ip <=> server_ip != 0) &&
+  if ((packet.server_ip <=> lan_ip != 0) &&
       (packet.server_ip <=> IP(0, 0, 0, 0) != 0)) {
     // Silently ignore packets that are not for us.
     return;
@@ -902,8 +898,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
 
   if (source_ip == IP(0, 0, 0, 0)) {
     // Set client MAC in the ARP table
-    arp::Set(interface_name, response_ip, packet.client_mac_address, fd,
-             log_error);
+    arp::Set(lan.name, response_ip, packet.client_mac_address, fd, log_error);
     if (!log_error.empty()) {
       ERROR << "Failed to set the client IP/MAC association in the system "
                "ARP table: "
@@ -922,19 +917,19 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   Header{.message_type = 2, // Boot Reply
          .transaction_id = packet.transaction_id,
          .your_ip = chosen_ip,
-         .server_ip = server_ip,
+         .server_ip = lan_ip,
          .client_mac_address = packet.client_mac_address}
       .write_to(buffer);
 
   options::MessageType(response_type).write_to(buffer);
-  options::SubnetMask(netmask).write_to(buffer);
-  options::Router(server_ip).write_to(buffer);
+  options::SubnetMask(lan_network.netmask).write_to(buffer);
+  options::Router(lan_ip).write_to(buffer);
   if (lease_time > 0s) {
     options::IPAddressLeaseTime(request_lease_time_seconds).write_to(buffer);
   }
   options::DomainName::Make(kLocalDomain)->write_to(buffer);
-  options::ServerIdentifier(server_ip).write_to(buffer);
-  options::DomainNameServer::Make({server_ip})->write_to(buffer);
+  options::ServerIdentifier(lan_ip).write_to(buffer);
+  options::DomainNameServer::Make({lan_ip})->write_to(buffer);
   options::End().write_to(buffer);
 
   fd.SendTo(response_ip, kClientPort, buffer, log_error);

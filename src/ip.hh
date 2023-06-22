@@ -44,7 +44,11 @@ union __attribute__((__packed__)) IP {
 };
 
 struct Network {
-  IP ip; // this can be either IP of the network or IP of the host
+  IP ip;
   IP netmask;
+  IP BroadcastIP() const { return ip | ~netmask; }
+  bool Contains(IP ip) const { return (ip & netmask) == this->ip; }
+  int Ones() const { return std::popcount(netmask.addr); }
+  int Zeros() const { return 32 - Ones(); }
   std::string LoggableString() const;
 };

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -14,7 +16,7 @@ struct Interface {
   IP IP(Status &status);
   ::IP Netmask(Status &status);
   Network Network(Status &status);
-  void Configure(::Network network, Status &status);
+  void Configure(::IP ip, ::Network network, Status &status);
   void Deconfigure(Status &status);
 };
 
