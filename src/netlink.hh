@@ -36,6 +36,9 @@ struct Netlink {
   // The sequence number of the next message to be sent.
   uint32_t seq = 1;
 
+  int protocol = -1;
+  uint32_t fixed_message_size = 0;
+
   // Establishes connection with the specified netlink protocol.
   //
   // See: #include <linux/netlink.h> for a list of protocols.
@@ -84,13 +87,8 @@ struct Netlink {
   // Receive one or more netlink messages.
   //
   // Each netlink message is composed of a header, a fixed-size struct & a
-  // sequence of attributes. This method will use the `fixed_message_size` to
-  // skip the fixed-size struct and parse the following attributes. They will
-  // then be passed to the provided callback.
-  //
-  // Each netlink message may allow for a variable number of attributes. The
-  // `attribute_max` field tells how much memory to reserve for attribute
-  // descriptors.
+  // sequence of attributes. This method will predict the size of fixed size
+  // struct and the maximum number of attributes based on message type.
   //
   // The `callback` will be called once for each response message received. For
   // `BATCH` requests it may be called multiple times - for each multipart
@@ -103,8 +101,7 @@ struct Netlink {
   //
   // Errors will be reported using either the `status` argument or the `status`
   // field of this netlink connection.
-  void Receive(size_t fixed_message_size, int attribute_max,
-               ReceiveCallback callback, Status &status);
+  void Receive(ReceiveCallback callback, Status &status);
 };
 
 } // namespace maf

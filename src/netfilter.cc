@@ -83,9 +83,7 @@ void NewTable(Netlink &netlink, Family family, const char *name,
   }
   if (!status.Ok())
     goto err;
-  netlink.Receive(
-      sizeof(nfgenmsg), NFTA_TABLE_MAX,
-      [](uint16_t, void *, Netlink::Attr *[]) {}, status);
+  netlink.Receive([](uint16_t, void *, Netlink::Attr *[]) {}, status);
   if (!status.Ok())
     goto err;
   return;
@@ -138,9 +136,7 @@ void DelTable(Netlink &netlink, Family family, const char *name,
   }
   if (!status.Ok())
     goto err;
-  netlink.Receive(
-      sizeof(nfgenmsg), NFTA_TABLE_MAX,
-      [](uint16_t, void *, Netlink::Attr *[]) {}, status);
+  netlink.Receive([](uint16_t, void *, Netlink::Attr *[]) {}, status);
   if (!status.Ok())
     goto err;
   return;
@@ -225,9 +221,7 @@ void NewChain(Netlink &netlink, Family family, const char *table_name,
   }
   if (!status.Ok())
     goto err;
-  netlink.Receive(
-      sizeof(nfgenmsg), NFTA_TABLE_MAX,
-      [](uint16_t, void *, Netlink::Attr *[]) {}, status);
+  netlink.Receive([](uint16_t, void *, Netlink::Attr *[]) {}, status);
   if (!status.Ok())
     goto err;
   return;
@@ -294,9 +288,7 @@ void NewRule(Netlink &netlink, Family family, const char *table_name,
   }
   if (!status.Ok())
     goto err;
-  netlink.Receive(
-      sizeof(nfgenmsg), NFTA_RULE_MAX,
-      [](uint16_t, void *, Netlink::Attr *[]) {}, status);
+  netlink.Receive([](uint16_t, void *, Netlink::Attr *[]) {}, status);
   if (!status.Ok())
     goto err;
   return;

@@ -421,7 +421,7 @@ void Loop() {
   prctl(PR_SET_NAME, "Firewall loop", 0, 0, 0);
   while (true) {
     Status status;
-    queue->Receive(sizeof(nfgenmsg), NFQA_MAX, OnReceive, status);
+    queue->Receive(OnReceive, status);
     if (!status.Ok()) {
       status() += "Firewall failed to receive message from kernel";
       ERROR << status;

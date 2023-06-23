@@ -25,7 +25,6 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
     return;
   }
   netlink_route.Receive(
-      sizeof(rtmsg), RTA_MAX,
       [&](uint16_t type, void *fixed_message, Netlink::Attr *attr[]) {
         if (type != RTM_NEWROUTE) {
           return;
