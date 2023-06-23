@@ -63,11 +63,11 @@ void Netlink::Send(nlmsghdr &msg, Status &status) {
   SendRaw(std::string_view((char *)&msg, msg.nlmsg_len), status);
 }
 
-void Netlink::SendWithAttr(nlmsghdr &hdr, nlattr &attr, Status &status) {
+void Netlink::SendWithAttr(nlmsghdr &hdr, Attr &attr, Status &status) {
   uint16_t hdr_len = hdr.nlmsg_len;
 
   hdr.nlmsg_seq = seq++;
-  hdr.nlmsg_len += attr.nla_len;
+  hdr.nlmsg_len += attr.len;
 
   iovec iov[2] = {
       {
@@ -76,7 +76,7 @@ void Netlink::SendWithAttr(nlmsghdr &hdr, nlattr &attr, Status &status) {
       },
       {
           .iov_base = &attr,
-          .iov_len = attr.nla_len,
+          .iov_len = attr.len,
       },
   };
   msghdr msg{
@@ -188,26 +188,26 @@ void Netlink::Receive(size_t message_size, int attribute_max,
       void *msg = buf_iter;
       buf_iter += message_size;
 
-      nlattr *attrs[attribute_max + 1];
+      Attr *attrs[attribute_max + 1];
       memset(attrs, 0, sizeof(attrs));
       int attr_size = hdr->nlmsg_len - sizeof(nlmsghdr) - message_size;
 
       uint32_t i = 0;
-      while (i < attr_size - sizeof(nlattr)) {
+      while (i < attr_size - sizeof(Attr)) {
         i = NLA_ALIGN(i);
-        nlattr *a = (nlattr *)(buf_iter + i);
-        if (a->nla_type > attribute_max) {
-          status() += "Attribute type " + std::to_string(a->nla_type) +
-                      " is out of range";
+        Attr *a = (Attr *)(buf_iter + i);
+        if (a->type > attribute_max) {
+          status() +=
+              "Attribute type " + std::to_string(a->type) + " is out of range";
           return;
         }
-        if (a->nla_len < sizeof(nlattr)) {
-          status() += "Attribute length " + std::to_string(a->nla_len) +
-                      " is too small";
+        if (a->len < sizeof(Attr)) { // Detect parsing errors early
+          status() +=
+              "Attribute length " + std::to_string(a->len) + " is too small";
           return;
         }
-        attrs[a->nla_type] = a;
-        i += a->nla_len;
+        attrs[a->type] = a;
+        i += a->len;
       }
 
       if (i != attr_size) {

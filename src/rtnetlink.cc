@@ -1,6 +1,7 @@
 #include "rtnetlink.hh"
 
 #include <cassert>
+#include <cstdint>
 
 namespace maf::rtnetlink {
 
@@ -25,7 +26,7 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
   }
   netlink_route.Receive(
       sizeof(rtmsg), RTA_MAX,
-      [&](uint16_t type, void *fixed_message, nlattr **attr) {
+      [&](uint16_t type, void *fixed_message, Netlink::Attr *attr[]) {
         if (type != RTM_NEWROUTE) {
           return;
         }
@@ -33,24 +34,24 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
         route.rtm = *(rtmsg *)fixed_message;
         route.dst_mask = IP::NetmaskFromPrefixLength(route.rtm.rtm_dst_len);
         if (attr[RTA_OIF]) {
-          route.oif = *(uint32_t *)(attr[RTA_OIF] + 1);
+          route.oif = attr[RTA_OIF]->As<uint32_t>();
         }
         if (attr[RTA_PREFSRC]) {
-          route.prefsrc = IP(*(uint32_t *)(attr[RTA_PREFSRC] + 1));
+          route.prefsrc = attr[RTA_PREFSRC]->As<IP>();
         }
         if (attr[RTA_DST]) {
-          route.dst = IP(*(uint32_t *)(attr[RTA_DST] + 1));
+          route.dst = attr[RTA_DST]->As<IP>();
         }
         if (attr[RTA_TABLE]) {
           // this is always RT_TABLE_MAIN
-          int table = *(int *)(attr[RTA_TABLE] + 1);
+          int table = attr[RTA_TABLE]->As<int>();
           assert(table == RT_TABLE_MAIN);
         }
         if (attr[RTA_PRIORITY]) {
-          route.priority = *(uint32_t *)(attr[RTA_PRIORITY] + 1);
+          route.priority = attr[RTA_PRIORITY]->As<uint32_t>();
         }
         if (attr[RTA_GATEWAY]) {
-          route.gateway = IP(*(uint32_t *)(attr[RTA_GATEWAY] + 1));
+          route.gateway = attr[RTA_GATEWAY]->As<IP>();
         }
         callback(route);
       },

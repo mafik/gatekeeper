@@ -1,6 +1,7 @@
 #include "firewall.hh"
 
 #include <linux/netfilter/nfnetlink.h>
+#include <linux/netfilter/nfnetlink_queue.h>
 #include <sys/prctl.h>
 
 #include <optional>
@@ -281,30 +282,28 @@ struct NAT_Entry {
 std::vector<NAT_Entry> tcp_nat_table;
 std::vector<NAT_Entry> udp_nat_table;
 
-void OnReceive(uint16_t type, void *fixed_message, nlattr **attrs) {
+void OnReceive(uint16_t type, void *fixed_message, Netlink::Attr *attrs[]) {
   nfgenmsg *msg = (nfgenmsg *)(fixed_message);
 
   if (attrs[NFQA_PACKET_HDR] == nullptr) {
     ERROR << "NFQA_PACKET_HDR is missing";
     return;
   }
-  nfqnl_msg_packet_hdr *phdr =
-      (nfqnl_msg_packet_hdr *)(attrs[NFQA_PACKET_HDR] + 1);
+  nfqnl_msg_packet_hdr &phdr =
+      attrs[NFQA_PACKET_HDR]->As<nfqnl_msg_packet_hdr>();
   if (attrs[NFQA_PAYLOAD] == nullptr) {
     ERROR << "NFQA_PAYLOAD is missing";
     return;
   }
-  char *payload_base = (char *)(attrs[NFQA_PAYLOAD] + 1);
-  uint16_t payload_size = attrs[NFQA_PAYLOAD]->nla_len - sizeof(nlattr);
-  std::string_view payload = {payload_base, payload_size};
-  IP_Header &ip = *(IP_Header *)payload_base;
+  std::string_view payload = attrs[NFQA_PAYLOAD]->View();
+  IP_Header &ip = attrs[NFQA_PAYLOAD]->As<IP_Header>();
 
   bool interesting = true;
 
   bool from_net = lan_network.Contains(ip.source_ip);
   bool to_net = lan_network.Contains(ip.destination_ip);
 
-  netfilter::Verdict verdict(phdr->packet_id, true);
+  netfilter::Verdict verdict(phdr.packet_id, true);
 
   if (from_net == to_net && ip.destination_ip != wan_ip) {
     interesting = false;
@@ -325,7 +324,7 @@ void OnReceive(uint16_t type, void *fixed_message, nlattr **attrs) {
     return;
   }
 
-  INET_Header &inet = *(INET_Header *)(payload_base + ip.HeaderLength());
+  INET_Header &inet = *(INET_Header *)(payload.data() + ip.HeaderLength());
   TCP_Header &tcp = *(TCP_Header *)(&inet);
   UDP_Header &udp = *(UDP_Header *)(&inet);
 
@@ -338,11 +337,11 @@ void OnReceive(uint16_t type, void *fixed_message, nlattr **attrs) {
       protocol_string += f(" %5d -> %-5d", ntohs(udp.source_port),
                            ntohs(udp.destination_port));
     }
-    uint32_t packet_id = ntohl(phdr->packet_id);
+    uint32_t packet_id = ntohl(phdr.packet_id);
     LOG << f("#%04x ", packet_id)
         << f("%15s", ip.source_ip.LoggableString().c_str()) << " => "
         << f("%-15s", ip.destination_ip.LoggableString().c_str()) << " ("
-        << protocol_string << "): " << f("%4d", payload_size) << " B";
+        << protocol_string << "): " << f("%4d", payload.size()) << " B";
   }
 
   auto &nat_table = ip.proto == ProtocolID::TCP ? tcp_nat_table : udp_nat_table;

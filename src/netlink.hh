@@ -17,6 +17,19 @@ namespace maf {
 // Users of this class should be intimately familiar with the netlink protocol.
 // See: https://docs.kernel.org/userspace-api/netlink/intro.html.
 struct Netlink {
+
+  // C++ sibling of `struct nlattr` from <linux/netlink.h>.
+  struct Attr {
+    uint16_t len;  // Length includes the header but not the trailing padding!
+    uint16_t type; // Enum value (based on nlmsghdr.nlmsg_type)
+    char c[0];     // Helper for accessing the payload
+
+    std::string_view View() const { return {c, len - sizeof(*this)}; }
+    template <typename T> T &As() { return *(T *)c; }
+  };
+
+  static_assert(sizeof(Attr) == 4, "NLAttr must be 4 bytes");
+
   // The netlink socket.
   FD fd;
 
@@ -52,7 +65,7 @@ struct Netlink {
   //
   // Optional `status` will be used instead of the default `status` of this
   // object to report errors.
-  void SendWithAttr(nlmsghdr &msg, nlattr &attr, Status &status);
+  void SendWithAttr(nlmsghdr &msg, Attr &attr, Status &status);
 
   // Send an arbitrary sequence of bytes as a netlink message.
   //
@@ -66,7 +79,7 @@ struct Netlink {
   void SendRaw(std::string_view, Status &status);
 
   using ReceiveCallback = std::function<void(uint16_t type, void *fixed_message,
-                                             nlattr **attributes)>;
+                                             Attr *attributes[])>;
 
   // Receive one or more netlink messages.
   //
