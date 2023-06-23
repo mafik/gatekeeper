@@ -16,11 +16,7 @@
 
 html {
   text-size-adjust: 100%;
-  background: #b5dcff;
-  background: linear-gradient(to bottom, #b5dcff, #cfe8ff);
-  background: url('/bg_day_6.png') repeat-x, url('/bg_day_5.png') no-repeat, url('/bg_day_4.png') repeat-x, url('/bg_day_3.png') repeat-x, url('/bg_day_2.png') repeat-x, url('/bg_day_1.png') repeat-x, linear-gradient(to bottom, #93e3e4 272px, #cfe8ff);
   min-height: 100vh;
-  animation: bg-day-keyframes 240s linear infinite;
 }
 
 code,
@@ -34,19 +30,61 @@ h1 {
   font-weight: 800;
 }
 
-/* Top-level page is wrapped in div#content because `morphdom` has problems updating `<body>` element.
-   When `morphdom` is replaced with `idiomorph` (part of htmx-2.0), the top level div may be removed. */
-#content {
+h1,
+.options {
+  display: inline-block;
+  margin: 0 1em;
+}
+
+header {
+  background: url('/header_day.png') repeat, linear-gradient(to top, #fffee5, #ffd962);
+  text-align: left;
+  padding: .5em 0 .3em;
+  display: inline-flex;
+  flex-flow: row;
+  justify-content: start;
+  align-items: baseline;
+  border-bottom: 1px solid #ca9f1e;
+}
+
+header a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.github {
+  position: fixed;
+  top: 0px;
+  right: 0px;
+}
+
+.github img {
+  transform: translate(10px, -10px);
+  transition: transform 0.2s cubic-bezier(0.95, 0.05, 0.795, 0.035);
+}
+
+.github:hover img {
+  transform: translate(0px, 0px);
+}
+
+body {
+  margin: 0;
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-flow: column;
+}
+
+main {
+  background: url('/bg_day_6.png') repeat-x, url('/bg_day_5.png') no-repeat, url('/bg_day_4.png') repeat-x, url('/bg_day_3.png') repeat-x, url('/bg_day_2.png') repeat-x, url('/bg_day_1.png') repeat-x, linear-gradient(to bottom, #93e3e4 272px, #cfe8ff);
+  animation: bg-day-keyframes 240s linear infinite;
+  padding-top: 2em;
   display: flex;
   flex-flow: row wrap;
   justify-content: space-evenly;
   align-items: flex-start;
   text-align: center;
-}
-
-h1,
-.options {
-  flex-basis: 100%;
+  flex-grow: 1;
 }
 
 table {
@@ -195,7 +233,15 @@ a.arrow {
     }
   }
 
-  html {
+  header {
+    /* background: url('/header_night.webp') repeat, linear-gradient(to top, #fffee5, #ffd962); */
+    background: url('/header_night.webp') repeat, linear-gradient(to top, #152039, #154271);
+    border-bottom-color: #154271;
+    color: white;
+    text-shadow: 2px 2px 0 #152039;
+  }
+
+  main {
     background: url('/bg_night_3.png') repeat-x bottom left,
       url('/bg_night_2.png') repeat-x bottom left,
       url('/bg_night_1.png') no-repeat top left,
@@ -222,9 +268,7 @@ a.arrow {
     text-shadow: 1px 1px 0 var(--bg-dark);
   }
 
-  h1,
-  table>caption,
-  .options {
+  table>caption {
     filter: drop-shadow(1px 2px 0 black);
   }
 

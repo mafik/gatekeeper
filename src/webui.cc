@@ -181,8 +181,8 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
   }
   html += "<a href=\"/";
   html += id;
-  html += ".html\" hx-boost=\"true\" hx-target=\"#content\" "
-          "hx-select=\"#content\" hx-ext=\"morphdom-swap\" "
+  html += ".html\" hx-boost=\"true\" hx-target=\"main\" "
+          "hx-select=\"main\" hx-ext=\"morphdom-swap\" "
           "hx-swap=\"morphdom outerHTML "
           "transition:true\">Full "
           "table</a> <a href=\"/";
@@ -517,9 +517,9 @@ void RenderTableHTML(Response &response, Request &request, Table &t) {
   html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
   html += "<script src=\"/script.js\"></script>";
   html += "</head><body>";
-  html += "<div id=content>";
+  html += "<main>";
   t.RenderTABLE(html, opts);
-  html += "</div></body></html>";
+  html += "</main></body></html>";
   response.Write(html);
 }
 
@@ -560,18 +560,25 @@ void RenderMainPage(Response &response, Request &request) {
   html += "<script src=\"/script.js\"></script>";
   html += "</head>";
   html += "<body>";
-  html += "<div id=content>";
-  html += "<h1><a target=\"_blank\" "
-          "href=\"https://github.com/mafik/gatekeeper\"><img "
-          "src=\"/gatekeeper.gif\" id=\"knight\"></a>Gatekeeper</h1>";
+  html += "<header>";
+  html += "<h1><a href=http://";
+  html += lan_ip.to_string();
+  html += ":";
+  html += to_string(kPort);
+  html += "><img src=/gatekeeper.gif id=knight>Gatekeeper</a></h1>";
   html += "<div class=options><input type=checkbox id=\"autorefresh\" "
-          "hx-get=\"/\" hx-target=\"#content\" hx-select=\"#content\" "
+          "hx-get=\"/\" hx-target=\"main\" hx-select=\"main\" "
           "hx-ext=\"morphdom-swap\" "
           "hx-swap=\"morphdom\" "
           "hx-preserve=\"true\" "
           "hx-trigger=\"every 1s "
           "[AutorefreshChecked()]\"><label "
           "for=\"autorefresh\">Auto-refresh</label></div>";
+  html += "<a class=github target=_blank "
+          "href=https://github.com/mafik/gatekeeper><img src=/tentacles.webp "
+          "alt=tentacles title=GitHub></a>";
+  html += "</header>";
+  html += "<main>";
   config_table.RenderTABLE(html, opts);
   devices_table.RenderTABLE(html, opts);
   Table::RenderOptions log_opts = opts;
@@ -579,7 +586,7 @@ void RenderMainPage(Response &response, Request &request) {
   logs_table.RenderTABLE(html, log_opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
-  html += "</div></body></html>";
+  html += "</main></body></html>";
   response.Write(html);
 }
 
