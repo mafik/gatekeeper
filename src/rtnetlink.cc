@@ -24,13 +24,11 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
   if (!status.Ok()) {
     return;
   }
-  netlink_route.Receive(
-      [&](uint16_t type, void *fixed_message, std::span<Netlink::Attr *> attr) {
-        if (type != RTM_NEWROUTE) {
-          return;
-        }
+  netlink_route.ReceiveT<rtmsg>(
+      RTM_NEWROUTE,
+      [&](rtmsg &rtm, std::span<Netlink::Attr *> attr) {
         Route route = {};
-        route.rtm = *(rtmsg *)fixed_message;
+        route.rtm = rtm;
         route.dst_mask = IP::NetmaskFromPrefixLength(route.rtm.rtm_dst_len);
         if (attr[RTA_OIF]) {
           route.oif = attr[RTA_OIF]->As<uint32_t>();

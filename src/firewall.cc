@@ -282,10 +282,7 @@ struct NAT_Entry {
 std::vector<NAT_Entry> tcp_nat_table;
 std::vector<NAT_Entry> udp_nat_table;
 
-void OnReceive(uint16_t type, void *fixed_message,
-               std::span<Netlink::Attr *> attrs) {
-  nfgenmsg *msg = (nfgenmsg *)(fixed_message);
-
+void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   if (attrs[NFQA_PACKET_HDR] == nullptr) {
     ERROR << "NFQA_PACKET_HDR is missing";
     return;
@@ -422,7 +419,8 @@ void Loop() {
   prctl(PR_SET_NAME, "Firewall loop", 0, 0, 0);
   while (true) {
     Status status;
-    queue->Receive(OnReceive, status);
+    queue->ReceiveT<nfgenmsg>(NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
+                              OnReceive, status);
     if (!status.Ok()) {
       status() += "Firewall failed to receive message from kernel";
       ERROR << status;

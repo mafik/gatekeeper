@@ -172,7 +172,12 @@ void Netlink::SendRaw(std::string_view raw, Status &status) {
   }
 }
 
-void Netlink::Receive(ReceiveCallback callback, Status &status) {
+void Netlink::ReceiveAck(Status &status) {
+  Receive(NLMSG_ERROR, nullptr, status);
+}
+
+void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
+                      Status &status) {
   bool expect_more_messages = true;
   while (expect_more_messages) {
     char buf[1024 * 32];
@@ -251,6 +256,13 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
       } else if (hdr->nlmsg_type == NLMSG_DONE) {
         return;
       } else {
+        if (hdr->nlmsg_type != expected_type) {
+          status() +=
+              f("Received wrong netlink message expected type=%x, got type=%x",
+                expected_type, hdr->nlmsg_type);
+          return;
+        }
+
         void *msg = buf_iter;
         buf_iter += fixed_message_size;
         const uint32_t attribute_max = AttributeMax(protocol, *hdr);
@@ -293,8 +305,7 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
         if ((hdr->nlmsg_flags & NLM_F_MULTI) == 0) {
           expect_more_messages = false;
         }
-
-        callback(hdr->nlmsg_type, msg, {attrs, attribute_max + 1});
+        callback(msg, {attrs, attribute_max + 1});
       }
     } // while (buf_iter < buf_end - sizeof(nlmsghdr))
 

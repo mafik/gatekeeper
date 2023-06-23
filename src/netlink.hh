@@ -82,8 +82,8 @@ struct Netlink {
   // object to report errors.
   void SendRaw(std::string_view, Status &status);
 
-  using ReceiveCallback = std::function<void(uint16_t type, void *fixed_message,
-                                             std::span<Attr *> attributes)>;
+  using ReceiveCallback =
+      std::function<void(void *fixed_message, std::span<Attr *> attributes)>;
 
   // Receive one or more netlink messages.
   //
@@ -102,7 +102,23 @@ struct Netlink {
   //
   // Errors will be reported using either the `status` argument or the `status`
   // field of this netlink connection.
-  void Receive(ReceiveCallback callback, Status &status);
+  void Receive(uint16_t expected_type, ReceiveCallback callback,
+               Status &status);
+
+  void ReceiveAck(Status &status);
+
+  template <typename T>
+  void ReceiveT(
+      uint16_t expected_type,
+      std::function<void(T &message, std::span<Attr *> attributes)> callback,
+      Status &status) {
+    Receive(
+        expected_type,
+        [&](void *fixed_message, std::span<Attr *> attributes) {
+          callback(*(T *)fixed_message, attributes);
+        },
+        status);
+  }
 };
 
 } // namespace maf
