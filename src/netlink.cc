@@ -294,7 +294,7 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
           expect_more_messages = false;
         }
 
-        callback(hdr->nlmsg_type, msg, attrs);
+        callback(hdr->nlmsg_type, msg, {attrs, attribute_max + 1});
       }
     } // while (buf_iter < buf_end - sizeof(nlmsghdr))
 

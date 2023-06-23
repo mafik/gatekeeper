@@ -3,6 +3,7 @@
 #include <functional>
 
 #include <linux/netlink.h>
+#include <span>
 
 #include "fd.hh"
 #include "status.hh"
@@ -82,7 +83,7 @@ struct Netlink {
   void SendRaw(std::string_view, Status &status);
 
   using ReceiveCallback = std::function<void(uint16_t type, void *fixed_message,
-                                             Attr *attributes[])>;
+                                             std::span<Attr *> attributes)>;
 
   // Receive one or more netlink messages.
   //

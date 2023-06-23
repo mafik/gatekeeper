@@ -282,7 +282,8 @@ struct NAT_Entry {
 std::vector<NAT_Entry> tcp_nat_table;
 std::vector<NAT_Entry> udp_nat_table;
 
-void OnReceive(uint16_t type, void *fixed_message, Netlink::Attr *attrs[]) {
+void OnReceive(uint16_t type, void *fixed_message,
+               std::span<Netlink::Attr *> attrs) {
   nfgenmsg *msg = (nfgenmsg *)(fixed_message);
 
   if (attrs[NFQA_PACKET_HDR] == nullptr) {
