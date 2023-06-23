@@ -180,7 +180,12 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
                       Status &status) {
   bool expect_more_messages = true;
   while (expect_more_messages) {
-    char buf[1024 * 32];
+    ssize_t peek_len = recv(fd, nullptr, 0, MSG_PEEK | MSG_TRUNC);
+    if (peek_len < 0) {
+      status() += "recv(AF_NETLINK, MSG_PEEK)";
+      return;
+    }
+    char buf[peek_len];
     ssize_t len = recv(fd, buf, sizeof(buf), 0);
     if (len < 0) {
       status() += "recv(AF_NETLINK)";
@@ -191,8 +196,16 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
     char *buf_end = buf + len;
 
     while (buf_iter < buf_end - sizeof(nlmsghdr)) {
+      buf_iter = (char *)(((uintptr_t)buf_iter + 3) & ~3); // align to 4 bytes
 
       nlmsghdr *hdr = (nlmsghdr *)(buf_iter);
+      char *msg_end = buf_iter + hdr->nlmsg_len;
+      if (msg_end > buf_end) {
+        status() += "Truncated Netlink message, msg_len=" +
+                    std::to_string(hdr->nlmsg_len) +
+                    ", buf_size=" + std::to_string(len);
+        return;
+      }
       buf_iter += sizeof(nlmsghdr);
 
       if (hdr->nlmsg_type == NLMSG_ERROR) {
@@ -275,12 +288,10 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
 
         Attr *attrs[attribute_max + 1];
         memset(attrs, 0, sizeof(attrs));
-        int attrs_size = hdr->nlmsg_len - sizeof(nlmsghdr) - fixed_message_size;
 
-        uint32_t i = 0;
-        while (i < attrs_size - sizeof(Attr)) {
-          i = NLA_ALIGN(i);
-          Attr *a = (Attr *)(buf_iter + i);
+        while (buf_iter < msg_end - sizeof(Attr)) {
+          buf_iter = (char *)(((uintptr_t)buf_iter + 3ull) & ~3ull);
+          Attr *a = (Attr *)buf_iter;
           if (a->type > attribute_max) {
             status() += "Attribute type " + std::to_string(a->type) +
                         " is out of range";
@@ -292,15 +303,18 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
             return;
           }
           attrs[a->type] = a;
-          i += a->len;
+          buf_iter += a->len;
+          if (buf_iter > msg_end) {
+            status() +=
+                "Attribute length " + std::to_string(a->len) + " is too large";
+            return;
+          }
         }
 
-        if (i != attrs_size) {
-          status() += f("i = %d, attr_size = %d", i, attrs_size);
+        if (buf_iter != msg_end) {
+          status() += f("Parsing error");
           return; // Parsing error - don't progress further to avoid more noise
         }
-
-        buf_iter += attrs_size;
 
         if ((hdr->nlmsg_flags & NLM_F_MULTI) == 0) {
           expect_more_messages = false;
@@ -310,9 +324,14 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
     } // while (buf_iter < buf_end - sizeof(nlmsghdr))
 
     if (buf_iter != buf_end) {
-      status() +=
-          "Extra data at the end of netlink recv buffer. Message type is " +
-          f("0x%x", ((nlmsghdr *)buf)->nlmsg_type) + ".";
+      if (buf_iter < buf_end) {
+        status() +=
+            "Extra data at the end of netlink recv buffer. Message type is " +
+            f("0x%x", ((nlmsghdr *)buf)->nlmsg_type);
+      } else {
+        status() += "Netlink parsing code overshot the end of buffer by " +
+                    std::to_string(buf_iter - buf_end) + " bytes";
+      }
       return; // Parsing error - don't progress further to avoid more noise
     }
   } // while (expect_more_messages)
