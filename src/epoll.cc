@@ -1,12 +1,14 @@
 #include "epoll.hh"
-#include "log.hh"
-#include <cassert>
-#include <cerrno>
+
 #include <cstring>
 #include <fcntl.h>
 #include <sys/epoll.h>
 
 // #define DEBUG_EPOLL
+
+#ifdef DEBUG_EPOLL
+#include "log.hh"
+#endif
 
 namespace epoll {
 
