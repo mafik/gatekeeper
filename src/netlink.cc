@@ -1,7 +1,6 @@
 #include "netlink.hh"
 #include "format.hh"
 
-#include <cassert>
 #include <cstring>
 #include <linux/netlink.h>
 #include <string>
@@ -213,7 +212,7 @@ void Netlink::Receive(size_t message_size, int attribute_max,
 
       if (i != attr_size) {
         status() += f("i = %d, attr_size = %d", i, attr_size);
-        assert(false);
+        return; // Parsing error - don't progress further to avoid more noise
       }
 
       buf_iter += attr_size;
@@ -226,10 +225,12 @@ void Netlink::Receive(size_t message_size, int attribute_max,
     } // while (buf_iter < buf_end - sizeof(nlmsghdr))
 
     if (buf_iter != buf_end) {
-      status() += "Extra data at the end of netlink recv buffer";
-      assert(false);
+      status() +=
+          "Extra data at the end of netlink recv buffer. Message type is " +
+          f("0x%x", ((nlmsghdr *)buf)->nlmsg_type) + ".";
+      return; // Parsing error - don't progress further to avoid more noise
     }
-  }
+  } // while (expect_more_messages)
 }
 
 } // namespace maf
