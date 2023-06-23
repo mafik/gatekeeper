@@ -420,11 +420,14 @@ void OnReceive(uint16_t type, void *fixed_message, nlattr **attrs) {
 
 void Loop() {
   prctl(PR_SET_NAME, "Firewall loop", 0, 0, 0);
-  Status status;
-  while (status.Ok()) {
+  while (true) {
+    Status status;
     queue->Receive(sizeof(nfgenmsg), NFQA_MAX, OnReceive, status);
+    if (!status.Ok()) {
+      status() += "Firewall failed to receive message from kernel";
+      ERROR << status;
+    }
   }
-  ERROR << "Firewall loop terminated with error: " << status;
 }
 
 void Start(Status &status) {
