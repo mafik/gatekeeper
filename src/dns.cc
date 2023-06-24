@@ -616,8 +616,8 @@ bool Question::operator==(const Question &other) const {
          (class_ == other.class_);
 }
 string Question::to_html() const {
-  return "<code class=\"dns-question\">" + domain_name + " " +
-         TypeToString(type) + "</code>";
+  return "<code class=dns-question>" + domain_name + " " + TypeToString(type) +
+         "</code>";
 }
 size_t Record::LoadFrom(const uint8_t *ptr, size_t len, size_t offset) {
   size_t start_offset = offset;
@@ -723,8 +723,8 @@ string Record::pretty_value() const {
   return hex(data.data(), data.size());
 }
 string Record::to_html() const {
-  return "<code class=\"dns-record\" title=\"TTL=" + std::to_string(ttl()) +
-         "s\" style=\"display: inline-block\">" + domain_name + " " +
+  return "<code class=dns-record title=TTL=" + std::to_string(ttl()) +
+         "s style=display:inline-block>" + domain_name + " " +
          TypeToString(type) + " " + pretty_value() + "</code>";
 }
 string Entry::Ready::to_string() const {

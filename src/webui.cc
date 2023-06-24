@@ -70,7 +70,7 @@ std::pair<int, int> RowRange(Table &t, Table::RenderOptions &opts) {
 string TableBeginA(Table &t, Table::RenderOptions opts) {
   auto [begin, end] = RowRange(t, opts);
   string html;
-  html += "<a href=\"/";
+  html += "<a href=/";
   html += t.id;
   html += ".html?offset=";
   html += to_string(opts.row_offset);
@@ -83,20 +83,19 @@ string TableBeginA(Table &t, Table::RenderOptions opts) {
       html += "&desc";
     }
   }
-  html += "\" class=\"arrow\" hx-boost=\"true\" hx-swap=\"morphdom outerHTML "
-          "transition:true\" hx-ext=\"morphdom-swap\" "
-          "hx-push-url=\"false\" hx-target=\"#";
+  html += " class=arrow hx-boost=true hx-ext=morphdom-swap hx-push-url=false"
+          " hx-swap=\"morphdom outerHTML transition:true\" hx-target=#";
   html += t.id;
-  html += "\" hx-select=\"#";
+  html += " hx-select=#";
   html += t.id;
-  html += "\">";
+  html += ">";
   return html;
 }
 
 void Table::RenderTHEAD(string &html, RenderOptions &opts) {
-  html += "<thead style=\"view-transition-name:";
+  html += "<thead style=view-transition-name:";
   html += id;
-  html += "-thead\"><tr class=round-top>";
+  html += "-thead><tr class=round-top>";
   for (int i = 0; i < columns.size(); ++i) {
     auto &col = columns[i];
     html += "<th>";
@@ -119,11 +118,11 @@ void Table::RenderTHEAD(string &html, RenderOptions &opts) {
 }
 
 void Table::RenderTR(string &html, int row) {
-  html += "<tr id=\"";
+  html += "<tr id=";
   html += RowID(row);
-  html += "\" style=\"view-transition-name:";
+  html += " style=view-transition-name:";
   html += RowID(row);
-  html += "\">";
+  html += ">";
   for (int col = 0; col < columns.size(); ++col) {
     html += "<td>";
     string cell;
@@ -148,9 +147,9 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
   auto [begin, end] = RowRange(*this, opts);
   int n = end - begin;
   html += "<tfoot><tr class=round-bottom>";
-  html += "<td colspan=\"";
+  html += "<td colspan=";
   html += to_string(columns.size());
-  html += "\">";
+  html += ">";
   if (n == 0) {
     html += "No rows";
   } else if (n == 1) {
@@ -179,26 +178,24 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
     html += "▶";
     html += "</a> ";
   }
-  html += "<a href=\"/";
+  html += "<a href=/";
   html += id;
-  html += ".html\" hx-boost=true hx-target=main "
-          "hx-select=main hx-ext=morphdom-swap "
-          "hx-swap=\"morphdom outerHTML "
-          "transition:true\">Full "
-          "table</a> <a href=\"/";
+  html += ".html hx-boost=true hx-target=main hx-select=main"
+          " hx-swap=\"morphdom outerHTML transition:true\""
+          " hx-ext=morphdom-swap>Full table</a> <a href=/";
   html += id;
-  html += ".csv\">CSV</a> <a href=\"/";
+  html += ".csv>CSV</a> <a href=/";
   html += id;
-  html += ".json\">JSON</a>";
+  html += ".json>JSON</a>";
   html += "</td></tr></tfoot>";
 }
 
 void Table::RenderTABLE(string &html, RenderOptions &opts) {
-  html += "<table id=\"";
+  html += "<table id=";
   html += id;
-  html += "\" style=\"view-transition-name:";
+  html += " style=view-transition-name:";
   html += id;
-  html += "\"><caption>";
+  html += "><caption>";
   html += caption;
   html += "</caption>";
   RenderTHEAD(html, opts);
@@ -509,17 +506,16 @@ static const void RenderHEADER(std::string &html) {
   html += lan_ip.to_string();
   html += ":";
   html += to_string(kPort);
-  html += " hx-boost=true hx-target=main hx-select=main hx-ext=morphdom-swap "
-          "hx-swap=\"morphdom outerHTML transition:true\">";
+  html += " hx-boost=true hx-target=main hx-select=main hx-ext=morphdom-swap"
+          " hx-swap=\"morphdom outerHTML transition:true\">";
   html += "<img src=/gatekeeper.webp id=knight>Gatekeeper</a></h1>";
-  html += "<div class=options><input type=checkbox id=\"autorefresh\" "
-          "hx-get=\"/\" hx-target=\"main\" hx-select=\"main\" "
-          "hx-ext=\"morphdom-swap\" "
-          "hx-swap=\"morphdom\" "
-          "hx-preserve=\"true\" "
-          "hx-trigger=\"every 1s "
-          "[AutorefreshChecked()]\"><label "
-          "for=\"autorefresh\">Auto-refresh</label></div>";
+  html += "<div class=options><input type=checkbox id=autorefresh "
+          "hx-get=/ hx-target=main hx-select=main "
+          "hx-ext=morphdom-swap "
+          "hx-swap=morphdom "
+          "hx-preserve=true "
+          "hx-trigger=\"every 1s [AutorefreshChecked()]\">"
+          "<label for=autorefresh>Auto-refresh</label></div>";
   html += "<a class=github target=_blank "
           "href=https://github.com/mafik/gatekeeper><img src=/tentacles.webp "
           "alt=tentacles title=GitHub></a>";
