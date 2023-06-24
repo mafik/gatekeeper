@@ -9,14 +9,9 @@ Gatekeeper aims to replace traditional DHCP and DNS servers, such as dnsmasq, fo
 
 [2023-06-12 Gatekeeper Screencast.webm](https://github.com/mafik/gatekeeper/assets/309914/76b61336-205b-4342-8715-d62d37a582c3)
 
-<table cellpadding=10 cellspacing=10 border=10>
-<thead><tr><th>Light mode</th><th>Dark mode</th></tr></thead>
-<tbody><tr><td>
-<img src=https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24.png>
-</td><td>
-<img src=https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24-dark.png>
-</td></tr></tbody>
-</table>
+| Light mode                                                                                                                            | Dark mode                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| ![Light mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24.png) | ![Dark mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24-dark.png) |
 
 Current feature set covers LAN interface configuration (including NAT) and most of the basic DHCP & DNS functionality. It should be usable for most home networks. In the future it may be extended with more "Home Gateway"-oriented features, such as WAN interface configuration, port forwarding, bandwidth accounting, etc.
 
