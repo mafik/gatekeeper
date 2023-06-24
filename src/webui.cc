@@ -181,8 +181,8 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
   }
   html += "<a href=\"/";
   html += id;
-  html += ".html\" hx-boost=\"true\" hx-target=\"main\" "
-          "hx-select=\"main\" hx-ext=\"morphdom-swap\" "
+  html += ".html\" hx-boost=true hx-target=main "
+          "hx-select=main hx-ext=morphdom-swap "
           "hx-swap=\"morphdom outerHTML "
           "transition:true\">Full "
           "table</a> <a href=\"/";
@@ -509,7 +509,9 @@ static const void RenderHEADER(std::string &html) {
   html += lan_ip.to_string();
   html += ":";
   html += to_string(kPort);
-  html += "><img src=/gatekeeper.gif id=knight>Gatekeeper</a></h1>";
+  html += " hx-boost=true hx-target=main hx-select=main hx-ext=morphdom-swap "
+          "hx-swap=\"morphdom outerHTML transition:true\">";
+  html += "<img src=/gatekeeper.gif id=knight>Gatekeeper</a></h1>";
   html += "<div class=options><input type=checkbox id=\"autorefresh\" "
           "hx-get=\"/\" hx-target=\"main\" hx-select=\"main\" "
           "hx-ext=\"morphdom-swap\" "
@@ -524,6 +526,15 @@ static const void RenderHEADER(std::string &html) {
   html += "</header>";
 }
 
+static const void RenderHeadTags(std::string &html) {
+  html += "<link rel=stylesheet href=/style.css>";
+  html += "<link rel=icon type=image/x-icon href=/favicon.ico>";
+  html += "<meta name=view-transition content=same-origin />";
+  html += "<script src=/morphdom-umd-2.7.0.min.js></script>";
+  html += "<script src=/htmx-1.9.2.min.js></script>";
+  html += "<script src=/script.js></script>";
+}
+
 void RenderTableHTML(Response &response, Request &request, Table &t) {
   auto opts = Table::RenderOptions::FromQuery(request);
   t.Update(opts);
@@ -531,12 +542,8 @@ void RenderTableHTML(Response &response, Request &request, Table &t) {
   html += "<!doctype html>";
   html += "<html><head><title>";
   html += t.caption;
-  html += " - Gatekeeper</title><link rel=\"stylesheet\" "
-          "href=\"/style.css\"><link rel=\"icon\" type=\"image/x-icon\" "
-          "href=\"/favicon.ico\">";
-  html += "<script src=\"/morphdom-umd-2.7.0.min.js\"></script>";
-  html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
-  html += "<script src=\"/script.js\"></script>";
+  html += " - Gatekeeper</title>";
+  RenderHeadTags(html);
   html += "</head><body>";
   RenderHEADER(html);
   html += "<main>";
@@ -575,11 +582,7 @@ void RenderMainPage(Response &response, Request &request) {
   html += "<!doctype html>";
   html += "<html><head>";
   html += "<title>Gatekeeper</title>";
-  html += "<link rel=\"stylesheet\" href=\"/style.css\">";
-  html += "<link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\">";
-  html += "<script src=\"/morphdom-umd-2.7.0.min.js\"></script>";
-  html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
-  html += "<script src=\"/script.js\"></script>";
+  RenderHeadTags(html);
   html += "</head>";
   html += "<body>";
   RenderHEADER(html);
