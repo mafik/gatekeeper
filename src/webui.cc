@@ -511,7 +511,7 @@ static const void RenderHEADER(std::string &html) {
   html += to_string(kPort);
   html += " hx-boost=true hx-target=main hx-select=main hx-ext=morphdom-swap "
           "hx-swap=\"morphdom outerHTML transition:true\">";
-  html += "<img src=/gatekeeper.gif id=knight>Gatekeeper</a></h1>";
+  html += "<img src=/gatekeeper.webp id=knight>Gatekeeper</a></h1>";
   html += "<div class=options><input type=checkbox id=\"autorefresh\" "
           "hx-get=\"/\" hx-target=\"main\" hx-select=\"main\" "
           "hx-ext=\"morphdom-swap\" "

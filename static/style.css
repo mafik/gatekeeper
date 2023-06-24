@@ -52,6 +52,11 @@ header a {
   text-decoration: none;
 }
 
+#knight {
+  margin-bottom: -5px;
+  margin-right: 5px;
+}
+
 .github {
   position: fixed;
   top: 0px;
