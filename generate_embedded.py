@@ -39,7 +39,6 @@ extern std::unordered_map<std::string_view, VFile*> index;
 }}  // namespace gatekeeper::embedded''', file=hh)
 
 byte_to_c_string_table = {c: chr(c) for c in range(32, 127)}
-byte_to_c_string_table[0x00] = '\\0'
 byte_to_c_string_table[0x22] = '\\"'
 byte_to_c_string_table[0x5c] = '\\\\'
 byte_to_c_string_table[0x07] = '\\a'
