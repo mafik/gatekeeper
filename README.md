@@ -9,7 +9,11 @@ Gatekeeper aims to replace traditional DHCP and DNS servers, such as dnsmasq, fo
 
 [2023-06-12 Gatekeeper Screencast.webm](https://github.com/mafik/gatekeeper/assets/309914/76b61336-205b-4342-8715-d62d37a582c3)
 
-Current feature set covers most of the basic DHCP & DNS functionality and should be usable for most home networks. In the future it may be extended with more "Home Gateway"-oriented features, such as interface configuration, port forwarding, bandwidth accounting, NAT connection tracking, etc.
+|Light mode|Dark mode|
+|----|---|
+|![Light mode](https://github.com/mafik/gatekeeper/blob/main/screenshots/2023-06-24.png)|![Dark mode](https://github.com/mafik/gatekeeper/blob/main/screenshots/2023-06-24-dark.png)|
+
+Current feature set covers LAN interface configuration (including NAT) and most of the basic DHCP & DNS functionality. It should be usable for most home networks. In the future it may be extended with more "Home Gateway"-oriented features, such as WAN interface configuration, port forwarding, bandwidth accounting, etc.
 
 If there are features you'd like to see, don't hesitate to modify its source code. Gatekeeper is written in a readable manner, making it easy for anyone with basic C++ knowledge to extend its functionality.
 
