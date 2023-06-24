@@ -55,7 +55,11 @@ void Timer::Disarm() { Arm(0, 0); }
 
 void Timer::NotifyRead(std::string &error) {
   uint64_t ticks;
-  assert(read(fd, &ticks, sizeof(ticks)) == sizeof(ticks));
+  if (read(fd, &ticks, sizeof(ticks)) != sizeof(ticks)) {
+    error = "Timer::NotifyRead read(): ";
+    error += strerror(errno);
+    return;
+  }
   if (handler)
     handler();
 }
