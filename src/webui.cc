@@ -503,6 +503,27 @@ Table::RenderOptions Table::RenderOptions::FromQuery(Request &request) {
   return opts;
 }
 
+static const void RenderHEADER(std::string &html) {
+  html += "<header>";
+  html += "<h1><a href=http://";
+  html += lan_ip.to_string();
+  html += ":";
+  html += to_string(kPort);
+  html += "><img src=/gatekeeper.gif id=knight>Gatekeeper</a></h1>";
+  html += "<div class=options><input type=checkbox id=\"autorefresh\" "
+          "hx-get=\"/\" hx-target=\"main\" hx-select=\"main\" "
+          "hx-ext=\"morphdom-swap\" "
+          "hx-swap=\"morphdom\" "
+          "hx-preserve=\"true\" "
+          "hx-trigger=\"every 1s "
+          "[AutorefreshChecked()]\"><label "
+          "for=\"autorefresh\">Auto-refresh</label></div>";
+  html += "<a class=github target=_blank "
+          "href=https://github.com/mafik/gatekeeper><img src=/tentacles.webp "
+          "alt=tentacles title=GitHub></a>";
+  html += "</header>";
+}
+
 void RenderTableHTML(Response &response, Request &request, Table &t) {
   auto opts = Table::RenderOptions::FromQuery(request);
   t.Update(opts);
@@ -517,6 +538,7 @@ void RenderTableHTML(Response &response, Request &request, Table &t) {
   html += "<script src=\"/htmx-1.9.2.min.js\"></script>";
   html += "<script src=\"/script.js\"></script>";
   html += "</head><body>";
+  RenderHEADER(html);
   html += "<main>";
   t.RenderTABLE(html, opts);
   html += "</main></body></html>";
@@ -560,24 +582,7 @@ void RenderMainPage(Response &response, Request &request) {
   html += "<script src=\"/script.js\"></script>";
   html += "</head>";
   html += "<body>";
-  html += "<header>";
-  html += "<h1><a href=http://";
-  html += lan_ip.to_string();
-  html += ":";
-  html += to_string(kPort);
-  html += "><img src=/gatekeeper.gif id=knight>Gatekeeper</a></h1>";
-  html += "<div class=options><input type=checkbox id=\"autorefresh\" "
-          "hx-get=\"/\" hx-target=\"main\" hx-select=\"main\" "
-          "hx-ext=\"morphdom-swap\" "
-          "hx-swap=\"morphdom\" "
-          "hx-preserve=\"true\" "
-          "hx-trigger=\"every 1s "
-          "[AutorefreshChecked()]\"><label "
-          "for=\"autorefresh\">Auto-refresh</label></div>";
-  html += "<a class=github target=_blank "
-          "href=https://github.com/mafik/gatekeeper><img src=/tentacles.webp "
-          "alt=tentacles title=GitHub></a>";
-  html += "</header>";
+  RenderHEADER(html);
   html += "<main>";
   config_table.RenderTABLE(html, opts);
   devices_table.RenderTABLE(html, opts);
