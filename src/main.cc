@@ -27,15 +27,18 @@
 using namespace gatekeeper;
 using namespace maf;
 
-std::optional<SignalHandler> sigterm;
-std::optional<SignalHandler> sigint;
+std::optional<SignalHandler> sigabrt; // systemd watchdog
+std::optional<SignalHandler> sigterm; // systemctl stop & systemd timeout
+std::optional<SignalHandler> sigint;  // Ctrl+C
 
 void StopSignal(const char *signal) {
   LOG << "Received " << signal << ". Stopping Gatekeeper.";
   webui::Stop();
   dns::Stop();
   dhcp::server.StopListening();
+  systemd::StopWatchdog();
   // Signal handlers must be stopped so that epoll::Loop would terminate.
+  sigabrt.reset();
   sigterm.reset();
   sigint.reset();
 }
@@ -51,6 +54,12 @@ void HookSignals(Status &status) {
   sigint->handler = [](std::string &) { StopSignal("SIGINT"); };
   if (!sigint->status.Ok()) {
     status = sigint->status;
+    return;
+  }
+  sigabrt.emplace(SIGABRT);
+  sigabrt->handler = [](std::string &) { StopSignal("SIGABRT"); };
+  if (!sigabrt->status.Ok()) {
+    status = sigabrt->status;
     return;
   }
 }
@@ -358,6 +367,7 @@ int main(int argc, char *argv[]) {
 
   LOG << "Gatekeeper running at http://" << lan_ip << ":1337/";
   systemd::NotifyReady();
+  systemd::StartWatchdog();
 
   epoll::Loop(err);
   if (!err.empty()) {
