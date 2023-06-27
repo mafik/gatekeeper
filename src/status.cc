@@ -36,7 +36,7 @@ std::string Status::ToString() const {
   if (errno) {
     ret += strerror(errsv);
   } else {
-    ret += "OK";
+    ret += "Errno not set";
   }
   ret += ".";
   return ret;
