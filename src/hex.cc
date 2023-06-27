@@ -10,3 +10,31 @@ std::string hex(const void *ptr, size_t size) {
   }
   return result;
 }
+
+namespace maf {
+
+void HexToBytesUnchecked(std::string_view hex, uint8_t *bytes) {
+  bool high = true;
+  for (int i = 0; i < hex.size(); i++) {
+    char c = hex[i];
+    if (c >= '0' && c <= '9') {
+      c -= '0';
+    } else if (c >= 'a' && c <= 'f') {
+      c -= 'a' - 10;
+    } else if (c >= 'A' && c <= 'F') {
+      c -= 'A' - 10;
+    } else {
+      // ignore
+    }
+    if (high) {
+      *bytes = c << 4;
+      high = false;
+    } else {
+      *bytes |= c;
+      bytes++;
+      high = true;
+    }
+  }
+}
+
+} // namespace maf
