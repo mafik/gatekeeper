@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "format.hh"
 #include "ip.hh"
 #include "variant.hh"
 #include "webui.hh"
@@ -114,7 +113,7 @@ struct Message {
 
 struct IncomingRequest {
   Header header;
-  IP client_ip;
+  maf::IP client_ip;
   uint16_t client_port;
 };
 
@@ -142,7 +141,7 @@ struct Entry {
   bool operator==(const Question &other) const { return question == other; }
 };
 
-void Start(string &err);
+void Start(maf::Status &);
 void Stop();
 
 struct Table : webui::Table {

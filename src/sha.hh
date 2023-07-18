@@ -1,38 +1,73 @@
 #pragma once
 
-#include <string>
-#include <string_view>
+#include "int.hh"
+#include "mem.hh"
+#include "str.hh"
 
-std::string SHA1(std::string_view str);
+namespace maf {
+
+struct SHA1 {
+  U8 bytes[20];
+
+  SHA1(MemView);
+
+  operator MemView() { return bytes; }
+  operator StrView() { return StrView((const char *)bytes, 20); }
+};
+
+struct SHA256 {
+  constexpr static size_t kBlockSize = 64;
+
+  U8 bytes[32];
+
+  // Construct an uninitialized SHA256. There shoud be no reason to use this
+  // function except to reserve space for a proper SHA256.
+  SHA256() = default;
+
+  // Compute a SHA256 of a memory buffer in one go.
+  SHA256(Span<const U8>);
+  SHA256(StrView s) : SHA256(Span<const U8>((const U8 *)s.data(), s.size())) {}
+
+  struct Builder {
+    U32 state[8];
+    U8 buffer[64];
+    U64 n_bits;
+    U8 buffer_counter;
+    Builder();
+    Builder &Update(Span<const U8>);
+    SHA256 Finalize();
+  };
+
+  operator MemView() { return bytes; }
+  operator Span<const U8>() const { return bytes; }
+};
 
 struct SHA512 {
-  uint8_t bytes[64];
+  U8 bytes[64];
 
   // Construct an uninitialized SHA512. There shoud be no reason to use this
   // function except to reserve space for a proper SHA512.
   SHA512() = default;
 
-  // Compute a SHA512 of a `string_view`.
-  SHA512(std::string_view);
-
-  // Compute a SHA512 from a range of bytes.
-  SHA512(const uint8_t *bytes, size_t len)
-      : SHA512(std::string_view((const char *)bytes, len)) {}
+  // Compute a SHA512 of a memory bufferin one go.
+  SHA512(MemView);
 
   // Access individual bytes of SHA512.
-  uint8_t &operator[](size_t i) { return bytes[i]; }
+  U8 &operator[](size_t i) { return bytes[i]; }
 
   // Builder can be used to compute SHA512 incrementally.
   struct Builder {
-    uint64_t length;
-    uint64_t state[8];
-    uint32_t curlen;
-    uint8_t buf[128];
+    U64 length;
+    U64 state[8];
+    U32 curlen;
+    U8 buf[128];
     Builder();
-    Builder &Update(std::string_view);
-    Builder &Update(const uint8_t *bytes, size_t len) {
-      return Update(std::string_view((const char *)bytes, len));
-    }
+    Builder &Update(MemView);
     SHA512 Finalize();
   };
+
+  operator MemView() { return bytes; }
+  operator Span<const U8>() const { return bytes; }
 };
+
+} // namespace maf

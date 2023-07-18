@@ -10,39 +10,37 @@
 #include "log.hh"
 #endif
 
-namespace epoll {
+namespace maf::epoll {
 
-bool Listener::ListenReadAvailability() { return true; }
-bool Listener::ListenWriteAvailability() { return false; }
-
-int fd;
-int listener_count = 0;
+thread_local int fd = 0;
+thread_local int listener_count = 0;
 
 static constexpr int kMaxEpollEvents = 10;
 static epoll_event events[kMaxEpollEvents];
 static int events_count = 0;
 
-void Init() {
-  fd = epoll_create1(0);
-  fcntl(fd, F_SETFD, FD_CLOEXEC);
-}
+void Init() { fd = epoll_create1(EPOLL_CLOEXEC); }
 
 static epoll_event MakeEpollEvent(Listener *listener) {
-  epoll_event ev = {.events = EPOLLET, .data = {.ptr = listener}};
-  if (listener->ListenReadAvailability()) {
+  epoll_event ev = {.events = 0, .data = {.ptr = listener}};
+  if (listener->notify_read) {
     ev.events |= EPOLLIN;
   }
-  if (listener->ListenWriteAvailability()) {
+  if (listener->notify_write) {
     ev.events |= EPOLLOUT;
   }
   return ev;
 }
 
-void Add(Listener *listener, std::string &error) {
+void Add(Listener *listener, Status &status) {
+  if (fd == 0) {
+    status() += "epoll::Init() was not called";
+    return;
+  }
   epoll_event ev = MakeEpollEvent(listener);
   if (int r = epoll_ctl(fd, EPOLL_CTL_ADD, listener->fd, &ev); r == -1) {
-    error = "epoll_ctl(EPOLL_CTL_ADD): ";
-    error += strerror(errno);
+    status() += "epoll_ctl(EPOLL_CTL_ADD) epfd=" + std::to_string(fd) +
+                " fd=" + std::to_string(listener->fd);
     return;
   }
   ++listener_count;
@@ -52,22 +50,20 @@ void Add(Listener *listener, std::string &error) {
 #endif
 }
 
-void Mod(Listener *listener, std::string &error) {
+void Mod(Listener *listener, Status &status) {
   epoll_event ev = MakeEpollEvent(listener);
 #ifdef DEBUG_EPOLL
   LOG << "epoll_ctl " << listener->Name() << listener->fd << " "
       << (ev.events & EPOLLOUT ? "RDWR" : "RD");
 #endif
   if (int r = epoll_ctl(fd, EPOLL_CTL_MOD, listener->fd, &ev); r == -1) {
-    error = "epoll_ctl(EPOLL_CTL_MOD): ";
-    error += strerror(errno);
+    status() += "epoll_ctl(EPOLL_CTL_MOD)";
   }
 }
 
-void Del(Listener *l, std::string &error) {
+void Del(Listener *l, Status &status) {
   if (int r = epoll_ctl(fd, EPOLL_CTL_DEL, l->fd, nullptr); r == -1) {
-    error = "epoll_ctl(EPOLL_CTL_DEL): ";
-    error += strerror(errno);
+    status() += "epoll_ctl(EPOLL_CTL_DEL)";
     return;
   }
   --listener_count;
@@ -82,7 +78,7 @@ void Del(Listener *l, std::string &error) {
 #endif
 }
 
-void Loop(std::string &error) {
+void Loop(Status &status) {
   for (;;) {
     if (listener_count == 0) {
       break;
@@ -92,15 +88,14 @@ void Loop(std::string &error) {
       if (errno == EINTR) {
         continue;
       }
-      error = "epoll_wait: ";
-      error += strerror(errno);
+      status() += "epoll_wait";
       return;
     }
 
     for (int i = 0; i < events_count; ++i) {
-      Listener *l = (Listener *)events[i].data.ptr;
       if (events[i].data.ptr == nullptr)
         continue;
+      Listener *l = (Listener *)events[i].data.ptr;
 #ifdef DEBUG_EPOLL
       if (strcmp(l->Name(), "Timer")) {
         bool in = events[i].events & EPOLLIN;
@@ -110,16 +105,22 @@ void Loop(std::string &error) {
       }
 #endif
       if (events[i].events & EPOLLIN) {
-        l->NotifyRead(error);
-        if (!error.empty()) {
+        l->NotifyRead(status);
+        if (!status.Ok()) {
+#ifdef DEBUG_EPOLL
+          ERROR << l->Name() << ": " << ErrorMessage(status);
+#endif
           return;
         }
       }
       if (events[i].data.ptr == nullptr)
         continue;
       if (events[i].events & EPOLLOUT) {
-        l->NotifyWrite(error);
-        if (!error.empty()) {
+        l->NotifyWrite(status);
+        if (!status.Ok()) {
+#ifdef DEBUG_EPOLL
+          ERROR << l->Name() << ": " << ErrorMessage(status);
+#endif
           return;
         }
       }
@@ -128,4 +129,4 @@ void Loop(std::string &error) {
   }
 }
 
-} // namespace epoll
+} // namespace maf::epoll

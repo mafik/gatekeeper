@@ -1,11 +1,11 @@
 #pragma once
 
-// Wrapper around a file descriptor.
-
-#include <string>
-
 #include "ip.hh"
+#include "str.hh"
 
+namespace maf {
+
+// Wrapper around a file descriptor.
 struct FD {
   int fd;
 
@@ -20,10 +20,13 @@ struct FD {
   FD &operator=(const FD &) = delete;
   FD &operator=(FD &&other);
 
-  void Bind(IP ip, uint16_t port, std::string &error);
-  void SetNonBlocking(std::string &error);
-  void SendTo(IP ip, uint16_t port, std::string_view buffer,
-              std::string &error);
-
   void Close();
+
+  void SetNonBlocking(maf::Status &);
+
+  // TODO: move those into another header (fd_net.hh ?)
+  void Bind(IP local_ip, U16 local_port, maf::Status &);
+  void SendTo(IP remote_ip, U16 remote_port, StrView buffer, Str &error);
 };
+
+} // namespace maf

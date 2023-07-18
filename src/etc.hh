@@ -12,6 +12,7 @@ namespace etc {
 using std::map;
 using std::string;
 using std::vector;
+using namespace maf;
 
 extern map<IP, vector<string>> hosts;
 extern map<MAC, IP> ethers;

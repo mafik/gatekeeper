@@ -13,11 +13,11 @@ struct Interface {
 
   bool IsLoopback();
   bool IsWireless();
-  IP IP(Status &status);
-  ::IP Netmask(Status &status);
-  Network Network(Status &status);
-  void Configure(::IP ip, ::Network network, Status &status);
-  void Deconfigure(Status &status);
+  maf::IP IP(maf::Status &status);
+  maf::IP Netmask(maf::Status &status);
+  maf::Network Network(maf::Status &status);
+  void Configure(maf::IP ip, maf::Network network, maf::Status &status);
+  void Deconfigure(maf::Status &status);
 };
 
 void ForEachInetrface(std::function<void(Interface &)> callback);

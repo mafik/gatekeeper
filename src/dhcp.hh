@@ -20,7 +20,7 @@ struct Server : UDPListener {
     std::optional<std::chrono::steady_clock::time_point> last_request;
   };
 
-  std::map<IP, Entry> entries;
+  std::map<maf::IP, Entry> entries;
 
   void Init();
 
@@ -28,12 +28,12 @@ struct Server : UDPListener {
   //
   // To actually accept new connections, make sure to Poll the `epoll`
   // instance after listening.
-  void Listen(std::string &error);
+  void Listen(maf::Status &);
 
   // Stop listening.
   void StopListening();
 
-  void HandleRequest(std::string_view buf, IP source_ip,
+  void HandleRequest(std::string_view buf, maf::IP source_ip,
                      uint16_t port) override;
 
   const char *Name() const override;

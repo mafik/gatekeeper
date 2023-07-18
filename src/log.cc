@@ -1,14 +1,8 @@
-#include <chrono>
-#include <cstdio>
-#include <cstdlib>
-#include <memory>
-#include <string>
-#include <utility>
+#include "log.hh"
 
 #include "format.hh"
-#include "log.hh"
-#include "math.h"
-#include "term.hh"
+
+namespace maf {
 
 std::vector<Logger> loggers;
 
@@ -111,3 +105,5 @@ const LogEntry &operator<<(const LogEntry &logger, Status &status) {
   logger.errsv = status.errsv;
   return logger;
 }
+
+} // namespace maf

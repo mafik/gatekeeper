@@ -1,10 +1,11 @@
 #pragma once
 
-#include <string>
+#include "str.hh"
 
-// printf-like formatting function.
+namespace maf {
+
 // TODO: replace this with std::format when it's available
-std::string f(const char *fmt, ...);
+Str f(const char *fmt, ...);
 
 // Prefix each line with `spaces` spaces.
 std::string IndentString(std::string in, int spaces = 2);
@@ -27,3 +28,5 @@ template <typename T> std::string dump_struct(const T &t) {
   __builtin_dump_struct(&t, constexpr_sprintf, s);
   return s;
 }
+
+} // namespace maf

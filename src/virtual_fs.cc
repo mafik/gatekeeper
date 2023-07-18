@@ -9,6 +9,8 @@
 #include "../generated/embedded.hh"
 #include "log.hh"
 
+using namespace maf;
+
 namespace gatekeeper {
 
 void ReadRealFile(const char *path,

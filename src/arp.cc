@@ -3,6 +3,8 @@
 #include <net/if_arp.h>
 #include <sys/ioctl.h>
 
+using namespace maf;
+
 namespace arp {
 
 struct IOCtlRequest {
@@ -16,7 +18,8 @@ struct IOCtlRequest {
 static_assert(sizeof(IOCtlRequest) == sizeof(arpreq),
               "IOCtlRequest doesn't match `struct arpreq` from <net/if_arp.h>");
 
-void Set(const std::string& interface, IP ip, MAC mac, int af_inet_fd, std::string &error) {
+void Set(const std::string &interface, IP ip, MAC mac, int af_inet_fd,
+         std::string &error) {
   IOCtlRequest r{
       .protocol_address = {.sin_family = AF_INET,
                            .sin_addr = {.s_addr = ip.addr}},

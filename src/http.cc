@@ -1,8 +1,5 @@
 #include "http.hh"
-#include "base64.hh"
-#include "format.hh"
-#include "log.hh"
-#include "sha.hh"
+
 #include <arpa/inet.h>
 #include <cassert>
 #include <cstring>
@@ -14,7 +11,14 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "base64.hh"
+#include "log.hh"
+#include "sha.hh"
+#include "status.hh"
+
 // #define DEBUG_HTTP
+
+using namespace maf;
 
 namespace http {
 
@@ -187,7 +191,7 @@ static int ConsumeHttpRequest(Connection &c) {
     std::string sha_buf;
     sha_buf += websocket_key;
     sha_buf += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-    auto sha_sum = SHA1(sha_buf);
+    maf::SHA1 sha_sum(MemViewOf(sha_buf));
     auto sha_b64 = Base64Encode(sha_sum);
 
     response.WriteStatus("101 Switching Protocols");
@@ -216,9 +220,10 @@ static int ConsumeHttpRequest(Connection &c) {
 
 static void UpdateEpoll(Connection &c) {
   bool &current = c.listening_to_write_availability;
-  bool desired = c.ListenWriteAvailability();
+  bool desired = !c.response_buffer.empty();
   if (current != desired) {
-    epoll::Mod(&c, c.error);
+    c.notify_write = desired;
+    epoll::Mod(&c, c.status);
     current = desired;
   }
 }
@@ -248,8 +253,7 @@ static void TryWriting(Connection &c) {
       UpdateEpoll(c);
       return;
     }
-    c.error = "send(): ";
-    c.error += strerror(errno);
+    AppendErrorMessage(c.status) += "send()";
     c.CloseTCP();
 #ifdef DEBUG_HTTP
     LOG << " -> closing (ERROR)";
@@ -307,8 +311,7 @@ static void TryReading(Connection &c) {
 #ifdef DEBUG_HTTP
     LOG << " -> closing (ERROR)";
 #endif
-    c.error = "read(): ";
-    c.error += strerror(errno);
+    AppendErrorMessage(c.status) += "read()";
     c.CloseTCP();
     return;
   }
@@ -369,16 +372,14 @@ void Connection::Close(uint16_t code, std::string_view reason) {
 
 void Connection::CloseTCP() {
   closed = true;
-  epoll::Del(this, error);
+  epoll::Del(this, status);
   close(fd);
 }
 
-bool Connection::ListenWriteAvailability() { return !response_buffer.empty(); }
-
-void Connection::NotifyRead(std::string &error) {
+void Connection::NotifyRead(Status &epoll_status) {
   TryReading(*this);
-  if (!this->error.empty()) {
-    LOG << "Connection error: " << this->error;
+  if (!OK(this->status)) {
+    LOG << "Connection error: " << this->status;
   }
   if (closed) {
     if (mode == MODE_WEBSOCKET && server->on_close) {
@@ -389,11 +390,11 @@ void Connection::NotifyRead(std::string &error) {
   }
 }
 
-void Connection::NotifyWrite(std::string &error) {
+void Connection::NotifyWrite(Status &epoll_status) {
   write_buffer_full = false;
   TryWriting(*this);
-  if (!this->error.empty()) {
-    LOG << "Connection error: " << this->error;
+  if (!OK(this->status)) {
+    LOG << "Connection error: " << this->status;
   }
   if (closed) {
     if (mode == MODE_WEBSOCKET && server->on_close) {
@@ -406,22 +407,22 @@ void Connection::NotifyWrite(std::string &error) {
 
 const char *Connection::Name() const { return "Connection"; }
 
-void Server::Listen(Config config, std::string &error) {
+void Server::Listen(Config config, Status &status) {
   fd = socket(AF_INET, SOCK_STREAM, /*protocol*/ 0);
   if (fd == 0) {
-    error = "socket() failed";
+    AppendErrorMessage(status) += "socket() failed";
     return;
   }
 
   int flags = fcntl(fd, F_GETFL);
   if (flags < 0) {
-    error = "fcntl(F_GETFL) failed";
+    AppendErrorMessage(status) += "fcntl(F_GETFL) failed";
     StopListening();
     return;
   }
 
   if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-    error = "fcntl(F_SETFL) failed";
+    AppendErrorMessage(status) += "fcntl(F_SETFL) failed";
     StopListening();
     return;
   }
@@ -429,7 +430,7 @@ void Server::Listen(Config config, std::string &error) {
   int opt = 1;
   if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,
                  sizeof(opt))) {
-    error = "setsockopt() failed";
+    AppendErrorMessage(status) += "setsockopt() failed";
     StopListening();
     return;
   }
@@ -437,7 +438,7 @@ void Server::Listen(Config config, std::string &error) {
   if (config.interface.has_value()) {
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, config.interface->data(),
                    config.interface->size()) < 0) {
-      error = "Error when setsockopt bind to device";
+      AppendErrorMessage(status) += "Error when setsockopt bind to device";
       StopListening();
       return;
     };
@@ -447,32 +448,32 @@ void Server::Listen(Config config, std::string &error) {
                          .sin_port = htons(config.port),
                          .sin_addr = {.s_addr = config.ip.addr}};
   if (int r = bind(fd, (sockaddr *)&address, sizeof(address)); r < 0) {
-    error = "bind() failed";
+    AppendErrorMessage(status) += "bind() failed";
     StopListening();
     return;
   }
 
   if (int r = listen(fd, SOMAXCONN); r < 0) {
-    error = "listen() failed";
+    AppendErrorMessage(status) += "listen() failed";
     StopListening();
     return;
   }
 
-  epoll::Add(this, error);
-  if (!error.empty()) {
+  epoll::Add(this, status);
+  if (!OK(status)) {
     StopListening();
     return;
   }
 }
 
 void Server::StopListening() {
-  std::string error_ignored;
-  epoll::Del(this, error_ignored);
+  Status ignored;
+  epoll::Del(this, ignored);
   shutdown(fd, SHUT_RDWR);
   close(fd);
 }
 
-void Server::NotifyRead(std::string &error) {
+void Server::NotifyRead(Status &status) {
   while (true) {
     sockaddr_in addr;
     socklen_t addrlen = sizeof(addr);
@@ -483,12 +484,12 @@ void Server::NotifyRead(std::string &error) {
         // We have processed all incoming connections.
         break;
       }
-      error = "accept() failed";
+      AppendErrorMessage(status) += "accept() failed";
       return;
     }
     int opt = 1;
     if (setsockopt(conn_fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt))) {
-      error = "setsockopt() failed";
+      AppendErrorMessage(status) += "setsockopt() failed";
       return;
     }
     Connection *conn = new Connection();
@@ -501,8 +502,8 @@ void Server::NotifyRead(std::string &error) {
 #ifdef DEBUG_HTTP
     LOG << "accept " << conn_fd;
 #endif
-    epoll::Add(conn, error);
-    conn->NotifyRead(error);
+    epoll::Add(conn, status);
+    conn->NotifyRead(status);
   }
 }
 

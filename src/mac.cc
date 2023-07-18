@@ -6,6 +6,8 @@
 
 #include "format.hh"
 
+using namespace maf;
+
 MAC MAC::FromInterface(std::string_view interface_name) {
   ifreq ifr = {};
   int sock = socket(AF_INET, SOCK_DGRAM, 0);

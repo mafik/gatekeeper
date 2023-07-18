@@ -7,6 +7,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+using namespace maf;
+
 bool Interface::IsLoopback() {
   int fd = socket(PF_INET, SOCK_DGRAM, 0);
   ifreq ifr = {};

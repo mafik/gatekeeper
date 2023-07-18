@@ -15,7 +15,8 @@ struct VFile {
 
 // Read the given file and call the callback with the file content.
 void ReadRealFile(const char *path,
-                  std::function<void(std::string_view)> callback, Status &);
+                  std::function<void(std::string_view)> callback,
+                  maf::Status &);
 
 // Read the given file and call the callback with the file content.
 //
@@ -24,13 +25,13 @@ void ReadRealFile(const char *path,
 // for development - so that you don't have to recompile the program every time
 // you change a file.
 void ReadFile(const char *path, std::function<void(std::string_view)> callback,
-              Status &);
+              maf::Status &);
 
 // Write the given file with the given contents.
-void WriteFile(const char *path, std::string_view contents, Status &,
+void WriteFile(const char *path, std::string_view contents, maf::Status &,
                mode_t mode = 0644);
 
-void CopyFile(const char *from_path, const char *to_path, Status &status,
+void CopyFile(const char *from_path, const char *to_path, maf::Status &status,
               mode_t mode = 0644);
 
 } // namespace gatekeeper

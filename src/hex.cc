@@ -1,19 +1,8 @@
 #include "hex.hh"
 
-std::string hex(const void *ptr, size_t size) {
-  std::string result;
-  result.reserve(size * 2);
-  for (size_t i = 0; i < size; i++) {
-    char buf[3];
-    sprintf(buf, "%02x", ((uint8_t *)ptr)[i]);
-    result += buf;
-  }
-  return result;
-}
-
 namespace maf {
 
-void HexToBytesUnchecked(std::string_view hex, uint8_t *bytes) {
+void HexToBytesUnchecked(StrView hex, U8 *bytes) {
   bool high = true;
   for (int i = 0; i < hex.size(); i++) {
     char c = hex[i];
@@ -35,6 +24,16 @@ void HexToBytesUnchecked(std::string_view hex, uint8_t *bytes) {
       high = true;
     }
   }
+}
+
+Str BytesToHex(Span<const U8> bytes) {
+  Str result;
+  result.reserve(bytes.size() * 2);
+  for (U8 byte : bytes) {
+    result += "0123456789abcdef"[byte >> 4];
+    result += "0123456789abcdef"[byte & 0xf];
+  }
+  return result;
 }
 
 } // namespace maf

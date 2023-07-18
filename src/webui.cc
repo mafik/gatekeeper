@@ -20,6 +20,7 @@
 
 namespace webui {
 
+using namespace maf;
 using namespace std;
 using namespace http;
 using chrono::steady_clock;
@@ -711,12 +712,12 @@ void SetupLogging() {
   });
 }
 
-void Start(string &err) {
+void Start(Status &status) {
   server.handler = Handler;
   server.Listen(
       http::Server::Config{.ip = lan_ip, .port = kPort, .interface = lan.name},
-      err);
-  if (!err.empty()) {
+      status);
+  if (!OK(status)) {
     return;
   }
   SetupLogging();

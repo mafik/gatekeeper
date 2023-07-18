@@ -44,22 +44,19 @@ void StopSignal(const char *signal) {
 }
 
 void HookSignals(Status &status) {
-  sigterm.emplace(SIGTERM);
-  sigterm->handler = [](std::string &) { StopSignal("SIGTERM"); };
-  if (!sigterm->status.Ok()) {
-    status = sigterm->status;
+  sigterm.emplace(SIGTERM, status);
+  sigterm->handler = [](Status &) { StopSignal("SIGTERM"); };
+  if (!OK(status)) {
     return;
   }
-  sigint.emplace(SIGINT);
-  sigint->handler = [](std::string &) { StopSignal("SIGINT"); };
-  if (!sigint->status.Ok()) {
-    status = sigint->status;
+  sigint.emplace(SIGINT, status);
+  sigint->handler = [](Status &) { StopSignal("SIGINT"); };
+  if (!OK(status)) {
     return;
   }
-  sigabrt.emplace(SIGABRT);
-  sigabrt->handler = [](std::string &) { StopSignal("SIGABRT"); };
-  if (!sigabrt->status.Ok()) {
-    status = sigabrt->status;
+  sigabrt.emplace(SIGABRT, status);
+  sigabrt->handler = [](Status &) { StopSignal("SIGABRT"); };
+  if (!OK(status)) {
     return;
   }
 }
@@ -70,8 +67,9 @@ bool ConfirmInstall(const char *argv0) {
   bool confirmed = true;
   std::optional<SignalHandler> sigint;
   std::optional<Timer> timer;
-  sigint.emplace(SIGINT);
-  sigint->handler = [&](std::string &) {
+  Status ignored;
+  sigint.emplace(SIGINT, ignored);
+  sigint->handler = [&](Status &) {
     confirmed = false;
     LOG << "Aborting. You can run Gatekeeper without installing it by running "
            "it in a portable mode:\nPORTABLE=1 "
@@ -86,8 +84,7 @@ bool ConfirmInstall(const char *argv0) {
     timer.reset();
   };
   timer->Arm(10);
-  std::string err;
-  epoll::Loop(err);
+  epoll::Loop(ignored);
   return confirmed;
 }
 
@@ -231,7 +228,7 @@ Interface PickLANInterface(Status &status) {
   return candidates[0];
 }
 
-Network PickUnusedSubnet(Status status) {
+Network PickUnusedSubnet(Status &status) {
   // Consider networks with 16 bits for hosts
   IP netmask = IP::NetmaskFromPrefixLength(16);
   std::vector<IP> available;
@@ -270,7 +267,6 @@ void Deconfigure() {
 }
 
 int main(int argc, char *argv[]) {
-  std::string err;
   Status status;
 
   epoll::Init();
@@ -347,21 +343,21 @@ int main(int argc, char *argv[]) {
   }
 
   dhcp::server.Init();
-  dhcp::server.Listen(err);
-  if (!err.empty()) {
-    ERROR << "Failed to start DHCP server: " << err;
+  dhcp::server.Listen(status);
+  if (!OK(status)) {
+    ERROR << "Failed to start DHCP server: " << status;
     return 1;
   }
 
-  dns::Start(err);
-  if (!err.empty()) {
-    ERROR << err;
+  dns::Start(status);
+  if (!OK(status)) {
+    ERROR << status;
     return 1;
   }
 
-  webui::Start(err);
-  if (!err.empty()) {
-    ERROR << err;
+  webui::Start(status);
+  if (!OK(status)) {
+    ERROR << status;
     return 1;
   }
 
@@ -369,9 +365,9 @@ int main(int argc, char *argv[]) {
   systemd::NotifyReady();
   systemd::StartWatchdog();
 
-  epoll::Loop(err);
-  if (!err.empty()) {
-    ERROR << err;
+  epoll::Loop(status);
+  if (!OK(status)) {
+    ERROR << status;
     return 1;
   }
   LOG << "Gatekeeper stopped.";

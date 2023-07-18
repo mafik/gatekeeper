@@ -13,8 +13,8 @@ extern const std::string kLocalDomain;
 // variables.
 
 extern Interface lan;
-extern IP lan_ip;
-extern Network lan_network;
+extern maf::IP lan_ip;
+extern maf::Network lan_network;
 
 extern Interface wan;
-extern IP wan_ip;
+extern maf::IP wan_ip;

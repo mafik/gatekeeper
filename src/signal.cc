@@ -1,35 +1,36 @@
 #include "signal.hh"
+#include "status.hh"
 
 #include <csignal>
 #include <sys/signalfd.h>
 
-SignalHandler::SignalHandler(int signal) : signal(signal) {
+using namespace maf;
+
+SignalHandler::SignalHandler(int signal, Status &status) : signal(signal) {
   sigset_t mask;
   sigemptyset(&mask);
   sigaddset(&mask, signal);
 
   if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
-    status() += "sigprocmask(SIG_BLOCK)";
+    AppendErrorMessage(status) += "sigprocmask(SIG_BLOCK)";
     return;
   }
 
   fd = signalfd(-1, &mask, 0);
   if (fd == -1) {
-    status() += "signalfd";
+    AppendErrorMessage(status) += "signalfd";
     return;
   }
-  std::string error;
-  epoll::Add(this, error);
-  if (!error.empty()) {
-    status() += error;
+  epoll::Add(this, status);
+  if (!OK(status)) {
     return;
   }
 }
 
 SignalHandler::~SignalHandler() {
   if (fd >= 0) {
-    std::string error;
-    epoll::Del(this, error);
+    Status ignored;
+    epoll::Del(this, ignored);
     close(fd);
   }
   sigset_t mask;
@@ -38,15 +39,15 @@ SignalHandler::~SignalHandler() {
   sigprocmask(SIG_UNBLOCK, &mask, NULL);
 }
 
-void SignalHandler::NotifyRead(std::string &error) {
+void SignalHandler::NotifyRead(Status &status) {
   signalfd_siginfo fdsi;
   ssize_t s = read(fd, &fdsi, sizeof(fdsi));
   if (s != sizeof(fdsi)) {
-    error = "signalfd: truncated read";
+    AppendErrorMessage(status) += "signalfd: truncated read";
     return;
   }
   if (handler) {
-    handler(error);
+    handler(status);
   }
 }
 

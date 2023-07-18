@@ -1,5 +1,7 @@
 #include "curve25519.hh"
 
+#include <cstring>
+
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -35,7 +37,7 @@ namespace {
 #include <stdint.h>
 #include <string.h>
 
-typedef uint8_t u8;
+typedef uint8_t U8;
 typedef uint64_t limb;
 typedef limb felem[5];
 // This is a special gcc mode for 128-bit integers. It's implemented on 64-bit
@@ -230,13 +232,13 @@ static inline void force_inline fsquare_times(felem output, const felem in,
 }
 
 /* Load a little-endian 64-bit number  */
-static limb load_limb(const u8 *in) {
+static limb load_limb(const U8 *in) {
   return ((limb)in[0]) | (((limb)in[1]) << 8) | (((limb)in[2]) << 16) |
          (((limb)in[3]) << 24) | (((limb)in[4]) << 32) | (((limb)in[5]) << 40) |
          (((limb)in[6]) << 48) | (((limb)in[7]) << 56);
 }
 
-static void store_limb(u8 *out, limb in) {
+static void store_limb(U8 *out, limb in) {
   out[0] = in & 0xff;
   out[1] = (in >> 8) & 0xff;
   out[2] = (in >> 16) & 0xff;
@@ -248,7 +250,7 @@ static void store_limb(u8 *out, limb in) {
 }
 
 /* Take a little-endian, 32-byte number and expand it into polynomial form */
-static void fexpand(limb *output, const u8 *in) {
+static void fexpand(limb *output, const U8 *in) {
   output[0] = load_limb(in) & 0x7ffffffffffff;
   output[1] = (load_limb(in + 6) >> 3) & 0x7ffffffffffff;
   output[2] = (load_limb(in + 12) >> 6) & 0x7ffffffffffff;
@@ -259,7 +261,7 @@ static void fexpand(limb *output, const u8 *in) {
 /* Take a fully reduced polynomial form number and contract it into a
  * little-endian, 32-byte array
  */
-static void fcontract(u8 *output, const felem input) {
+static void fcontract(U8 *output, const felem input) {
   uint128_t t[5];
 
   t[0] = input[0];
@@ -398,7 +400,7 @@ static void swap_conditional(limb a[5], limb b[5], limb iswap) {
  *   n: a little endian, 32-byte number
  *   q: a point of the curve (short form)
  */
-static void cmult(limb *resultx, limb *resultz, const u8 *n, const limb *q) {
+static void cmult(limb *resultx, limb *resultz, const U8 *n, const limb *q) {
   limb a[5] = {0}, b[5] = {1}, c[5] = {1}, d[5] = {0};
   limb *nqpqx = a, *nqpqz = b, *nqx = c, *nqz = d, *t;
   limb e[5] = {0}, f[5] = {1}, g[5] = {0}, h[5] = {1};
@@ -409,7 +411,7 @@ static void cmult(limb *resultx, limb *resultz, const u8 *n, const limb *q) {
   memcpy(nqpqx, q, sizeof(limb) * 5);
 
   for (i = 0; i < 32; ++i) {
-    u8 byte = n[31 - i];
+    U8 byte = n[31 - i];
     for (j = 0; j < 8; ++j) {
       const limb bit = byte >> 7;
 
@@ -470,7 +472,7 @@ static void crecip(felem out, const felem z) {
   /* 2^255 - 21 */ fmul(out, t0, a);
 }
 
-int curve25519_donna(u8 *mypublic, const u8 *secret, const u8 *basepoint) {
+int curve25519_donna(U8 *mypublic, const U8 *secret, const U8 *basepoint) {
   limb bp[5], x[5], z[5], zmone[5];
   uint8_t e[32];
   int i;
@@ -493,6 +495,19 @@ int curve25519_donna(u8 *mypublic, const u8 *secret, const u8 *basepoint) {
 
 namespace maf::curve25519 {
 
+static void Sanitize(Private &key) {
+  key.bytes[0] &= 248;
+  key.bytes[31] &= 127;
+  key.bytes[31] |= 64;
+}
+
+Private Private::From32Bytes(Span<const U8, 32> bytes) {
+  Private result = {};
+  memcpy(result.bytes.data(), bytes.data(), 32);
+  Sanitize(result);
+  return result;
+}
+
 Private Private::FromDevUrandom(Status &status) {
   Private result = {};
   int fd = open("/dev/urandom", O_RDONLY);
@@ -500,31 +515,34 @@ Private Private::FromDevUrandom(Status &status) {
     status() += "open(/dev/urandom)";
     return result;
   }
-  size_t n = read(fd, result.bytes, sizeof(result.bytes));
+  size_t n = read(fd, result.bytes.data(), sizeof(result.bytes));
   if (n != sizeof(result.bytes)) {
     status() += "read(/dev/urandom)";
     close(fd);
     return result;
   }
   close(fd);
-  result.bytes[0] &= 248;
-  result.bytes[31] &= 127;
-  result.bytes[31] |= 64;
+  Sanitize(result);
   return result;
 }
 
 Public Public::FromPrivate(const Private &private_key) {
-  static const uint8_t kBasepoint[32] = {9};
+  static Arr<U8, 32> kBasepoint = {9};
   Public result = {};
-  curve25519_donna(result.bytes, private_key.bytes, kBasepoint);
+  curve25519_donna(result.bytes.data(), private_key.bytes.data(),
+                   kBasepoint.data());
   return result;
 }
 
 Shared Shared::FromPrivateAndPublic(const Private &private_key,
                                     const Public &public_key) {
   Shared result = {.bytes = {}};
-  curve25519_donna(result.bytes, private_key.bytes, public_key.bytes);
+  curve25519_donna(result.bytes.data(), private_key.bytes.data(),
+                   public_key.bytes.data());
   return result;
 }
 
+bool Public::operator==(const Public &other) const {
+  return bytes == other.bytes;
+}
 } // namespace maf::curve25519

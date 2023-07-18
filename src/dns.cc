@@ -8,11 +8,14 @@
 #include "config.hh"
 #include "epoll_udp.hh"
 #include "etc.hh"
+#include "format.hh"
 #include "hex.hh"
 #include "log.hh"
 #include "random.hh"
+#include "status.hh"
 
 using namespace std;
+using namespace maf;
 
 namespace dns {
 
@@ -292,26 +295,26 @@ struct Client : UDPListener {
     return request_id = htons(ntohs(request_id) + 1);
   }
 
-  void Listen(string &error) {
+  void Listen(Status &status) {
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-      error = "socket";
+      AppendErrorMessage(status) += "socket";
       return;
     }
 
-    fd.SetNonBlocking(error);
-    if (!error.empty()) {
+    fd.SetNonBlocking(status);
+    if (!OK(status)) {
       StopListening();
       return;
     }
 
-    epoll::Add(this, error);
+    epoll::Add(this, status);
   }
 
   // Stop listening.
   void StopListening() {
-    string error_ignored;
-    epoll::Del(this, error_ignored);
+    Status ignored;
+    epoll::Del(this, ignored);
     shutdown(fd, SHUT_RDWR);
     close(fd);
   }
@@ -370,9 +373,9 @@ struct Client : UDPListener {
     }
   }
 
-  void NotifyRead(string &abort_error) override {
+  void NotifyRead(Status &epoll_status) override {
     ExpireEntries();
-    UDPListener::NotifyRead(abort_error);
+    UDPListener::NotifyRead(epoll_status);
   }
 
   const Entry &GetCachedEntryOrSendRequest(const Question &question,
@@ -414,15 +417,15 @@ struct Server : UDPListener {
   //
   // To actually accept new connections, make sure to Poll the `epoll`
   // instance after listening.
-  void Listen(string &error) {
+  void Listen(Status &status) {
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-      error = "socket";
+      AppendErrorMessage(status) += "socket";
       return;
     }
 
-    fd.SetNonBlocking(error);
-    if (!error.empty()) {
+    fd.SetNonBlocking(status);
+    if (!OK(status)) {
       StopListening();
       return;
     }
@@ -430,31 +433,31 @@ struct Server : UDPListener {
     int flag = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&flag, sizeof(flag)) <
         0) {
-      error = "setsockopt: SO_REUSEADDR";
+      AppendErrorMessage(status) += "setsockopt: SO_REUSEADDR";
       StopListening();
       return;
     }
 
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, lan.name.data(),
                    lan.name.size()) < 0) {
-      error = "Error when setsockopt bind to device";
+      AppendErrorMessage(status) += "Error when setsockopt bind to device";
       StopListening();
       return;
     };
 
-    fd.Bind(INADDR_ANY, kServerPort, error);
-    if (!error.empty()) {
+    fd.Bind(INADDR_ANY, kServerPort, status);
+    if (!OK(status)) {
       StopListening();
       return;
     }
 
-    epoll::Add(this, error);
+    epoll::Add(this, status);
   }
 
   // Stop listening.
   void StopListening() {
-    string error_ignored;
-    epoll::Del(this, error_ignored);
+    Status ignored;
+    epoll::Del(this, ignored);
     shutdown(fd, SHUT_RDWR);
     close(fd);
   }
@@ -498,9 +501,9 @@ struct Server : UDPListener {
     });
   }
 
-  void NotifyRead(string &abort_error) override {
+  void NotifyRead(Status &epoll_status) override {
     ExpireEntries();
-    UDPListener::NotifyRead(abort_error);
+    UDPListener::NotifyRead(epoll_status);
   }
 
   const char *Name() const override { return "dns::Server"; }
@@ -557,7 +560,7 @@ void InjectAuthoritativeEntry(const string &domain, IP ip) {
                              string((char *)&ip.addr, sizeof(ip.addr))}}}});
 }
 
-void Start(string &err) {
+void Start(Status &status) {
   client.request_id = random<uint16_t>(); // randomize initial request ID
 
   for (auto &[ip, aliases] : etc::hosts) {
@@ -570,14 +573,14 @@ void Start(string &err) {
     }
   }
   InjectAuthoritativeEntry(etc::hostname + "." + kLocalDomain, lan_ip);
-  client.Listen(err);
-  if (!err.empty()) {
-    err = "Failed to start DNS client: " + err;
+  client.Listen(status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Failed to start DNS client";
     return;
   }
-  server.Listen(err);
-  if (!err.empty()) {
-    err = "Failed to start DNS server: " + err;
+  server.Listen(status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Failed to start DNS server";
     return;
   }
 }
@@ -695,7 +698,7 @@ uint32_t Record::ttl() const {
 string Record::to_string() const {
   return "dns::Record(" + Question::to_string() +
          ", ttl=" + std::to_string(ttl()) + ", data=\"" +
-         hex(data.data(), data.size()) + "\")";
+         BytesToHex(MemViewOf(data)) + "\")";
 }
 string Record::pretty_value() const {
   if (type == Type::A) {
@@ -720,7 +723,7 @@ string Record::pretty_value() const {
                soa.retry_interval, soa.expire_limit, soa.minimum_ttl);
     }
   }
-  return hex(data.data(), data.size());
+  return BytesToHex(MemViewOf(data));
 }
 string Record::to_html() const {
   return "<code class=dns-record title=TTL=" + std::to_string(ttl()) +
@@ -817,12 +820,12 @@ void Entry::HandleIncomingRequest(const IncomingRequest &request) const {
         },
         state);
 }
-void Message::Parse(const uint8_t *ptr, size_t len, string &err) {
+void Message::Parse(const U8 *ptr, size_t len, string &err) {
   if (len < sizeof(Header)) {
     err = "DNS message buffer is too short: " + std::to_string(len) +
           " bytes. DNS header requires at least 12 bytes. Hex-escaped "
           "buffer: " +
-          hex(ptr, len);
+          BytesToHex(ptr, len);
     return;
   }
   header = *(Header *)ptr;
@@ -836,7 +839,7 @@ void Message::Parse(const uint8_t *ptr, size_t len, string &err) {
   if (auto q_size = question.LoadFrom(ptr, len, offset)) {
     offset += q_size;
   } else {
-    err = "Failed to load DNS question from " + hex(ptr, len);
+    err = "Failed to load DNS question from " + BytesToHex(ptr, len);
     return;
   }
 
@@ -847,7 +850,7 @@ void Message::Parse(const uint8_t *ptr, size_t len, string &err) {
         offset += r_size;
       } else {
         err = "Failed to load a record from DNS query. Full query:\n" +
-              hex(ptr, len);
+              BytesToHex(ptr, len);
         return;
       }
     }

@@ -1,7 +1,10 @@
 #include "epoll_udp.hh"
+#include "status.hh"
 #include <cstring>
 
-void UDPListener::NotifyRead(std::string &abort_error) {
+using namespace maf;
+
+void UDPListener::NotifyRead(Status &status) {
   while (true) {
     sockaddr_in clientaddr;
     socklen_t clilen = sizeof(struct sockaddr);
@@ -11,8 +14,7 @@ void UDPListener::NotifyRead(std::string &abort_error) {
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         break;
       } else {
-        abort_error = "DNS server recvfrom: ";
-        abort_error += strerror(errno);
+        AppendErrorMessage(status) += "UDPListener recvfrom";
         return;
       }
     }

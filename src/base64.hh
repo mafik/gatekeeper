@@ -1,6 +1,15 @@
 #pragma once
 
-#include <string>
-#include <string_view>
+#include "str.hh"
 
-std::string Base64Encode(std::string_view str);
+namespace maf {
+
+const char kBase64Chars[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                              "abcdefghijklmnopqrstuvwxyz"
+                              "0123456789+/";
+
+inline bool IsBase64(int c) { return (isalnum(c) || (c == '+') || (c == '/')); }
+
+Str Base64Encode(StrView buf);
+
+} // namespace maf

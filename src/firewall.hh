@@ -6,6 +6,6 @@ namespace gatekeeper::firewall {
 
 // Sets up netfilter hooks that intercept the traffic & starts a thread that
 // processes it.
-void Start(Status &status);
+void Start(maf::Status &status);
 
 } // namespace gatekeeper::firewall

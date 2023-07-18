@@ -1,7 +1,10 @@
 #include "sha.hh"
+#include "mem.hh"
 
 #include <bit>
 #include <cstring>
+
+namespace maf {
 
 // From https://github.com/vog/sha1 (public domain)
 namespace {
@@ -171,6 +174,41 @@ inline static void buffer_to_block(const char buffer[BLOCK_BYTES],
     block[i] = (buffer[4 * i + 3] & 0xff) | (buffer[4 * i + 2] & 0xff) << 8 |
                (buffer[4 * i + 1] & 0xff) << 16 |
                (buffer[4 * i + 0] & 0xff) << 24;
+  }
+}
+
+} // namespace
+
+// From https://github.com/983/SHA-256 (public domain)
+namespace {
+
+static inline uint32_t rotr(uint32_t x, int n) {
+  return (x >> n) | (x << (32 - n));
+}
+
+static inline uint32_t step1(uint32_t e, uint32_t f, uint32_t g) {
+  return (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ ((~e) & g));
+}
+
+static inline uint32_t step2(uint32_t a, uint32_t b, uint32_t c) {
+  return (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) +
+         ((a & b) ^ (a & c) ^ (b & c));
+}
+
+static inline void update_w(uint32_t *w, int i, const uint8_t *buffer) {
+  int j;
+  for (j = 0; j < 16; j++) {
+    if (i < 16) {
+      w[j] = ((uint32_t)buffer[0] << 24) | ((uint32_t)buffer[1] << 16) |
+             ((uint32_t)buffer[2] << 8) | ((uint32_t)buffer[3]);
+      buffer += 4;
+    } else {
+      uint32_t a = w[(j + 1) & 15];
+      uint32_t b = w[(j + 14) & 15];
+      uint32_t s0 = (rotr(a, 7) ^ rotr(a, 18) ^ (a >> 3));
+      uint32_t s1 = (rotr(b, 17) ^ rotr(b, 19) ^ (b >> 10));
+      w[j] += w[(j + 9) & 15] + s0 + s1;
+    }
   }
 }
 
@@ -347,6 +385,122 @@ std::string SHA1(std::string_view str) {
   return std::string((char *)digest, 20);
 }
 
+SHA256::Builder::Builder()
+    : state{0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19},
+      n_bits(0), buffer_counter(0) {}
+
+static void Block(SHA256::Builder &sha) {
+  uint32_t *state = sha.state;
+
+  static const uint32_t k[8 * 8] = {
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
+      0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+      0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+      0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
+      0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+      0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+      0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+      0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+      0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  };
+
+  uint32_t a = state[0];
+  uint32_t b = state[1];
+  uint32_t c = state[2];
+  uint32_t d = state[3];
+  uint32_t e = state[4];
+  uint32_t f = state[5];
+  uint32_t g = state[6];
+  uint32_t h = state[7];
+
+  uint32_t w[16];
+
+  int i, j;
+  for (i = 0; i < 64; i += 16) {
+    update_w(w, i, sha.buffer);
+
+    for (j = 0; j < 16; j += 4) {
+      uint32_t temp;
+      temp = h + step1(e, f, g) + k[i + j + 0] + w[j + 0];
+      h = temp + d;
+      d = temp + step2(a, b, c);
+      temp = g + step1(h, e, f) + k[i + j + 1] + w[j + 1];
+      g = temp + c;
+      c = temp + step2(d, a, b);
+      temp = f + step1(g, h, e) + k[i + j + 2] + w[j + 2];
+      f = temp + b;
+      b = temp + step2(c, d, a);
+      temp = e + step1(f, g, h) + k[i + j + 3] + w[j + 3];
+      e = temp + a;
+      a = temp + step2(b, c, d);
+    }
+  }
+
+  state[0] += a;
+  state[1] += b;
+  state[2] += c;
+  state[3] += d;
+  state[4] += e;
+  state[5] += f;
+  state[6] += g;
+  state[7] += h;
+}
+
+static void AppendByte(SHA256::Builder &builder, uint8_t byte) {
+  builder.buffer[builder.buffer_counter++] = byte;
+  builder.n_bits += 8;
+
+  if (builder.buffer_counter == 64) {
+    builder.buffer_counter = 0;
+    Block(builder);
+  }
+}
+
+SHA256::Builder &SHA256::Builder::Update(Span<const U8> mem) {
+  for (auto byte : mem) {
+    AppendByte(*this, byte);
+  }
+  return *this;
+}
+
+static void FinalizeTo(SHA256::Builder &builder, SHA256 &out_sha) {
+  U8 *ptr = out_sha.bytes;
+
+  uint64_t n_bits = builder.n_bits;
+
+  AppendByte(builder, 0x80);
+
+  while (builder.buffer_counter != 56) {
+    AppendByte(builder, 0);
+  }
+
+  for (int i = 7; i >= 0; i--) {
+    uint8_t byte = (n_bits >> 8 * i) & 0xff;
+    AppendByte(builder, byte);
+  }
+
+  for (int i = 0; i < 8; i++) {
+    for (int j = 3; j >= 0; j--) {
+      *ptr++ = (builder.state[i] >> j * 8) & 0xff;
+    }
+  }
+}
+
+SHA256::SHA256(Span<const U8> mem) {
+  Builder builder;
+  builder.Update(mem);
+  FinalizeTo(builder, *this);
+}
+
+SHA256 SHA256::Builder::Finalize() {
+  SHA256 sha;
+  FinalizeTo(*this, sha);
+  return sha;
+}
+
 static void FinalizeTo(SHA512::Builder &builder, SHA512 &sha) {
   int i;
 
@@ -384,9 +538,9 @@ static void FinalizeTo(SHA512::Builder &builder, SHA512 &sha) {
   }
 }
 
-SHA512::SHA512(std::string_view str) {
+SHA512::SHA512(MemView mem) {
   Builder builder;
-  builder.Update(str);
+  builder.Update(mem);
   FinalizeTo(builder, *this);
 }
 
@@ -403,17 +557,17 @@ SHA512::Builder::Builder() {
   state[7] = 0x5be0cd19137e2179ULL;
 }
 
-SHA512::Builder &SHA512::Builder::Update(std::string_view str) {
-  while (str.size() > 0) {
-    if (curlen == 0 && str.size() >= BLOCK_SIZE) {
-      TransformFunction(state, (uint8_t *)str.data());
+SHA512::Builder &SHA512::Builder::Update(MemView mem) {
+  while (mem.size() > 0) {
+    if (curlen == 0 && mem.size() >= BLOCK_SIZE) {
+      TransformFunction(state, (uint8_t *)mem.data());
       length += BLOCK_SIZE * 8;
-      str.remove_prefix(BLOCK_SIZE);
+      mem = mem.subspan<BLOCK_SIZE>();
     } else {
-      uint32_t n = MIN(str.size(), (BLOCK_SIZE - curlen));
-      memcpy(buf + curlen, str.data(), (size_t)n);
+      uint32_t n = MIN(mem.size(), (BLOCK_SIZE - curlen));
+      memcpy(buf + curlen, mem.data(), (size_t)n);
       curlen += n;
-      str.remove_prefix(n);
+      mem = mem.subspan(n);
       if (curlen == BLOCK_SIZE) {
         TransformFunction(state, buf);
         length += 8 * BLOCK_SIZE;
@@ -429,3 +583,5 @@ SHA512 SHA512::Builder::Finalize() {
   FinalizeTo(*this, sha);
   return sha;
 }
+
+} // namespace maf

@@ -2,7 +2,7 @@
 
 // Utilities for working with std::variant
 
-#include <variant>
+#include <variant> // IWYU pragma: export
 
 template <class... Ts> struct overloaded : Ts... {
   using Ts::operator()...;

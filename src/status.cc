@@ -4,30 +4,33 @@
 
 #include "format.hh"
 
-Status::Status() : errsv(0), locations(), messages() {}
+namespace maf {
 
-std::string &Status::operator()(const std::source_location location_arg) {
+Status::Status() : errsv(0) {}
+
+Str &Status::operator()(const std::source_location location_arg) {
   if (errsv == 0) {
     errsv = errno;
+    errno = 0;
   }
-  locations.push_back(location_arg);
-  messages.emplace_back();
-  return messages.back();
+  entry.reset(new Entry{
+      .next = std::move(entry), .location = location_arg, .message = {}});
+  return entry->message;
 }
 
-bool Status::Ok() const { return errsv == 0 && messages.empty(); }
+bool Status::Ok() const { return errsv == 0 && entry == nullptr; }
 
-std::string Status::ToString() const {
-  std::string ret;
-  for (int i = messages.size() - 1; i >= 0; --i) {
+Str Status::ToString() const {
+  Str ret;
+  for (Entry *i = entry.get(); i != nullptr; i = i->next.get()) {
     if (!ret.empty()) {
       ret += " ";
     }
-    ret += messages[i];
+    ret += i->message;
     if (!ret.empty()) {
       ret += " ";
     }
-    auto &location = locations[i];
+    auto &location = i->location;
     ret += f("(%s:%d).", location.file_name(), location.line());
   }
   if (!ret.empty()) {
@@ -44,6 +47,7 @@ std::string Status::ToString() const {
 
 void Status::Reset() {
   errsv = 0;
-  locations.clear();
-  messages.clear();
+  entry.reset();
 }
+
+} // namespace maf

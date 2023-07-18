@@ -7,6 +7,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+namespace maf {
+
 IP IP::FromInterface(std::string_view interface_name, Status &status) {
   ifreq ifr = {};
   int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -49,3 +51,5 @@ std::string IP::to_string() const {
 std::string Network::LoggableString() const {
   return ip.to_string() + "/" + std::to_string(std::countr_one(netmask.addr));
 }
+
+} // namespace maf

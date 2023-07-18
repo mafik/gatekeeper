@@ -12,8 +12,10 @@
 #include "memory.hh"
 #include "random.hh"
 #include "rfc1700.hh"
+#include "status.hh"
 
 using namespace std;
+using namespace maf;
 using chrono::steady_clock;
 
 namespace dhcp {
@@ -536,9 +538,9 @@ string Base::to_string() const {
   case OptionCode_ClientIdentifier:
     return ((const options::ClientIdentifier *)this)->to_string();
   default:
-    const uint8_t *data = (const uint8_t *)(this) + sizeof(*this);
+    const U8 *data = (const U8 *)(this) + sizeof(*this);
     return "\"" + OptionCodeToString(code) + "\" " + std::to_string(length) +
-           " bytes: " + ::hex(data, length);
+           " bytes: " + BytesToHex(Span<const U8>(data, length));
   }
 }
 
@@ -574,8 +576,7 @@ struct __attribute__((__packed__)) Header {
     s += "  hardware_address_length: " +
          std::to_string(hardware_address_length) + "\n";
     s += "  hops: " + std::to_string(hops) + "\n";
-    s += "  transaction_id: " + hex(&transaction_id, sizeof(transaction_id)) +
-         "\n";
+    s += "  transaction_id: " + ValToHex(transaction_id) + "\n";
     s += "  seconds_elapsed: " + std::to_string(seconds_elapsed) + "\n";
     s += "  flags: " + std::to_string(ntohs(flags)) + "\n";
     s += "  client_ip: " + client_ip.to_string() + "\n";
@@ -585,7 +586,7 @@ struct __attribute__((__packed__)) Header {
     s += "  client_mac_address: " + client_mac_address.to_string() + "\n";
     s += "  server_name: " + std::string((const char *)server_name) + "\n";
     s += "  boot_filename: " + std::string((const char *)boot_filename) + "\n";
-    s += "  magic_cookie: " + hex(&magic_cookie, sizeof(magic_cookie)) + "\n";
+    s += "  magic_cookie: " + ValToHex(magic_cookie) + "\n";
     s += "}";
     return s;
   }
@@ -775,15 +776,15 @@ int AvailableIPs(const Server &server) {
   // 3 IPs are reserved: network, broadcast, and server.
   return (1 << zeros) - server.entries.size() - 3;
 }
-void Server::Listen(string &error) {
+void Server::Listen(Status &status) {
   fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd == -1) {
-    error = "socket";
+    AppendErrorMessage(status) += "socket";
     return;
   }
 
-  fd.SetNonBlocking(error);
-  if (!error.empty()) {
+  fd.SetNonBlocking(status);
+  if (!OK(status)) {
     StopListening();
     return;
   }
@@ -791,37 +792,39 @@ void Server::Listen(string &error) {
   int flag = 1;
   if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&flag, sizeof(flag)) <
       0) {
-    error = "setsockopt: SO_REUSEADDR";
+    AppendErrorMessage(status) += "setsockopt: SO_REUSEADDR";
     StopListening();
     return;
   }
 
   if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, lan.name.data(),
                  lan.name.size()) < 0) {
-    error = "Error when setsockopt bind to device";
+    AppendErrorMessage(status) += "Error when setsockopt bind to device";
     StopListening();
     return;
   };
 
-  fd.Bind(INADDR_ANY, kServerPort, error);
-  if (!error.empty()) {
+  fd.Bind(INADDR_ANY, kServerPort, status);
+  if (!OK(status)) {
     StopListening();
     return;
   }
 
-  epoll::Add(this, error);
+  epoll::Add(this, status);
 }
+
 void Server::StopListening() {
-  string error_ignored;
-  epoll::Del(this, error_ignored);
+  Status ignored;
+  epoll::Del(this, ignored);
   shutdown(fd, SHUT_RDWR);
   close(fd);
 }
+
 void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   if (buf.size() < sizeof(PacketView)) {
     ERROR << "DHCP server received a packet that is too short: " << buf.size()
           << " bytes:\n"
-          << hex(buf.data(), buf.size());
+          << BytesToHex(MemViewOf(buf));
     return;
   }
   PacketView &packet = *(PacketView *)buf.data();
@@ -833,7 +836,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   }
   if (ntohl(packet.magic_cookie) != kMagicCookie) {
     ERROR << "DHCP server received a packet with an invalid magic cookie: "
-          << hex(&packet.magic_cookie, sizeof(packet.magic_cookie));
+          << ValToHex(packet.magic_cookie);
     return;
   }
   if ((packet.server_ip <=> lan_ip != 0) &&

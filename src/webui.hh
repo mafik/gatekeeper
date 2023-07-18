@@ -45,7 +45,7 @@ struct Table {
   void RenderJSON(std::string &json);
 };
 
-void Start(std::string &err);
+void Start(maf::Status &);
 void Stop();
 
 } // namespace webui

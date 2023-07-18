@@ -7,7 +7,10 @@
 #include "log.hh"
 #include "timer.hh"
 
+using namespace maf;
+
 namespace systemd {
+
 void NotifyReady() { sd_notify(0, "READY=1"); }
 
 static void LogErrorAsStatus(const LogEntry &log_entry) {

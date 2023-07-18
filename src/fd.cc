@@ -1,9 +1,12 @@
 #include "fd.hh"
+#include "status.hh"
 
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
+
+namespace maf {
 
 FD::FD() : fd(-1) {}
 FD::FD(int fd) : fd(fd) {}
@@ -17,44 +20,40 @@ FD &FD::operator=(FD &&other) {
   return *this;
 }
 
-void FD::Bind(IP ip, uint16_t port, std::string &error) {
-  sockaddr_in addr = {
-      .sin_family = AF_INET,
-      .sin_port = htons(port),
-      .sin_addr = {.s_addr = ip.addr},
-  };
-
-  if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
-    error = "bind: ";
-    error += strerror(errno);
-    return;
-  }
-}
-
-void FD::SetNonBlocking(std::string &error) {
+void FD::SetNonBlocking(Status &status) {
   int flags = fcntl(fd, F_GETFL);
   if (flags < 0) {
-    error = "fcntl(F_GETFL) failed: ";
-    error += strerror(errno);
+    AppendErrorMessage(status) += "fcntl(F_GETFL) failed";
     return;
   }
 
   if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-    error = "fcntl(F_SETFL) failed: ";
-    error += strerror(errno);
+    AppendErrorMessage(status) += "fcntl(F_SETFL) failed";
     return;
   }
 }
 
-void FD::SendTo(IP ip, uint16_t port, std::string_view buffer,
-                std::string &error) {
-  sockaddr_in dest_addr = {
+void FD::Bind(IP local_ip, U16 local_port, Status &status) {
+  sockaddr_in addr = {
       .sin_family = AF_INET,
-      .sin_port = htons(port),
-      .sin_addr = {.s_addr = ip.addr},
+      .sin_port = htons(local_port),
+      .sin_addr = {.s_addr = local_ip.addr},
   };
-  if (sendto(fd, buffer.data(), buffer.size(), 0, (struct sockaddr *)&dest_addr,
-             sizeof(dest_addr)) < 0) {
+
+  if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
+    AppendErrorMessage(status) += "bind";
+    return;
+  }
+}
+
+void FD::SendTo(IP remote_ip, U16 remote_port, StrView buffer, Str &error) {
+  sockaddr_in remote_addr = {
+      .sin_family = AF_INET,
+      .sin_port = htons(remote_port),
+      .sin_addr = {.s_addr = remote_ip.addr},
+  };
+  if (sendto(fd, buffer.data(), buffer.size(), 0,
+             (struct sockaddr *)&remote_addr, sizeof(remote_addr)) < 0) {
     error = "sendto: ";
     error += strerror(errno);
   }
@@ -66,3 +65,5 @@ void FD::Close() {
     fd = -1;
   }
 }
+
+} // namespace maf

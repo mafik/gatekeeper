@@ -1,7 +1,9 @@
 #include "format.hh"
 
+#include <cstdarg>
 #include <cstdio>
-#include <stdarg.h>
+
+namespace maf {
 
 std::string f(const char *fmt, ...) {
   va_list args;
@@ -62,3 +64,5 @@ std::string Slugify(std::string in) {
   }
   return out;
 }
+
+} // namespace maf

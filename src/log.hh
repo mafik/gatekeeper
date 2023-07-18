@@ -1,13 +1,5 @@
 #pragma once
 
-#include <chrono>
-#include <functional>
-#include <source_location>
-#include <string>
-#include <string_view>
-
-#include "status.hh"
-
 // Functions for logging human-readable messages.
 //
 // Usage:
@@ -31,6 +23,16 @@
 //
 // There is no need to add a new line character at the end of the logged message
 // - it's added there automatically.
+
+#include <chrono>
+#include <functional>
+#include <source_location>
+#include <string>
+#include <string_view>
+
+#include "status.hh"
+
+namespace maf {
 
 enum class LogLevel { Ignore, Info, Error, Fatal };
 
@@ -87,3 +89,5 @@ void LOG_Unindent(int n = 2);
   if (time::now() - last_log_time > time::duration(n)                          \
           ? (last_log_time = time::now(), true)                                \
           : false)
+
+} // namespace maf

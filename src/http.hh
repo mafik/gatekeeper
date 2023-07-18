@@ -86,7 +86,7 @@ struct Server;
 
 // Connection stores all of the data related to a single network
 // connection.
-struct Connection : epoll::Listener {
+struct Connection : maf::epoll::Listener {
   // Pointer to the Server instance that this Connection belongs to.
   Server *server;
 
@@ -110,8 +110,8 @@ struct Connection : epoll::Listener {
   // Buffer used to store data to be sent over this Connection.
   std::string response_buffer;
 
-  // If non-empty, contains a human-readable description of the last error.
-  std::string error;
+  // Description of the last error.
+  maf::Status status;
 
   // Textual representation of the remote IP address of this Connection. This
   // comes from the OS network layer. The actual origin IP may be different if
@@ -137,17 +137,13 @@ struct Connection : epoll::Listener {
   // This skips the WebSocket close message.
   void CloseTCP();
 
-  // Returns true when `response_buffer` contains data. Part of the
-  // epoll::Listener interface.
-  bool ListenWriteAvailability() override;
-
   // Reads data whenever it becomes available. Part of the epoll::Listener
   // interface.
-  void NotifyRead(std::string &error) override;
+  void NotifyRead(maf::Status &) override;
 
   // Writes data whenever it becomes available. Part of the epoll::Listener
   // interface.
-  void NotifyWrite(std::string &error) override;
+  void NotifyWrite(maf::Status &) override;
 
   // Part of the epoll::Listener interface.
   const char *Name() const override;
@@ -160,7 +156,7 @@ struct Connection : epoll::Listener {
 //
 // In order to accept new connections, receive & send data, epoll::Loop() must
 // be called.
-struct Server : epoll::Listener {
+struct Server : maf::epoll::Listener {
   // Handler called whenever a HTTP request is made.
   std::function<void(Response &, Request &)> handler;
 
@@ -184,7 +180,7 @@ struct Server : epoll::Listener {
   // TODO: WebSocket fuzz
 
   struct Config {
-    IP ip = INADDR_ANY;
+    maf::IP ip = INADDR_ANY;
     uint16_t port = 80;
     std::optional<std::string> interface;
   };
@@ -193,14 +189,14 @@ struct Server : epoll::Listener {
   //
   // To actually accept new connections, make sure to Poll the `epoll`
   // instance after listening.
-  void Listen(Config config, std::string &error);
+  void Listen(Config config, maf::Status &);
 
   // Stop listening.
   void StopListening();
 
   // Accepts new connection whenever they arrive. Part of the epoll::Listener
   // interface.
-  void NotifyRead(std::string &error) override;
+  void NotifyRead(maf::Status &) override;
 
   // Part of the epoll::Listener interface.
   const char *Name() const override;

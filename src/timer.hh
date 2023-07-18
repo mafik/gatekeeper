@@ -4,8 +4,8 @@
 #include <functional>
 #include <string>
 
-struct Timer : epoll::Listener {
-  std::string error;
+struct Timer : maf::epoll::Listener {
+  maf::Status status;
   std::function<void()> handler;
 
   Timer();
@@ -16,7 +16,7 @@ struct Timer : epoll::Listener {
 
   // Calls `handler` whenever the timer triggers. Part of the epoll::Listener
   // interface.
-  void NotifyRead(std::string &error) override;
+  void NotifyRead(maf::Status &) override;
 
   const char *Name() const override;
 };
