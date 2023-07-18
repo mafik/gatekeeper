@@ -30,6 +30,9 @@
 *.exe
 *.out
 *.app
+
+__pycache__
+
 gatekeeper
 gatekeeper-debug
 
