@@ -3,16 +3,16 @@
 '''Run Automat.'''
 
 import subprocess
-import makefile
 import debian_deps
-import args
-import importlib
+from args import args
+import build
 from sys import platform
 
+recipe = build.recipe()
 
 if args.verbose:
     print('Build graph')
-    for step in makefile.recipe.steps:
+    for step in recipe.steps:
         print(' Step', step.name)
         print('  Inputs:')
         for inp in sorted(str(x) for x in step.inputs):
@@ -25,12 +25,11 @@ debian_deps.check_and_install()
 if __name__ == '__main__':
     if args.fresh:
         print('Cleaning old build results:')
-        makefile.recipe.clean()
+        recipe.clean()
 
     active_recipe = None
 
     while True:
-        recipe = makefile.recipe
         recipe.set_target(args.target)
         recipe.steps[-1].extra_args = args.extra_args
 
@@ -59,4 +58,5 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             watcher.kill()
             break
-        importlib.reload(makefile)
+        # Reload the recipe because dependencies may have changed
+        recipe = build.recipe()

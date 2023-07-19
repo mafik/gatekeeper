@@ -8,3 +8,4 @@ project_root = Path(__file__).absolute().parents[1].resolve()
 project_name = Path(project_root).name.lower()
 
 build_dir = project_root / 'build'
+src_dir = project_root / 'src'
