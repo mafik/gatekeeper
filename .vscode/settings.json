@@ -1,0 +1,8 @@
+{
+  "python.autoComplete.extraPaths": [
+    "run_py"
+  ],
+  "python.analysis.extraPaths": [
+    "run_py"
+  ]
+}
