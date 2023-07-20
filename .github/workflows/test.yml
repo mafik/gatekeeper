@@ -19,7 +19,7 @@ jobs:
         chmod +x llvm.sh
         sudo ./llvm.sh 17
     - name: Install dependencies
-      run: sudo apt-get install -y libncurses5 llvm-dev libsystemd-dev valgrind
+      run: sudo apt-get install -y libncurses5 llvm-dev libsystemd-dev valgrind inotifywait
     - name: Run test
       run: ./run test_e2e
     # - name: Debug with tmate on failure
