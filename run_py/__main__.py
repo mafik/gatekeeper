@@ -2,10 +2,9 @@
 
 '''Run Automat.'''
 
-import subprocess
-import debian_deps
-from args import args
 import build
+import subprocess
+from args import args
 from sys import platform
 
 recipe = build.recipe()
@@ -13,14 +12,11 @@ recipe = build.recipe()
 if args.verbose:
     print('Build graph')
     for step in recipe.steps:
-        print(' Step', step.name)
+        print(' Step', step.shortcut)
         print('  Inputs:')
         for inp in sorted(str(x) for x in step.inputs):
             print('    ', inp)
         print('  Outputs: ', step.outputs)
-
-
-debian_deps.check_and_install()
 
 if __name__ == '__main__':
     if args.fresh:
@@ -31,7 +27,6 @@ if __name__ == '__main__':
 
     while True:
         recipe.set_target(args.target)
-
         if platform == 'linux':
             events = 'CLOSE_WRITE'
         elif platform == 'win32':
