@@ -43,6 +43,3 @@ massif-out.txt
 build
 
 .gdb_history
-
-# TODO(https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/2012437): use OS-provided libsystemd
-!libsystemd.a

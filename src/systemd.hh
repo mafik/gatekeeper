@@ -1,18 +1,25 @@
-#pragma maf add link argument "-L."
-#pragma maf add link argument "-lsystemd"
+#pragma once
 
 namespace systemd {
 
-void NotifyReady();
-void PublishErrorsAsStatus();
-
-// If the process is running under systemd with watchdog enabled, this function
-// will periodically send watchdog pings.
+// Call this function after epoll::Init to setup systemd integration.
 //
-// This function requires `epoll::Loop` to send the pings.
-void StartWatchdog();
+// This function does nothing when not running under systemd.
+//
+// When running under systemd:
+// 1. Notifies systemd that the service is starting.
+// 2. Configures logging (LOG, ERROR, etc.) to output structured information.
+// 3. Starts a watchdog timer if systemd watchdog is enabled.
+void Init();
 
-// Stop the watchdog pings started by `StartWatchdog()`.
-void StopWatchdog();
+// Call this function after the service is ready to start accepting connections.
+//
+// This function does nothing when not running under systemd.
+void Ready();
+
+// Call this function to stop systemd watchdog pings.
+//
+// This function does nothing when not running under systemd.
+void Stop();
 
 } // namespace systemd

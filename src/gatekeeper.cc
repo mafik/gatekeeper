@@ -38,7 +38,7 @@ void StopSignal(const char *signal) {
   webui::Stop();
   dns::Stop();
   dhcp::server.StopListening();
-  systemd::StopWatchdog();
+  systemd::Stop();
   // Signal handlers must be stopped so that epoll::Loop would terminate.
   sigabrt.reset();
   sigterm.reset();
@@ -281,7 +281,7 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  systemd::PublishErrorsAsStatus();
+  systemd::Init();
 
   HookSignals(status);
   if (!status.Ok()) {
@@ -364,8 +364,7 @@ int main(int argc, char *argv[]) {
   }
 
   LOG << "Gatekeeper running at http://" << lan_ip << ":1337/";
-  systemd::NotifyReady();
-  systemd::StartWatchdog();
+  systemd::Ready();
 
   epoll::Loop(status);
   if (!OK(status)) {
