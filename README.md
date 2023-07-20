@@ -61,7 +61,7 @@ wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 sudo ./llvm.sh 17
 sudo apt install -y libncurses5 llvm-dev libsystemd-dev valgrind
-make gatekeeper
+./run gatekeeper
 ```
 
 ## Credits

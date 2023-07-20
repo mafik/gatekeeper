@@ -75,15 +75,15 @@ def plan(srcs) -> tuple[list[ObjectFile], list[Binary]]:
     objs: dict[str, ObjectFile] = dict()
     sources = [f for f in srcs.values() if f.is_source()]
     for src_file, build_type in product(sources, build_type_list):
-        obj_file = ObjectFile(obj_path(src_file.path, build_type))
-        objs[str(obj_file.path)] = obj_file
-        obj_file.deps = set(src_file.transitive_includes)
-        obj_file.deps.add(src_file)
-        obj_file.source = src_file
-        obj_file.build_type = build_type
-        obj_file.compile_args += src_file.build_compile_args(build_type)
+        f_obj = ObjectFile(obj_path(src_file.path, build_type))
+        objs[str(f_obj.path)] = f_obj
+        f_obj.deps = set(src_file.transitive_includes)
+        f_obj.deps.add(src_file)
+        f_obj.source = src_file
+        f_obj.build_type = build_type
+        f_obj.compile_args += src_file.build_compile_args(build_type)
         for inc in src_file.transitive_includes:
-            obj_file.compile_args += inc.build_compile_args(build_type)
+            f_obj.compile_args += inc.build_compile_args(build_type)
 
     binaries: list[Binary] = []
     main_sources = [f for f in sources if f.main]
@@ -98,24 +98,21 @@ def plan(srcs) -> tuple[list[ObjectFile], list[Binary]]:
         bin_file.build_type = build_type
         binaries.append(bin_file)
 
-        src_queue: list[src.File] = [src_file]
+        queue: list[src.File] = [src_file]
         visited: set[src.File] = set()
-        while src_queue:
-            currernt_src = src_queue.pop()
-            if currernt_src in visited:
+        while queue:
+            f = queue.pop()
+            if f in visited:
                 continue
-            visited.add(currernt_src)
-            obj_file = objs.get(
-                str(obj_path(currernt_src.path, build_type)), None)
-            if obj_file:
-                bin_file.objects.append(obj_file)
-
-            for inc in currernt_src.transitive_includes:
-                bin_file.link_args += inc.build_link_args(build_type)
-                bin_file.run_args += inc.build_run_args(build_type)
-                inc_source = srcs.get(str(inc.path.with_suffix('.cc')), None)
-                if inc_source:
-                    src_queue.append(inc_source)
+            visited.add(f)
+            bin_file.link_args += f.build_link_args(build_type)
+            bin_file.run_args += f.build_run_args(build_type)
+            if f_obj := objs.get(str(obj_path(f.path, build_type)), None):
+                if f_obj not in bin_file.objects:
+                    bin_file.objects.append(f_obj)
+            queue.extend(f.transitive_includes)
+            if f_cc := srcs.get(str(f.path.with_suffix('.cc')), None):
+                queue.append(f_cc)
 
     return list(objs.values()), binaries
 
@@ -123,8 +120,7 @@ def plan(srcs) -> tuple[list[ObjectFile], list[Binary]]:
 compiler = os.environ['CXX'] = os.environ['CXX'] if 'CXX' in os.environ else 'clang++'
 
 default_compile_args = ['-std=c++2b', '-fcolor-diagnostics',
-                        '-I', str(fs_utils.build_dir), '-static',
-                        '-ffunction-sections', '-fdata-sections']
+                        '-static', '-ffunction-sections', '-fdata-sections']
 release_compile_args = ['-O3', '-DNDEBUG', '-flto']
 debug_compile_args = ['-O0', '-g', '-D_DEBUG']
 
@@ -147,6 +143,14 @@ def recipe() -> make.Recipe:
     r = make.Recipe()
     extensions = src.load_extensions()
     srcs = src.scan()
+
+    for ext in extensions:
+        if hasattr(ext, 'hook_srcs'):
+            ext.hook_srcs(srcs, r)
+
+    for file in srcs.values():
+        file.update_transitive_includes(srcs)
+
     objs, bins = plan(srcs)
     compilation_db = []
     for obj in objs:
@@ -160,7 +164,9 @@ def recipe() -> make.Recipe:
         pargs += ['-c', '-o', str(obj.path)]
         builder = functools.partial(make.Popen, pargs)
         r.add_step(builder, outputs=[obj.path],
-                   inputs=obj.deps, name=obj.path.name)
+                   inputs=obj.deps | set(['compile_commands.json']),
+                   desc=f'Compiling {obj.path.name}', shortcut=obj.path.name)
+        r.generated.add(obj.path)
         compilation_db.append(CompilationEntry(
             str(obj.source.path), str(obj.path), pargs))
     for bin in bins:
@@ -174,7 +180,8 @@ def recipe() -> make.Recipe:
         pargs += ['-o', str(bin.path)]
         builder = functools.partial(make.Popen, pargs)
         r.add_step(builder, outputs=[bin.path], inputs=bin.objects,
-                   name='link ' + bin.path.name)
+                   desc=f'Linking {bin.path.name}', shortcut=f'link {bin.path.name}')
+        r.generated.add(bin.path)
 
         # if platform == 'win32':
         #     MT = 'C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.19041.0\\x64\\mt.exe'
@@ -182,14 +189,14 @@ def recipe() -> make.Recipe:
         #     r.add_step(mt_runner, outputs=[path], inputs=[path, 'src/win32.manifest'], name=f'mt {binary_name}')
 
         runner = functools.partial(make.Popen, [bin.path] + bin.run_args)
-        r.add_step(runner, outputs=[], inputs=[bin.path], name=bin.path.name)
+        r.add_step(runner, outputs=[], inputs=[bin.path],
+                   desc=f'Running {bin.path.name}', shortcut=bin.path.name)
 
     for ext in extensions:
         if hasattr(ext, 'hook_final'):
             ext.hook_final(srcs, objs, bins, r)
 
-    def compile_commands(extra_args):
-        print('Generating compile_commands.json...')
+    def compile_commands():
         jsons = []
         for entry in compilation_db:
             arguments = ',\n    '.join(json.dumps(str(arg))
@@ -204,7 +211,8 @@ def recipe() -> make.Recipe:
         with open('compile_commands.json', 'w') as f:
             print('[' + ', '.join(jsons) + ']', file=f)
 
-    r.add_step(compile_commands, [
-        'compile_commands.json'], [], 'compile_commands.json')
+    r.add_step(compile_commands, ['compile_commands.json'], [],
+               desc='Writing JSON Compilation Database', shortcut='compile_commands.json')
+    r.generated.add('compile_commands.json')
 
     return r

@@ -32,9 +32,7 @@
 *.app
 
 __pycache__
-
-gatekeeper
-gatekeeper-debug
+.cache
 
 gatekeeper.tar.gz
 
@@ -42,7 +40,7 @@ valgrind.log
 valgrind-out.txt
 massif-out.txt
 
-generated
+build
 
 .gdb_history
 

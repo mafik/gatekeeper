@@ -6,8 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../generated/embedded.hh"
-#include "log.hh"
+#include "../build/generated/embedded.hh"
 
 using namespace maf;
 

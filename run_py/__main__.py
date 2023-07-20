@@ -31,7 +31,6 @@ if __name__ == '__main__':
 
     while True:
         recipe.set_target(args.target)
-        recipe.steps[-1].extra_args = args.extra_args
 
         if platform == 'linux':
             events = 'CLOSE_WRITE'

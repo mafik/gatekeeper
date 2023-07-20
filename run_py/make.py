@@ -17,10 +17,10 @@ HASH_DIR = fs_utils.build_dir / 'hashes'
 HASH_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def Popen(args, extra_args=[], **kwargs):
+def Popen(args, **kwargs):
     '''Wrapper around subprocess.Popen which captures STDERR into a temporary file.'''
     f = tempfile.TemporaryFile()
-    str_args = [str(x) for x in args + extra_args]
+    str_args = [str(x) for x in args]
     p = subprocess.Popen(str_args, stderr=f, **kwargs)
     p.stderr = f
     return p
@@ -39,25 +39,29 @@ def hexdigest(path):
 
 
 class Step:
-    def __init__(self, name, outputs, inputs, build, id, stderr_prettifier):
-        self.name = name
+    def __init__(self, build_func, outputs, inputs, id, desc=None, shortcut=None, stderr_prettifier=lambda x: x):
+        if not desc:
+            desc = f'Running {build_func.__name__}'
+        if not shortcut:
+            shortcut = build_func.__name__
+        self.desc = desc
+        self.shortcut = shortcut
         self.outputs = set(str(x) for x in outputs)
         self.inputs = set(str(x) for x in inputs)
-        self.build = build  # function that executes this step
+        self.build = build_func  # function that executes this step
         self.builder = None  # Popen instance while this step is being built
         self.id = id
         self.stderr_prettifier = stderr_prettifier
-        self.extra_args = []
 
     def __repr__(self):
-        return f'{self.name}'
+        return f'{self.desc}'
 
     def build_and_log(self, reasons):
-        print('Building', self.name)  # , '(because', *reasons, 'changed)')
-        return self.build(extra_args=self.extra_args)
+        print(f'{self.desc}...')  # , '(because', *reasons, 'changed)')
+        return self.build()
 
     def record_input_hashes(self):
-        hash_path = HASH_DIR / self.name
+        hash_path = HASH_DIR / self.shortcut
         text = '\n'.join(f'{inp} {hexdigest(inp)}' for inp in self.inputs)
         hash_path.write_text(text)
 
@@ -86,7 +90,7 @@ class Step:
             return []
 
         # Check 3: If possible - check whether the contents have changed.
-        hash_path = HASH_DIR / self.name
+        hash_path = HASH_DIR / self.shortcut
         if not hash_path.exists():
             return updated_inputs
         recorded_hashes = defaultdict(str)
@@ -135,33 +139,30 @@ class Recipe:
         '''Returns True if the recipe needs to be built.'''
         return any(s.is_dirty() for s in self.steps)
 
-    def add_step(self, build_func, outputs, inputs, name=None, stderr_prettifier=lambda x: x):
-        if not name:
-            name = build_func.__name__
-        self.steps.append(Step(name, outputs, inputs, build_func,
-                          len(self.steps), stderr_prettifier))
+    def add_step(self, *args, **kwargs):
+        self.steps.append(Step(*args, id=len(self.steps), **kwargs))
 
     # prunes the list of steps and only leaves the steps that are required for some target
     def set_target(self, target):
         out_index = dict()
         target_step = None
         for step in self.steps:
-            if step.name == target:
+            if step.shortcut == target:
                 target_step = step
             for output in step.outputs:
                 out_index[output] = step
 
         if target_step == None:
             from difflib import get_close_matches
-            close = get_close_matches(target, [s.name for s in self.steps])
+            close = get_close_matches(target, [s.shortcut for s in self.steps])
             if close:
                 close = ', '.join(close)
                 raise Exception(
                     f'{target} is not a valid target. Close matches: {close}.')
             else:
-                possible = ', '.join([s.name for s in self.steps])
+                targets = ', '.join([s.shortcut for s in self.steps])
                 raise Exception(
-                    f'{target} is not a valid target. Possible matches: {possible}.')
+                    f'{target} is not a valid target. Valid targets: {targets}.')
 
         new_steps = set()
         q = [target_step]
@@ -174,7 +175,7 @@ class Recipe:
                     q.append(dep)
                 elif not Path(input).exists():
                     raise Exception(
-                        f'Step "{step.name}" requires `{input}` but it doesn\'t exist and there is no recipe to build it.')
+                        f'"{step.desc}" requires `{input}` but it doesn\'t exist and there is no recipe to build it.')
         new_steps = list(new_steps)
         new_steps.sort(key=self.steps.index)
 
@@ -226,7 +227,7 @@ class Recipe:
         while ready_steps or self.pid_to_step:
             if len(ready_steps) == 0 or len(self.pid_to_step) >= desired_parallelism:
                 running_names = ', '.join(
-                    [r.name for r in self.pid_to_step.values()])
+                    [r.shortcut for r in self.pid_to_step.values()])
                 print(
                     f'Waiting for one of {len(self.pid_to_step)} running steps ({running_names})...')
                 pid, status = wait_for_pid()
@@ -237,7 +238,7 @@ class Recipe:
                     return False
                 step = self.pid_to_step[pid]
                 if status:
-                    print(f'Recipe for {step.name} finished with an error:\n')
+                    print(f'{step.desc} finished with an error:\n')
                     if hasattr(step.builder, 'args'):
                         orig_command = ' > \033[90m' + \
                             ' '.join(step.builder.args) + '\033[0m\n'
@@ -261,11 +262,11 @@ class Recipe:
                     else:
                         on_step_finished(next)
                 except subprocess.CalledProcessError:
-                    print(f'Recipe for {next.name} finished with an error.')
+                    print(f'{next.desc} finished with an error.')
                     self.interrupt()
                     return False
                 except FileNotFoundError as err:
-                    print(f'Recipe for {next.name} couldn\'t find file {err}')
+                    print(f'{next.desc} couldn\'t find file {err}')
                     self.interrupt()
                     return False
         print(

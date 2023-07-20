@@ -2,10 +2,14 @@
 
 from pathlib import Path
 
-# The `run_py` directory is symlinked from different projects.
-# Calling `resolve()` on `__file__` would leave the project directory so first step out with `parents[1]` and then resolve.
-project_root = Path(__file__).absolute().parents[1].resolve()
+project_root = Path(__file__).resolve().parents[1]
 project_name = Path(project_root).name.lower()
 
-build_dir = project_root / 'build'
+
+def relative_to_root(path: Path) -> Path:
+    return path.resolve().relative_to(project_root)
+
+
+build_dir = relative_to_root(project_root / 'build')
 src_dir = project_root / 'src'
+generated_dir = relative_to_root(build_dir / 'generated')

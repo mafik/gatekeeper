@@ -2,7 +2,6 @@ import itertools
 import string
 
 byte_to_c_string_table = {c: chr(c) for c in range(32, 127)}
-byte_to_c_string_table[0x00] = '\\0'
 byte_to_c_string_table[0x22] = '\\"'
 byte_to_c_string_table[0x5c] = '\\\\'
 byte_to_c_string_table[0x07] = '\\a'
@@ -25,6 +24,6 @@ def byte_to_c_string(b, next_b=None):
         return '\\' + format(b, 'o')
 
 
-def c_string_from_bytes(bytes):
+def bytes_to_c_string(bytes):
     # x is a dummy byte
     return '"' + ''.join(byte_to_c_string(b, next_b) for b, next_b in itertools.pairwise(bytes + b'x')) + '"'

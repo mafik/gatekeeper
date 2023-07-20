@@ -167,8 +167,8 @@ inline static void transform(uint32_t digest[5], uint32_t block[BLOCK_INTS]) {
   digest[4] += e;
 }
 
-inline static void buffer_to_block(const char buffer[BLOCK_BYTES],
-                                   uint32_t block[BLOCK_INTS]) {
+inline static void buffer_to_block(const U8 buffer[BLOCK_BYTES],
+                                   U32 block[BLOCK_INTS]) {
   /* Convert the std::string (byte buffer) to a uint32_t array (MSB) */
   for (size_t i = 0; i < BLOCK_INTS; i++) {
     block[i] = (buffer[4 * i + 3] & 0xff) | (buffer[4 * i + 2] & 0xff) << 8 |
@@ -346,27 +346,27 @@ static void TransformFunction(uint64_t state[8], uint8_t const *Buffer) {
 
 }; // namespace
 
-std::string SHA1(std::string_view str) {
-  uint64_t total_bits = str.size() * 8;
+SHA1::SHA1(MemView mem) {
+  uint64_t total_bits = mem.size() * 8;
   uint32_t digest[5] = {
       0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0,
   };
   uint32_t block[BLOCK_INTS];
 
-  while (str.size() >= BLOCK_BYTES) {
-    buffer_to_block(str.data(), block);
+  while (mem.size() >= BLOCK_BYTES) {
+    buffer_to_block(mem.data(), block);
     transform(digest, block);
-    str.remove_prefix(BLOCK_BYTES);
+    mem = mem.subspan<BLOCK_BYTES>();
   }
 
-  char final_buffer[BLOCK_BYTES];
-  memcpy(final_buffer, str.data(), str.size());
-  final_buffer[str.size()] = 0x80; /* Padding */
-  bzero(final_buffer + str.size() + 1, BLOCK_BYTES - str.size() - 1);
+  U8 final_buffer[BLOCK_BYTES];
+  memcpy(final_buffer, mem.data(), mem.size());
+  final_buffer[mem.size()] = 0x80; /* Padding */
+  bzero(final_buffer + mem.size() + 1, BLOCK_BYTES - mem.size() - 1);
 
   buffer_to_block(final_buffer, block);
 
-  if (str.size() + 1 > BLOCK_BYTES - 8) {
+  if (mem.size() + 1 > BLOCK_BYTES - 8) {
     transform(digest, block);
     for (size_t i = 0; i < BLOCK_INTS - 2; i++) {
       block[i] = 0;
@@ -382,7 +382,7 @@ std::string SHA1(std::string_view str) {
     digest[i] = std::byteswap(digest[i]);
   }
 
-  return std::string((char *)digest, 20);
+  memcpy(this->bytes, digest, sizeof(digest));
 }
 
 SHA256::Builder::Builder()

@@ -1,3 +1,5 @@
+#pragma maf main
+
 #include <algorithm>
 #include <csignal>
 #include <cstdlib>

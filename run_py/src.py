@@ -84,10 +84,9 @@ class File:
 
             match = re.match(r'^#include \"([a-zA-Z0-9_/\.-]+\.hh?)\"', line)
             if match:
-                include = Path(match.group(1))
-                dep = self.path.parent / include  # try relative to current source file
-                if not dep.exists():
-                    dep = include  # try relative to project root
+                # relative to current source file
+                dep = self.path.parent / match.group(1)
+                dep = fs_utils.relative_to_root(dep)  # normalize
                 self.direct_includes.append(str(dep))
 
             match = re.match(
@@ -115,6 +114,8 @@ class File:
         while include_queue:
             path = include_queue.pop()
             if path not in srcs:
+                print(
+                    f'Warning: {self.path.name} includes non-existent "{path}"')
                 continue
             inc = srcs[path]
             if inc in self.transitive_includes:
@@ -141,9 +142,6 @@ def scan() -> dict[str, File]:
         file = File(path)
         result[str(path)] = file
         file.scan_contents()
-
-    for file in result.values():
-        file.update_transitive_includes(result)
 
     return result
 

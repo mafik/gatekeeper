@@ -1,3 +1,6 @@
+#pragma maf add link argument "-L."
+#pragma maf add link argument "-lsystemd"
+
 namespace systemd {
 
 void NotifyReady();
