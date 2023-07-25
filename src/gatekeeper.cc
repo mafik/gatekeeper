@@ -1,3 +1,4 @@
+#include "ed25519.hh"
 #pragma maf main
 
 #include <algorithm>
@@ -9,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
+#include "../build/generated/version.hh"
 #include "config.hh"
 #include "dhcp.hh"
 #include "dns.hh"
@@ -23,6 +25,7 @@
 #include "status.hh"
 #include "systemd.hh"
 #include "timer.hh"
+#include "update.hh"
 #include "virtual_fs.hh"
 #include "webui.hh"
 
@@ -39,6 +42,7 @@ void StopSignal(const char *signal) {
   dns::Stop();
   dhcp::server.StopListening();
   systemd::Stop();
+  update::Stop();
   // Signal handlers must be stopped so that epoll::Loop would terminate.
   sigabrt.reset();
   sigterm.reset();
@@ -269,6 +273,8 @@ void Deconfigure() {
 }
 
 int main(int argc, char *argv[]) {
+  LOG << "Gatekeeper " << kVersion << " starting up.";
+
   Status status;
 
   epoll::Init();
@@ -288,6 +294,19 @@ int main(int argc, char *argv[]) {
     ERROR << status;
     return 1;
   }
+
+  // update::config.first_check_delay_s = 3;
+  // update::config.check_interval_s = 5;
+  // update::config.url = "https://mrogalski.eu/";
+  // if (!OK(status)) {
+  //   ERROR << status;
+  //   return 1;
+  // }
+  // update::Start();
+  // if (!OK(update::status)) {
+  //   ERROR << update::status;
+  //   return 1;
+  // }
 
   lan = PickLANInterface(status);
   if (!status.Ok()) {

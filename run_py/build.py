@@ -124,8 +124,9 @@ default_compile_args = ['-std=c++2b', '-fcolor-diagnostics',
 release_compile_args = ['-O3', '-DNDEBUG', '-flto']
 debug_compile_args = ['-O0', '-g', '-D_DEBUG']
 
-default_link_args = ['-fuse-ld=lld', '-static', '-Wl,--gc-sections']
-release_link_args = ['-flto']
+default_link_args = ['-fuse-ld=lld', '-static',
+                     '-Wl,--gc-sections', '-Wl,--build-id=none']
+release_link_args = ['-flto', '-Wl,--strip-all']
 debug_link_args = []
 
 if args.verbose:

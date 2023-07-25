@@ -538,7 +538,7 @@ static void FinalizeTo(SHA512::Builder &builder, SHA512 &sha) {
   }
 }
 
-SHA512::SHA512(MemView mem) {
+SHA512::SHA512(Span<const U8> mem) {
   Builder builder;
   builder.Update(mem);
   FinalizeTo(builder, *this);
@@ -557,7 +557,7 @@ SHA512::Builder::Builder() {
   state[7] = 0x5be0cd19137e2179ULL;
 }
 
-SHA512::Builder &SHA512::Builder::Update(MemView mem) {
+SHA512::Builder &SHA512::Builder::Update(Span<const U8> mem) {
   while (mem.size() > 0) {
     if (curlen == 0 && mem.size() >= BLOCK_SIZE) {
       TransformFunction(state, (uint8_t *)mem.data());

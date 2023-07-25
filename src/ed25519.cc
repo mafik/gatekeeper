@@ -3615,7 +3615,7 @@ Public Public::FromPrivate(const Private &sk) {
   sc25519 scsk;
   ge25519 gepk;
 
-  SHA512 az(sk.bytes, 32);
+  SHA512 az(Span<const U8>(sk.bytes, 32));
   az[0] &= 248;
   az[31] &= 127;
   az[31] |= 64;
@@ -3642,22 +3642,27 @@ Signature::Signature(std::string_view m, const Private &sk, const Public &A) {
   sc25519 sck, scs, scsk;
   ge25519 ger;
 
-  SHA512 az(sk.bytes, 32);
+  SHA512 az(Span<const U8>(sk.bytes, 32));
   az[0] &= 248;
   az[31] &= 127;
   az[31] |= 64;
   /* az: 32-byte scalar a, 32-byte randomizer z */
 
-  SHA512 nonce =
-      SHA512::Builder().Update(az.bytes + 32, 32).Update(m).Finalize();
+  SHA512 nonce = SHA512::Builder()
+                     .Update(Span<const U8>(az.bytes + 32, 32))
+                     .Update(MemViewOf(m))
+                     .Finalize();
   /* nonce: 64-byte H(z,m) */
 
   sc25519_from64bytes(&sck, nonce.bytes);
   ge25519_scalarmult_base(&ger, &sck);
   ge25519_pack(R, &ger);
 
-  SHA512 hram =
-      SHA512::Builder().Update(R, 32).Update(A.bytes, 32).Update(m).Finalize();
+  SHA512 hram = SHA512::Builder()
+                    .Update(Span<const U8>(R, 32))
+                    .Update(Span<const U8>(A.bytes, 32))
+                    .Update(MemViewOf(m))
+                    .Finalize();
   /* hram: 64-byte H(R,A,m) */
 
   sc25519_from64bytes(&scs, hram.bytes);
@@ -3711,9 +3716,9 @@ bool Signature::Verify(std::string_view message, const Public &A) const {
   sc25519_from32bytes(&scs, S);
 
   SHA512 hram = SHA512::Builder()
-                    .Update(R, 32)
-                    .Update(A.bytes, 32)
-                    .Update(message)
+                    .Update(Span<const U8>(R, (size_t)32))
+                    .Update(Span<const U8>(A.bytes, 32))
+                    .Update(MemViewOf(message))
                     .Finalize();
 
   sc25519_from64bytes(&schram, hram.bytes);

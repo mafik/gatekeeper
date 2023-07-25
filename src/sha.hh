@@ -50,7 +50,7 @@ struct SHA512 {
   SHA512() = default;
 
   // Compute a SHA512 of a memory bufferin one go.
-  SHA512(MemView);
+  SHA512(Span<const U8>);
 
   // Access individual bytes of SHA512.
   U8 &operator[](size_t i) { return bytes[i]; }
@@ -62,7 +62,7 @@ struct SHA512 {
     U32 curlen;
     U8 buf[128];
     Builder();
-    Builder &Update(MemView);
+    Builder &Update(Span<const U8>);
     SHA512 Finalize();
   };
 
