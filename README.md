@@ -60,7 +60,7 @@ Gatekeeper only runs on x86_64 Linux. In the future I'd like to also port it to 
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 sudo ./llvm.sh 17
-sudo apt install -y libncurses5 llvm-dev libsystemd-dev valgrind inotify-tools
+sudo apt install -y libncurses5 llvm-dev valgrind inotify-tools
 ./run gatekeeper
 ```
 
