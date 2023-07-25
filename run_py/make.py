@@ -115,6 +115,10 @@ class Step:
 
 
 class Recipe:
+    steps: list[Step]
+    generated: set[str]
+    pid_to_step: dict[int, Step]
+
     def __init__(self):
         '''A list of steps that should be taken in order to build the final product.'''
         self.steps = []
