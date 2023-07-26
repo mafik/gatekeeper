@@ -35,13 +35,13 @@ class File:
         return self.path.suffix in ('.c', '.cc')
 
     def build_link_args(self, build_type: str) -> list[str]:
-        return self.link_args.get('', []) + self.link_args.get(build_type, [])
+        return self.link_args.get(build_type, []) + (self.link_args.get('', []) if build_type else [])
 
     def build_compile_args(self, build_type: str) -> list[str]:
-        return self.compile_args.get('', []) + self.compile_args.get(build_type, [])
+        return self.compile_args.get(build_type, []) + (self.compile_args.get('', []) if build_type else [])
 
     def build_run_args(self, build_type: str) -> list[str]:
-        return self.run_args.get('', []) + self.run_args.get(build_type, [])
+        return self.run_args.get(build_type, []) + (self.run_args.get('', []) if build_type else [])
 
     def scan_contents(self):
         self.direct_includes.clear()
