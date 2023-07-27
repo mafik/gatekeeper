@@ -122,7 +122,8 @@ compiler = os.environ['CXX'] = os.environ['CXX'] if 'CXX' in os.environ else 'cl
 default_compile_args = ['-std=c++2b', '-fcolor-diagnostics',
                         '-static', '-ffunction-sections', '-fdata-sections', '-funsigned-char']
 release_compile_args = ['-O3', '-DNDEBUG', '-flto']
-debug_compile_args = ['-O0', '-g', '-D_DEBUG']
+# -gdwarf-4 is needed by valgrind (called by test_e2e.sh, during GitHub Actions CI)
+debug_compile_args = ['-O0', '-g', '-gdwarf-4', '-D_DEBUG']
 
 default_link_args = ['-fuse-ld=lld', '-static',
                      '-Wl,--gc-sections', '-Wl,--build-id=none']
