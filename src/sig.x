@@ -1,5 +1,5 @@
 OVERWRITE_SECTIONS {
-  maf.sig.ed25519 : {
-    KEEP(*(maf.sig.ed25519))
+  .note.maf.sig.ed25519 : {
+    KEEP(*(.note.maf.sig.ed25519))
   }
 };

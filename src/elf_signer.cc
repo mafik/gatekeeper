@@ -8,6 +8,7 @@
 #include "elf.hh"
 #include "log.hh"
 #include "path.hh"
+#include "sig.hh"
 #include "ssh_key.hh"
 #include "virtual_fs.hh"
 
@@ -32,14 +33,16 @@ int main(int argc, char *argv[]) {
   }
   auto signature =
       ed25519::Signature(elf_copy, key.private_key, key.public_key);
-  auto sig_section = elf::FindSection(elf_copy, "maf.sig.ed25519", status);
+  auto sig_section =
+      elf::FindSection(elf_copy, ".note.maf.sig.ed25519", status);
   if (not OK(status)) {
     FATAL << "Failed to find signature section: " << status;
   }
-  if (sig_section.size() != sizeof(signature.bytes)) {
+  if (sig_section.size() != sizeof(SignatureNote)) {
     FATAL << "Invalid signature section size: " << sig_section.size();
   }
-  memcpy(sig_section.data(), signature.bytes, sizeof(signature.bytes));
+  SignatureNote &note = *reinterpret_cast<SignatureNote *>(sig_section.data());
+  memcpy(note.desc.bytes, signature.bytes, sizeof(signature.bytes));
   WriteFile(argv[3], elf_copy, status, 0775);
   if (not OK(status)) {
     FATAL << "Failed to write ELF file: " << status;
