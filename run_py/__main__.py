@@ -5,7 +5,7 @@
 import build
 import subprocess
 from args import args
-from sys import platform
+from sys import platform, exit
 
 recipe = build.recipe()
 
@@ -39,7 +39,8 @@ if __name__ == '__main__':
         watcher = subprocess.Popen(
             ['inotifywait', '-qe', events, 'src/'], stdout=subprocess.DEVNULL)
 
-        if recipe.execute(watcher):
+        ok = recipe.execute(watcher)
+        if ok:
             if active_recipe:
                 active_recipe.interrupt()
             active_recipe = recipe
@@ -54,3 +55,5 @@ if __name__ == '__main__':
             break
         # Reload the recipe because dependencies may have changed
         recipe = build.recipe()
+    if not ok:
+        exit(1)
