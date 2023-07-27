@@ -1,9 +1,7 @@
 #include "tls.hh"
 
-#include <algorithm>
 #include <cstring>
 #include <initializer_list>
-#include <optional>
 
 #include "aead_chacha20_poly1305.hh"
 #include "big_endian.hh"
@@ -26,7 +24,7 @@ struct RecordHeader {
   U8 version_major;
   U8 version_minor;
   Big<U16> length;
-  U8 contents[0];
+  char contents[0];
 
   void Validate(Status &status) {
     if (version_major != 3) {
@@ -42,15 +40,15 @@ struct RecordHeader {
     }
   }
 
-  operator Span<const U8>() { return {(U8 *)this, sizeof(RecordHeader)}; }
-  MemView Contents() { return {contents, length.get()}; }
+  operator Span<>() { return {(char *)this, sizeof(*this)}; }
+  Span<> Contents() { return {contents, length.get()}; }
 };
 
 static_assert(sizeof(RecordHeader) == 5,
               "tls::RecordHeader should have 5 bytes");
 
-void HKDF_Expand_Label(MemView key, StrView label, MemView ctx, MemView out) {
-  MemBuf hkdf_label;
+void HKDF_Expand_Label(Span<> key, StrView label, Span<> ctx, Span<> out) {
+  Vec<> hkdf_label;
   AppendBigEndian<U16>(hkdf_label, out.size());
   hkdf_label.push_back(label.size());
   hkdf_label.insert(hkdf_label.end(), label.begin(), label.end());
@@ -59,12 +57,12 @@ void HKDF_Expand_Label(MemView key, StrView label, MemView ctx, MemView out) {
   HKDF_Expand<SHA256>(key, hkdf_label, out);
 }
 
-Arr<U8, 32> zero_key = {};
-SHA256 early_secret = HKDF_Extract<SHA256>("\x00"_MemView, zero_key);
-SHA256 empty_hash("");
-Arr<U8, 6> kClientChangeCipherSpec = HexArr("140303000101");
+Arr<char, 32> zero_key = {};
+SHA256 early_secret = HKDF_Extract<SHA256>(Span<>("\x00", 1), zero_key);
+SHA256 empty_hash(SpanOf(""));
+Arr<char, 6> kClientChangeCipherSpec = HexArr("140303000101");
 
-static void XorIV(Arr<U8, 12> &iv, U64 counter) {
+static void XorIV(Arr<char, 12> &iv, U64 counter) {
   for (int i = 0; i < sizeof(counter); ++i) {
     iv[11 - i] ^= (counter >> (i * 8)) & 0xff;
   }
@@ -72,19 +70,19 @@ static void XorIV(Arr<U8, 12> &iv, U64 counter) {
 
 // Responsible for encrypting & decrypting TLS records
 struct RecordWrapper {
-  Arr<U8, 32> key;
-  Arr<U8, 12> iv;
+  Arr<char, 32> key;
+  Arr<char, 12> iv;
   U64 counter = 0;
 
   // Constructs uninitialized RecordWrapper
   RecordWrapper() = default;
 
-  RecordWrapper(Span<U8, 32> secret) {
-    HKDF_Expand_Label(secret, "tls13 key", ""_MemView, key);
-    HKDF_Expand_Label(secret, "tls13 iv", ""_MemView, iv);
+  RecordWrapper(Span<char, 32> secret) {
+    HKDF_Expand_Label(secret, "tls13 key", SpanOf(""), key);
+    HKDF_Expand_Label(secret, "tls13 iv", SpanOf(""), iv);
   }
 
-  void Wrap(MemBuf &buf, U8 record_type, std::function<void()> wrapped) {
+  void Wrap(Vec<> &buf, U8 record_type, std::function<void()> wrapped) {
     Size header_begin = buf.size();
     buf.insert(buf.end(), {0x17, 0x03, 0x03, 0x00,
                            0x00}); // application data, TLS 1.2, length
@@ -99,15 +97,15 @@ struct RecordWrapper {
     Size tag_end = buf.size();
     PutBigEndian<U16>(buf, record_length_offset, tag_end - record_begin);
     XorIV(iv, counter);
-    auto data = MemView(buf.begin() + record_begin, buf.begin() + record_end);
-    auto aad = MemView(buf.begin() + header_begin, buf.begin() + header_end);
+    auto data = Span<>(buf.begin() + record_begin, buf.begin() + record_end);
+    auto aad = Span<>(buf.begin() + header_begin, buf.begin() + header_end);
     auto tag = Encrypt_AEAD_CHACHA20_POLY1305(key, iv, data, aad);
     XorIV(iv, counter);
     ++counter;
     memcpy(buf.data() + tag_begin, tag.bytes, 16);
   }
 
-  bool Unwrap(RecordHeader &record, MemView &data, U8 &true_type) {
+  bool Unwrap(RecordHeader &record, Span<> &data, U8 &true_type) {
     auto contents = record.Contents();
     Poly1305 tag(contents.last<16>());
     data = contents.first(contents.size() - 16);
@@ -218,7 +216,7 @@ struct Phase3 : Phase {
 
   Phase3(Connection &conn, SHA256 handshake_secret, SHA256 handshake_hash)
       : Phase(conn) {
-    Arr<U8, 32> derived, client_secret, server_secret; // Hash-size-bytes
+    Arr<char, 32> derived, client_secret, server_secret; // Hash-size-bytes
     HKDF_Expand_Label(handshake_secret, "tls13 derived", empty_hash, derived);
     auto master_secret = HKDF_Extract<SHA256>(derived, zero_key);
     HKDF_Expand_Label(master_secret, "tls13 c ap traffic", handshake_hash,
@@ -237,7 +235,7 @@ struct Phase3 : Phase {
             record.type);
       return;
     }
-    MemView data;
+    Span<> data;
     U8 true_type;
     if (!server_wrapper.Unwrap(record, data, true_type)) {
       AppendErrorMessage(conn) += "Couldn't decrypt TLS record";
@@ -287,7 +285,7 @@ struct Phase3 : Phase {
 struct Phase2 : Phase {
   SHA256::Builder handshake_hash_builder;
   SHA256 handshake_secret;
-  Arr<U8, 32> client_secret;
+  Arr<char, 32> client_secret;
   RecordWrapper server_wrapper;
   RecordWrapper client_wrapper;
   bool send_tls_requested;
@@ -298,7 +296,7 @@ struct Phase2 : Phase {
         send_tls_requested(send_tls_requested) {
     auto hello_hash_builder = handshake_hash_builder;
     auto hello_hash = hello_hash_builder.Finalize();
-    Arr<U8, 32> derived, server_secret; // Hash-size-bytes
+    Arr<char, 32> derived, server_secret; // Hash-size-bytes
 
     HKDF_Expand_Label(early_secret, "tls13 derived", empty_hash, derived);
     handshake_secret = HKDF_Extract<SHA256>(derived, shared_secret);
@@ -319,7 +317,7 @@ struct Phase2 : Phase {
       AppendErrorMessage(conn) += f("Received TLS record type %d", type);
       return;
     }
-    MemView data;
+    Span<> data;
     U8 true_type;
     if (!server_wrapper.Unwrap(record, data, true_type)) {
       AppendErrorMessage(conn) += "Couldn't decrypt TLS record";
@@ -360,8 +358,8 @@ struct Phase2 : Phase {
                                           kClientChangeCipherSpec.end());
 
         client_wrapper.Wrap(conn.tcp_connection.outbox, 0x16, [&]() {
-          Arr<U8, 32> finished_key; // Hash-size-bytes
-          HKDF_Expand_Label(client_secret, "tls13 finished", ""_MemView,
+          Arr<char, 32> finished_key; // Hash-size-bytes
+          HKDF_Expand_Label(client_secret, "tls13 finished", SpanOf(""),
                             finished_key);
           SHA256 verify_data = HMAC<SHA256>(finished_key, handshake_hash);
           auto &buf = conn.tcp_connection.outbox;
@@ -416,7 +414,7 @@ struct Phase1 : Phase {
     auto client_public = curve25519::Public::FromPrivate(client_secret);
 
     // Send "Client Hello"
-    auto Append = [&](const std::initializer_list<U8> bytes) {
+    auto Append = [&](const std::initializer_list<char> bytes) {
       send_tcp.insert(send_tcp.end(), bytes);
     };
     Append({0x16}); // handshake
@@ -563,14 +561,14 @@ struct Phase1 : Phase {
     PutBigEndian<U16>(send_tcp, record_length_offset,
                       send_tcp.size() - record_begin);
 
-    sha_builder.Update(
-        MemView((U8 *)&send_tcp[record_begin], send_tcp.size() - record_begin));
+    sha_builder.Update(Span<>((char *)&send_tcp[record_begin],
+                              send_tcp.size() - record_begin));
 
     conn.tcp_connection.Send();
   }
 
-  void ProcessHandshake(Connection &conn, MemView handshake) {
-    MemView server_hello = handshake;
+  void ProcessHandshake(Connection &conn, Span<> handshake) {
+    Span<> server_hello = handshake;
     U8 handshake_type = ConsumeBigEndian<U8>(server_hello);
     U24 handshake_length = ConsumeBigEndian<U24>(server_hello);
     if (handshake_length > server_hello.size()) {
@@ -619,7 +617,7 @@ struct Phase1 : Phase {
               extension_length, server_hello.size());
         return;
       }
-      MemView extension_data = server_hello.first(extension_length);
+      Span<> extension_data = server_hello.first(extension_length);
       server_hello = server_hello.subspan(extension_length);
       switch (extension_type) {
       case 0x2b: // supported_versions
@@ -693,7 +691,7 @@ void Connection::Send() { phase->PhaseSend(); }
 void Connection::Close() { tcp_connection.Close(); }
 
 Size ConsumeRecord(Connection &conn) {
-  MemBuf &received_tcp = conn.tcp_connection.inbox;
+  Vec<> &received_tcp = conn.tcp_connection.inbox;
   if (received_tcp.size() < 5) {
     return 0; // wait for more data
   }

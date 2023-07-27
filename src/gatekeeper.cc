@@ -1,4 +1,3 @@
-#include "ed25519.hh"
 #pragma maf main
 
 #include <algorithm>
@@ -21,6 +20,7 @@
 #include "log.hh"
 #include "netlink.hh"
 #include "rtnetlink.hh"
+#include "sig.hh" // IWYU pragma: keep
 #include "signal.hh"
 #include "status.hh"
 #include "systemd.hh"
@@ -111,15 +111,14 @@ void Install(const char *argv0) {
   }
   LOG << "- Copying main binary";
   Status status;
-  gatekeeper::CopyFile("/proc/self/exe", "/opt/gatekeeper/gatekeeper", status,
-                       0755);
+  CopyFile("/proc/self/exe", "/opt/gatekeeper/gatekeeper", status, 0755);
   if (!status.Ok()) {
     ERROR << "  Failed to copy main binary: " << status;
     return;
   }
   LOG << "- Copying systemd service file";
-  gatekeeper::CopyFile("gatekeeper.service",
-                       "/opt/gatekeeper/gatekeeper.service", status, 0644);
+  CopyFile("gatekeeper.service", "/opt/gatekeeper/gatekeeper.service", status,
+           0644);
   if (!status.Ok()) {
     ERROR << "  Failed to copy systemd service file: " << status;
     return;

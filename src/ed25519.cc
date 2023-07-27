@@ -1,6 +1,5 @@
 #include "ed25519.hh"
 
-#include "log.hh"
 #include "sha.hh"
 #include <cstdio>
 #include <cstring>
@@ -106,7 +105,7 @@ void fe25519_freeze(fe25519 *r) {
   r->v[0] -= m & 237;
 }
 
-void fe25519_unpack(fe25519 *r, const unsigned char x[32]) {
+void fe25519_unpack(fe25519 *r, const char x[32]) {
   int i;
   for (i = 0; i < 32; i++)
     r->v[i] = x[i];
@@ -114,7 +113,7 @@ void fe25519_unpack(fe25519 *r, const unsigned char x[32]) {
 }
 
 /* Assumes input x being reduced below 2^255 */
-void fe25519_pack(unsigned char r[32], const fe25519 *x) {
+void fe25519_pack(char r[32], const fe25519 *x) {
   int i;
   fe25519 y = *x;
   fe25519_freeze(&y);
@@ -483,7 +482,7 @@ static void barrett_reduce(sc25519 *r, const crypto_uint32 x[64]) {
   reduce_add_sub(r);
 }
 
-void sc25519_from32bytes(sc25519 *r, const unsigned char x[32]) {
+void sc25519_from32bytes(sc25519 *r, const char x[32]) {
   int i;
   crypto_uint32 t[64];
   for (i = 0; i < 32; i++)
@@ -499,7 +498,7 @@ void shortsc25519_from16bytes(shortsc25519 *r, const unsigned char x[16]) {
     r->v[i] = x[i];
 }
 
-void sc25519_from64bytes(sc25519 *r, const unsigned char x[64]) {
+void sc25519_from64bytes(sc25519 *r, const char x[64]) {
   int i;
   crypto_uint32 t[64];
   for (i = 0; i < 64; i++)
@@ -515,7 +514,7 @@ void sc25519_from_shortsc(sc25519 *r, const shortsc25519 *x) {
     r->v[16 + i] = 0;
 }
 
-void sc25519_to32bytes(unsigned char r[32], const sc25519 *x) {
+void sc25519_to32bytes(char r[32], const sc25519 *x) {
   int i;
   for (i = 0; i < 32; i++)
     r[i] = x->v[i];
@@ -3430,8 +3429,8 @@ static void setneutral(ge25519 *r) {
  ******************************************************************** */
 
 /* return 0 on success, -1 otherwise */
-int ge25519_unpackneg_vartime(ge25519_p3 *r, const unsigned char p[32]) {
-  unsigned char par;
+int ge25519_unpackneg_vartime(ge25519_p3 *r, const char p[32]) {
+  char par;
   fe25519 t, chk, num, den, den2, den4, den6;
   fe25519_setone(&r->z);
   par = p[31] >> 7;
@@ -3479,7 +3478,7 @@ int ge25519_unpackneg_vartime(ge25519_p3 *r, const unsigned char p[32]) {
   return 0;
 }
 
-void ge25519_pack(unsigned char r[32], const ge25519_p3 *p) {
+void ge25519_pack(char r[32], const ge25519_p3 *p) {
   fe25519 tx, ty, zi;
   fe25519_invert(&zi, &p->z);
   fe25519_mul(&tx, &p->x, &zi);
@@ -3615,7 +3614,7 @@ Public Public::FromPrivate(const Private &sk) {
   sc25519 scsk;
   ge25519 gepk;
 
-  SHA512 az(Span<const U8>(sk.bytes, 32));
+  SHA512 az(Span<>(sk.bytes, 32));
   az[0] &= 248;
   az[31] &= 127;
   az[31] |= 64;
@@ -3638,20 +3637,18 @@ Public Public::FromHex(std::string_view hex, Status &status) {
   return result;
 }
 
-Signature::Signature(std::string_view m, const Private &sk, const Public &A) {
+Signature::Signature(StrView m, const Private &sk, const Public &A) {
   sc25519 sck, scs, scsk;
   ge25519 ger;
 
-  SHA512 az(Span<const U8>(sk.bytes, 32));
+  SHA512 az(Span<>(sk.bytes, 32));
   az[0] &= 248;
   az[31] &= 127;
   az[31] |= 64;
   /* az: 32-byte scalar a, 32-byte randomizer z */
 
-  SHA512 nonce = SHA512::Builder()
-                     .Update(Span<const U8>(az.bytes + 32, 32))
-                     .Update(MemViewOf(m))
-                     .Finalize();
+  SHA512 nonce =
+      SHA512::Builder().Update(Span<>(az.bytes + 32, 32)).Update(m).Finalize();
   /* nonce: 64-byte H(z,m) */
 
   sc25519_from64bytes(&sck, nonce.bytes);
@@ -3659,9 +3656,9 @@ Signature::Signature(std::string_view m, const Private &sk, const Public &A) {
   ge25519_pack(R, &ger);
 
   SHA512 hram = SHA512::Builder()
-                    .Update(Span<const U8>(R, 32))
-                    .Update(Span<const U8>(A.bytes, 32))
-                    .Update(MemViewOf(m))
+                    .Update(Span<>(R, 32))
+                    .Update(Span<>(A.bytes, 32))
+                    .Update(m)
                     .Finalize();
   /* hram: 64-byte H(R,A,m) */
 
@@ -3704,7 +3701,7 @@ Signature Signature::FromHexRS(std::string_view R_hex, std::string_view S_hex,
 }
 
 bool Signature::Verify(std::string_view message, const Public &A) const {
-  unsigned char rcheck[32];
+  char rcheck[32];
   ge25519 get1, get2;
   sc25519 schram, scs;
 
@@ -3716,9 +3713,9 @@ bool Signature::Verify(std::string_view message, const Public &A) const {
   sc25519_from32bytes(&scs, S);
 
   SHA512 hram = SHA512::Builder()
-                    .Update(Span<const U8>(R, (size_t)32))
-                    .Update(Span<const U8>(A.bytes, 32))
-                    .Update(MemViewOf(message))
+                    .Update(Span<>(R, 32))
+                    .Update(Span<>(A.bytes, 32))
+                    .Update(message)
                     .Finalize();
 
   sc25519_from64bytes(&schram, hram.bytes);

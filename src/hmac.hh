@@ -1,14 +1,13 @@
 #pragma once
 
 #include "arr.hh"
-#include "mem.hh"
+#include "span.hh"
 #include <cstring>
 
 namespace maf {
 
-template <typename Hash>
-Arr<U8, Hash::kBlockSize> HMAC_FixedKey(Span<const U8> key) {
-  Arr<U8, Hash::kBlockSize> fixed_key;
+template <typename Hash> Arr<char, Hash::kBlockSize> HMAC_FixedKey(Span<> key) {
+  Arr<char, Hash::kBlockSize> fixed_key;
   if (key.size() > Hash::kBlockSize) {
     Hash h(key);
     memcpy(fixed_key.data(), h.bytes, sizeof(Hash));
@@ -22,8 +21,8 @@ Arr<U8, Hash::kBlockSize> HMAC_FixedKey(Span<const U8> key) {
   return fixed_key;
 }
 
-template <typename Hash> Hash HMAC(Span<const U8> key, Span<const U8> m) {
-  Arr<U8, Hash::kBlockSize> fixed_key = HMAC_FixedKey<Hash>(key);
+template <typename Hash> Hash HMAC(Span<> key, Span<> m) {
+  Arr<char, Hash::kBlockSize> fixed_key = HMAC_FixedKey<Hash>(key);
   for (int i = 0; i < Hash::kBlockSize; ++i) {
     fixed_key[i] ^= 0x36;
   }

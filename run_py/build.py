@@ -120,7 +120,7 @@ def plan(srcs) -> tuple[list[ObjectFile], list[Binary]]:
 compiler = os.environ['CXX'] = os.environ['CXX'] if 'CXX' in os.environ else 'clang++'
 
 default_compile_args = ['-std=c++2b', '-fcolor-diagnostics',
-                        '-static', '-ffunction-sections', '-fdata-sections']
+                        '-static', '-ffunction-sections', '-fdata-sections', '-funsigned-char']
 release_compile_args = ['-O3', '-DNDEBUG', '-flto']
 debug_compile_args = ['-O0', '-g', '-D_DEBUG']
 

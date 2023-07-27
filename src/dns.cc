@@ -62,7 +62,7 @@ string ClassToString(Class c) {
   }
 }
 
-pair<string, size_t> LoadDomainName(const uint8_t *dns_message_base,
+pair<string, size_t> LoadDomainName(const char *dns_message_base,
                                     size_t dns_message_len, size_t offset) {
   size_t start_offset = offset;
   string domain_name;
@@ -70,7 +70,7 @@ pair<string, size_t> LoadDomainName(const uint8_t *dns_message_base,
     if (offset >= dns_message_len) {
       return make_pair("", 0);
     }
-    uint8_t n = dns_message_base[offset++];
+    char n = dns_message_base[offset++];
     if (n == 0) {
       return make_pair(domain_name, offset - start_offset);
     }
@@ -136,7 +136,7 @@ struct SOA {
   uint32_t expire_limit;
   uint32_t minimum_ttl;
 
-  size_t LoadFrom(const uint8_t *ptr, size_t len, size_t offset) {
+  size_t LoadFrom(const char *ptr, size_t len, size_t offset) {
     size_t start_offset = offset;
     size_t loaded_size;
     tie(primary_name_server, loaded_size) = LoadDomainName(ptr, len, offset);
@@ -341,7 +341,7 @@ struct Client : UDPListener {
     }
     Message msg;
     string err;
-    msg.Parse((const uint8_t *)buf.data(), buf.size(), err);
+    msg.Parse(buf.data(), buf.size(), err);
     if (!err.empty()) {
       ERROR << err;
       return;
@@ -472,7 +472,7 @@ struct Server : UDPListener {
     }
     Message msg;
     string err;
-    msg.Parse((const uint8_t *)buf.data(), buf.size(), err);
+    msg.Parse(buf.data(), buf.size(), err);
     if (!err.empty()) {
       ERROR << err;
       return;
@@ -585,7 +585,7 @@ void Start(Status &status) {
   }
 }
 
-size_t Question::LoadFrom(const uint8_t *ptr, size_t len, size_t offset) {
+size_t Question::LoadFrom(const char *ptr, size_t len, size_t offset) {
   size_t start_offset = offset;
   auto [loaded_name, loaded_size] = LoadDomainName(ptr, len, offset);
   if (loaded_size == 0) {
@@ -622,7 +622,7 @@ string Question::to_html() const {
   return "<code class=dns-question>" + domain_name + " " + TypeToString(type) +
          "</code>";
 }
-size_t Record::LoadFrom(const uint8_t *ptr, size_t len, size_t offset) {
+size_t Record::LoadFrom(const char *ptr, size_t len, size_t offset) {
   size_t start_offset = offset;
   size_t base_size = Question::LoadFrom(ptr, len, offset);
   if (base_size == 0) {
@@ -697,8 +697,8 @@ uint32_t Record::ttl() const {
 }
 string Record::to_string() const {
   return "dns::Record(" + Question::to_string() +
-         ", ttl=" + std::to_string(ttl()) + ", data=\"" +
-         BytesToHex(MemViewOf(data)) + "\")";
+         ", ttl=" + std::to_string(ttl()) + ", data=\"" + BytesToHex(data) +
+         "\")";
 }
 string Record::pretty_value() const {
   if (type == Type::A) {
@@ -710,20 +710,20 @@ string Record::pretty_value() const {
     }
   } else if (type == Type::CNAME) {
     auto [loaded_name, loaded_size] =
-        LoadDomainName((const uint8_t *)data.data(), data.size(), 0);
+        LoadDomainName(data.data(), data.size(), 0);
     if (loaded_size == data.size()) {
       return loaded_name;
     }
   } else if (type == Type::SOA) {
     SOA soa;
-    size_t parsed = soa.LoadFrom((uint8_t *)data.data(), data.size(), 0);
+    size_t parsed = soa.LoadFrom(data.data(), data.size(), 0);
     if (parsed == data.size()) {
       return f("%s %s %d %d %d %d %d", soa.primary_name_server.c_str(),
                soa.mailbox.c_str(), soa.serial_number, soa.refresh_interval,
                soa.retry_interval, soa.expire_limit, soa.minimum_ttl);
     }
   }
-  return BytesToHex(MemViewOf(data));
+  return BytesToHex(data);
 }
 string Record::to_html() const {
   return "<code class=dns-record title=TTL=" + std::to_string(ttl()) +
@@ -820,7 +820,7 @@ void Entry::HandleIncomingRequest(const IncomingRequest &request) const {
         },
         state);
 }
-void Message::Parse(const U8 *ptr, size_t len, string &err) {
+void Message::Parse(const char *ptr, size_t len, string &err) {
   if (len < sizeof(Header)) {
     err = "DNS message buffer is too short: " + std::to_string(len) +
           " bytes. DNS header requires at least 12 bytes. Hex-escaped "

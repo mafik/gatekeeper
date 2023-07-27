@@ -2,8 +2,7 @@
 
 namespace maf::rfc7539 {
 
-ChaCha20::ChaCha20(Span<const U8, 32> key, U32 counter,
-                   Span<const U8, 12> nonce)
+ChaCha20::ChaCha20(Span<char, 32> key, U32 counter, Span<char, 12> nonce)
     : constant{0x65, 0x78, 0x70, 0x61, 0x6E, 0x64, 0x20, 0x33,
                0x32, 0x2D, 0x62, 0x79, 0x74, 0x65, 0x20, 0x6B},
       key{key[0],  key[1],  key[2],  key[3],  key[4],  key[5],  key[6],
@@ -15,8 +14,8 @@ ChaCha20::ChaCha20(Span<const U8, 32> key, U32 counter,
       nonce{nonce[0], nonce[1], nonce[2], nonce[3], nonce[4],  nonce[5],
             nonce[6], nonce[7], nonce[8], nonce[9], nonce[10], nonce[11]} {}
 
-#define U8V(v) ((U8)(v)&0xFFU)
-#define U32V(v) ((U32)(v)&0xFFFFFFFFU)
+#define U8V(v) ((U8)(v) & 0xFFU)
+#define U32V(v) ((U32)(v) & 0xFFFFFFFFU)
 
 #define ROTL32(v, n) (U32V((v) << (n)) | ((v) >> (32 - (n))))
 
@@ -47,10 +46,10 @@ ChaCha20::ChaCha20(Span<const U8, 32> key, U32 counter,
   c = PLUS(c, d);                                                              \
   b = ROTATE(XOR(b, c), 7);
 
-void ChaCha20::Crypt(MemView mem) {
+void ChaCha20::Crypt(Span<> mem) {
   U32 x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
   I32 j0, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15;
-  U8 tmp[64];
+  char tmp[64];
 
   U32 *x_input = (U32 *)this;
 
@@ -72,7 +71,7 @@ void ChaCha20::Crypt(MemView mem) {
   j15 = x_input[15];
 
   for (;;) {
-    U8 *m = mem.data();
+    char *m = mem.data();
     if (mem.size() < 64) {
       for (int i = 0; i < mem.size(); ++i)
         tmp[i] = mem[i];

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "mem.hh"
 #include "status.hh"
+#include "vec.hh"
 
 namespace maf {
 
 struct Stream {
-  MemBuf inbox;
-  MemBuf outbox;
+  Vec<> inbox;
+  Vec<> outbox;
 
   virtual ~Stream() = default;
 

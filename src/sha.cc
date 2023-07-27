@@ -1,5 +1,4 @@
 #include "sha.hh"
-#include "mem.hh"
 
 #include <bit>
 #include <cstring>
@@ -167,7 +166,7 @@ inline static void transform(uint32_t digest[5], uint32_t block[BLOCK_INTS]) {
   digest[4] += e;
 }
 
-inline static void buffer_to_block(const U8 buffer[BLOCK_BYTES],
+inline static void buffer_to_block(const char buffer[BLOCK_BYTES],
                                    U32 block[BLOCK_INTS]) {
   /* Convert the std::string (byte buffer) to a uint32_t array (MSB) */
   for (size_t i = 0; i < BLOCK_INTS; i++) {
@@ -245,7 +244,7 @@ namespace {
     (y)[4] = (uint8_t)(((x) >> 24) & 255);                                     \
     (y)[5] = (uint8_t)(((x) >> 16) & 255);                                     \
     (y)[6] = (uint8_t)(((x) >> 8) & 255);                                      \
-    (y)[7] = (uint8_t)((x)&255);                                               \
+    (y)[7] = (uint8_t)((x) & 255);                                             \
   }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -292,7 +291,7 @@ static const uint64_t K[80] = {
 #define Ch(x, y, z) (z ^ (x & (y ^ z)))
 #define Maj(x, y, z) (((x | y) & z) | (x & y))
 #define S(x, n) ROR64(x, n)
-#define R(x, n) (((x)&0xFFFFFFFFFFFFFFFFULL) >> ((uint64_t)n))
+#define R(x, n) (((x) & 0xFFFFFFFFFFFFFFFFULL) >> ((uint64_t)n))
 #define Sigma0(x) (S(x, 28) ^ S(x, 34) ^ S(x, 39))
 #define Sigma1(x) (S(x, 14) ^ S(x, 18) ^ S(x, 41))
 #define Gamma0(x) (S(x, 1) ^ S(x, 8) ^ R(x, 7))
@@ -346,7 +345,7 @@ static void TransformFunction(uint64_t state[8], uint8_t const *Buffer) {
 
 }; // namespace
 
-SHA1::SHA1(MemView mem) {
+SHA1::SHA1(Span<> mem) {
   uint64_t total_bits = mem.size() * 8;
   uint32_t digest[5] = {
       0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0,
@@ -359,7 +358,7 @@ SHA1::SHA1(MemView mem) {
     mem = mem.subspan<BLOCK_BYTES>();
   }
 
-  U8 final_buffer[BLOCK_BYTES];
+  char final_buffer[BLOCK_BYTES];
   memcpy(final_buffer, mem.data(), mem.size());
   final_buffer[mem.size()] = 0x80; /* Padding */
   bzero(final_buffer + mem.size() + 1, BLOCK_BYTES - mem.size() - 1);
@@ -459,7 +458,7 @@ static void AppendByte(SHA256::Builder &builder, uint8_t byte) {
   }
 }
 
-SHA256::Builder &SHA256::Builder::Update(Span<const U8> mem) {
+SHA256::Builder &SHA256::Builder::Update(Span<> mem) {
   for (auto byte : mem) {
     AppendByte(*this, byte);
   }
@@ -467,7 +466,7 @@ SHA256::Builder &SHA256::Builder::Update(Span<const U8> mem) {
 }
 
 static void FinalizeTo(SHA256::Builder &builder, SHA256 &out_sha) {
-  U8 *ptr = out_sha.bytes;
+  char *ptr = out_sha.bytes;
 
   uint64_t n_bits = builder.n_bits;
 
@@ -489,7 +488,7 @@ static void FinalizeTo(SHA256::Builder &builder, SHA256 &out_sha) {
   }
 }
 
-SHA256::SHA256(Span<const U8> mem) {
+SHA256::SHA256(Span<> mem) {
   Builder builder;
   builder.Update(mem);
   FinalizeTo(builder, *this);
@@ -538,7 +537,7 @@ static void FinalizeTo(SHA512::Builder &builder, SHA512 &sha) {
   }
 }
 
-SHA512::SHA512(Span<const U8> mem) {
+SHA512::SHA512(Span<> mem) {
   Builder builder;
   builder.Update(mem);
   FinalizeTo(builder, *this);
@@ -557,7 +556,7 @@ SHA512::Builder::Builder() {
   state[7] = 0x5be0cd19137e2179ULL;
 }
 
-SHA512::Builder &SHA512::Builder::Update(Span<const U8> mem) {
+SHA512::Builder &SHA512::Builder::Update(Span<> mem) {
   while (mem.size() > 0) {
     if (curlen == 0 && mem.size() >= BLOCK_SIZE) {
       TransformFunction(state, (uint8_t *)mem.data());

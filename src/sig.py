@@ -1,26 +1,16 @@
 import make
-import src
 import build
 
 
-def hook_srcs(srcs: dict[str, src.File], recipe):
-    for file in srcs.values():
-        if not file.main:
-            continue
-        file.link_args['release'].append('-Wl,--script=src/sig.x')
-        file.direct_includes.append('src/sig.hh')
-
-
 def hook_final(srcs, objs, bins: list[build.Binary], recipe: make.Recipe):
-    bin_paths = set(str(bin.path)
-                    for bin in bins if bin.build_type == 'release')
-    for step in recipe.steps:
-        bin_outputs = set(step.outputs) & bin_paths
-        if bin_outputs:
-            step.desc += ' (signed)'
-            for bin in bin_outputs:
-                def build_and_sign(orig_build=step.build):
-                    orig_builder = orig_build()
-                    # TODO: actually sign bin
-                    return orig_builder
-                step.build = build_and_sign
+    for bin in bins:
+        # Only sign files which included sig.hh (and thus have a sig.x script)
+        if '-Wl,--script=src/sig.x' not in bin.link_args:
+            continue
+        bin_signed_path = bin.path.with_stem('signed_' + bin.path.stem)
+
+        def sign(bin=bin, bin_signed_path=bin_signed_path):
+            return make.Popen(['build/elf_signer', '~/.ssh/id_ed25519', bin.path, bin_signed_path])
+
+        recipe.add_step(sign, [bin_signed_path], [
+                        bin.path, 'build/elf_signer'], desc=f'Signing {bin_signed_path}', shortcut=f'sign {bin.path.stem}')

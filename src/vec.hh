@@ -4,6 +4,8 @@
 
 namespace maf {
 
-template <typename T> using Vec = std::vector<T>;
+template <typename T = char> struct Vec : std::vector<T> {
+  using std::vector<T>::vector;
+};
 
 } // namespace maf

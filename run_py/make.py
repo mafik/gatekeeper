@@ -21,7 +21,8 @@ def Popen(args, **kwargs):
     '''Wrapper around subprocess.Popen which captures STDERR into a temporary file.'''
     f = tempfile.TemporaryFile()
     str_args = [str(x) for x in args]
-    p = subprocess.Popen(str_args, stderr=f, **kwargs)
+    p = subprocess.Popen(
+        str_args, stdin=subprocess.DEVNULL, stderr=f, **kwargs)
     p.stderr = f
     return p
 
@@ -265,8 +266,8 @@ class Recipe:
                         self.pid_to_step[builder.pid] = next
                     else:
                         on_step_finished(next)
-                except subprocess.CalledProcessError:
-                    print(f'{next.desc} finished with an error.')
+                except subprocess.CalledProcessError as err:
+                    print(f'{next.desc} finished with an error.', err)
                     self.interrupt()
                     return False
                 except FileNotFoundError as err:

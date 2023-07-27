@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include <deque>
-#include <unordered_set>
 
 #include "chrono.hh"
 #include "config.hh"
@@ -43,7 +42,7 @@ bool WriteStaticFile(Response &response, Request &request) {
   string path = "static";
   path += request.path;
   Status status;
-  gatekeeper::ReadFile(
+  ReadFile(
       path.c_str(), [&](string_view content) { response.Write(content); },
       status);
   return status.Ok();

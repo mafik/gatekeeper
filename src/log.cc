@@ -35,6 +35,8 @@ LogEntry::~LogEntry() {
   }
 
   if (log_level == LogLevel::Fatal) {
+    fflush(stdout);
+    fflush(stderr);
     abort();
   }
 }

@@ -92,8 +92,8 @@ void Interface::Configure(::IP ip, ::Network network, Status &status) {
     return;
   }
   // Enable forwarding
-  std::string path = "/proc/sys/net/ipv4/conf/" + name + "/forwarding";
-  gatekeeper::WriteFile(path.c_str(), "1", status);
+  Path path = "/proc/sys/net/ipv4/conf/" + name + "/forwarding";
+  WriteFile(path, "1", status);
   close(fd);
 }
 

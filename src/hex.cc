@@ -2,7 +2,7 @@
 
 namespace maf {
 
-void HexToBytesUnchecked(StrView hex, U8 *bytes) {
+void HexToBytesUnchecked(StrView hex, char *bytes) {
   bool high = true;
   for (int i = 0; i < hex.size(); i++) {
     char c = hex[i];
@@ -26,7 +26,7 @@ void HexToBytesUnchecked(StrView hex, U8 *bytes) {
   }
 }
 
-Str BytesToHex(Span<const U8> bytes) {
+Str BytesToHex(Span<> bytes) {
   Str result;
   result.reserve(bytes.size() * 2);
   for (U8 byte : bytes) {

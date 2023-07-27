@@ -13,7 +13,7 @@ namespace maf {
 
 /* interpret eight 8 bit unsigned integers as a 64 bit unsigned integer in
  * little endian */
-static U64 U8TO64(const U8 *p) {
+static U64 U8TO64(const char *p) {
   return (((U64)(p[0] & 0xff)) | ((U64)(p[1] & 0xff) << 8) |
           ((U64)(p[2] & 0xff) << 16) | ((U64)(p[3] & 0xff) << 24) |
           ((U64)(p[4] & 0xff) << 32) | ((U64)(p[5] & 0xff) << 40) |
@@ -22,8 +22,8 @@ static U64 U8TO64(const U8 *p) {
 
 /* store a 64 bit unsigned integer as eight 8 bit unsigned integers in little
  * endian */
-static void U64TO8(U8 *p, U64 v) {
-  p[0] = (v)&0xff;
+static void U64TO8(char *p, U64 v) {
+  p[0] = (v) & 0xff;
   p[1] = (v >> 8) & 0xff;
   p[2] = (v >> 16) & 0xff;
   p[3] = (v >> 24) & 0xff;
@@ -33,7 +33,7 @@ static void U64TO8(U8 *p, U64 v) {
   p[7] = (v >> 56) & 0xff;
 }
 
-static void Blocks(Poly1305::Builder &builder, Span<const U8> m) {
+static void Blocks(Poly1305::Builder &builder, Span<> m) {
   const U64 hibit = (builder.final) ? 0 : ((U64)1 << 40); /* 1 << 128 */
   U64 r0, r1, r2;
   U64 s1, s2;
@@ -59,7 +59,7 @@ static void Blocks(Poly1305::Builder &builder, Span<const U8> m) {
     t0 = U8TO64(&m[0]);
     t1 = U8TO64(&m[8]);
 
-    h0 += ((t0)&0xfffffffffff);
+    h0 += ((t0) & 0xfffffffffff);
     h1 += (((t0 >> 44) | (t1 << 20)) & 0xfffffffffff);
     h2 += (((t1 >> 24)) & 0x3ffffffffff) | hibit;
 
@@ -164,7 +164,7 @@ static void FinalizeTo(Poly1305::Builder &builder, Poly1305 &mac) {
   t0 = builder.pad[0];
   t1 = builder.pad[1];
 
-  h0 += ((t0)&0xfffffffffff);
+  h0 += ((t0) & 0xfffffffffff);
   c = (h0 >> 44);
   h0 &= 0xfffffffffff;
   h1 += (((t0 >> 44) | (t1 << 20)) & 0xfffffffffff) + c;
@@ -191,24 +191,24 @@ static void FinalizeTo(Poly1305::Builder &builder, Poly1305 &mac) {
   builder.pad[1] = 0;
 }
 
-Poly1305::Poly1305(Span<const U8, 16> b)
+Poly1305::Poly1305(Span<char, 16> b)
     : bytes{b[0], b[1], b[2],  b[3],  b[4],  b[5],  b[6],  b[7],
             b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]} {}
 
-Poly1305::Poly1305(Span<const U8> m, Span<const U8, 32> key) {
+Poly1305::Poly1305(Span<> m, Span<char, 32> key) {
   Builder builder(key);
   builder.Update(m);
   FinalizeTo(builder, *this);
 }
 
-Poly1305::Builder::Builder(Span<const U8, 32> key) {
+Poly1305::Builder::Builder(Span<char, 32> key) {
   U64 t0, t1;
 
   /* r &= 0xffffffc0ffffffc0ffffffc0fffffff */
   t0 = U8TO64(&key[0]);
   t1 = U8TO64(&key[8]);
 
-  r[0] = (t0)&0xffc0fffffff;
+  r[0] = (t0) & 0xffc0fffffff;
   r[1] = ((t0 >> 44) | (t1 << 20)) & 0xfffffc0ffff;
   r[2] = ((t1 >> 24)) & 0x00ffffffc0f;
 
@@ -225,7 +225,7 @@ Poly1305::Builder::Builder(Span<const U8, 32> key) {
   final = 0;
 }
 
-Poly1305::Builder &Poly1305::Builder::Update(Span<const U8> m) {
+Poly1305::Builder &Poly1305::Builder::Update(Span<> m) {
   size_t i;
 
   /* handle leftover */

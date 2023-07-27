@@ -1,22 +1,21 @@
 #pragma once
 
-#include <functional>
-#include <string>
 #include <sys/types.h>
 
+#include "fn.hh"
+#include "path.hh"
 #include "status.hh"
+#include "str.hh"
 
-namespace gatekeeper {
+namespace maf {
 
 struct VFile {
-  std::string path;
-  std::string content;
+  Str path;
+  Str content;
 };
 
 // Read the given file and call the callback with the file content.
-void ReadRealFile(const char *path,
-                  std::function<void(std::string_view)> callback,
-                  maf::Status &);
+void ReadRealFile(const Path &, Fn<void(StrView)> callback, Status &);
 
 // Read the given file and call the callback with the file content.
 //
@@ -24,14 +23,11 @@ void ReadRealFile(const char *path,
 // with the same path exists - it overrides the embedded one. This can be used
 // for development - so that you don't have to recompile the program every time
 // you change a file.
-void ReadFile(const char *path, std::function<void(std::string_view)> callback,
-              maf::Status &);
+void ReadFile(const Path &, Fn<void(StrView)> callback, Status &);
 
 // Write the given file with the given contents.
-void WriteFile(const char *path, std::string_view contents, maf::Status &,
-               mode_t mode = 0644);
+void WriteFile(const Path &, StrView contents, Status &, mode_t = 0644);
 
-void CopyFile(const char *from_path, const char *to_path, maf::Status &status,
-              mode_t mode = 0644);
+void CopyFile(const Path &from, const Path &to, Status &, mode_t = 0644);
 
-} // namespace gatekeeper
+} // namespace maf

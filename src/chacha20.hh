@@ -2,7 +2,6 @@
 
 #include "arr.hh"
 #include "int.hh"
-#include "mem.hh"
 #include "span.hh"
 
 namespace maf {
@@ -19,16 +18,14 @@ struct ChaCha20 {
   U32 counter;
   Arr<U8, 12> nonce;
 
-  ChaCha20(Span<const U8, 32> key, U32 counter, Span<const U8, 12> nonce);
+  ChaCha20(Span<char, 32> key, U32 counter, Span<char, 12> nonce);
 
   // Encrypt/decrypt the given buffer in-place.
   //
   // `counter` will be updated by the number of blocks encrypted.
-  void Crypt(MemView);
+  void Crypt(Span<>);
 
-  operator Span<const U8>() const {
-    return Span<const U8>((const U8 *)this, sizeof(*this));
-  }
+  operator Span<>() const { return Span<>((char *)this, sizeof(*this)); }
 };
 
 } // namespace rfc7539

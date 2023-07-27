@@ -49,7 +49,7 @@ struct Question {
   string domain_name = "";
   Type type = Type::A;
   Class class_ = Class::IN;
-  size_t LoadFrom(const uint8_t *ptr, size_t len, size_t offset);
+  size_t LoadFrom(const char *ptr, size_t len, size_t offset);
   void write_to(string &buffer) const;
   string to_string() const;
   bool operator==(const Question &other) const;
@@ -61,7 +61,7 @@ struct Record : public Question {
   uint16_t data_length;
   string data;
 
-  size_t LoadFrom(const uint8_t *ptr, size_t len, size_t offset);
+  size_t LoadFrom(const char *ptr, size_t len, size_t offset);
   void write_to(string &buffer) const;
   uint32_t ttl() const;
   string to_string() const;
@@ -106,7 +106,7 @@ struct Message {
   vector<Record> authority;
   vector<Record> additional;
 
-  void Parse(const uint8_t *ptr, size_t len, string &err);
+  void Parse(const char *ptr, size_t len, string &err);
   string to_string() const;
   void ForEachRecord(std::function<void(const Record &)> f) const;
 };

@@ -32,11 +32,11 @@ def gen(embedded_paths):
 
 namespace gatekeeper::embedded {{
 
-extern std::unordered_map<std::string_view, VFile*> index;
+extern std::unordered_map<maf::StrView, maf::VFile*> index;
 ''', file=hh)
         for path in embedded_paths:
             slug = slug_from_path(path)
-            print(f'extern VFile {slug};', file=hh)
+            print(f'extern maf::VFile {slug};', file=hh)
         print(f'''
 }}  // namespace gatekeeper::embedded''', file=hh)
 
@@ -44,6 +44,7 @@ extern std::unordered_map<std::string_view, VFile*> index;
         print(f'''#include "embedded.hh"
 
 using namespace std::string_literals;
+using namespace maf;
 
 namespace gatekeeper::embedded {{''', file=cc)
         for path in embedded_paths:
@@ -60,7 +61,7 @@ VFile {slug} = {{
             print(f'''s,
 }};''', file=cc)
         print(
-            '''std::unordered_map<std::string_view, VFile*> index = {''', file=cc)
+            '''std::unordered_map<maf::StrView, VFile*> index = {''', file=cc)
         for path in embedded_paths:
             slug = slug_from_path(path)
             print(f'  {{ {slug}.path, &{slug} }},', file=cc)

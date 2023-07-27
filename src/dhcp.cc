@@ -538,9 +538,9 @@ string Base::to_string() const {
   case OptionCode_ClientIdentifier:
     return ((const options::ClientIdentifier *)this)->to_string();
   default:
-    const U8 *data = (const U8 *)(this) + sizeof(*this);
+    const char *data = (const char *)(this) + sizeof(*this);
     return "\"" + OptionCodeToString(code) + "\" " + std::to_string(length) +
-           " bytes: " + BytesToHex(Span<const U8>(data, length));
+           " bytes: " + BytesToHex(Span<>(data, length));
   }
 }
 
@@ -824,7 +824,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   if (buf.size() < sizeof(PacketView)) {
     ERROR << "DHCP server received a packet that is too short: " << buf.size()
           << " bytes:\n"
-          << BytesToHex(MemViewOf(buf));
+          << BytesToHex(buf);
     return;
   }
   PacketView &packet = *(PacketView *)buf.data();

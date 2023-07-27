@@ -2,6 +2,8 @@
 
 #include "arr.hh"
 
+#pragma maf add link argument "-Wl,--script=src/sig.x"
+
 namespace maf {
 
 // Reserve space for signature. Actual signing happens after linking.

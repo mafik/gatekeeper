@@ -8,100 +8,93 @@
 
 #include "../build/generated/embedded.hh"
 
-using namespace maf;
+namespace maf {
 
-namespace gatekeeper {
-
-void ReadRealFile(const char *path,
-                  std::function<void(std::string_view)> callback,
+void ReadRealFile(const Path &path, Fn<void(StrView)> callback,
                   Status &status) {
   int f = open(path, O_RDONLY);
   if (f == -1) {
-    status() += "Failed to open " + std::string(path);
+    status() += "Failed to open " + Str(path);
     return;
   }
   struct stat buffer;
   if (fstat(f, &buffer) != 0) {
-    status() += "Failed to fstat " + std::string(path);
+    status() += "Failed to fstat " + Str(path);
     close(f);
     return;
   }
   void *ptr = mmap(nullptr, buffer.st_size, PROT_READ, MAP_PRIVATE, f, 0);
   if (ptr == MAP_FAILED) {
-    status() += "Failed to mmap " + std::string(path);
+    status() += "Failed to mmap " + Str(path);
     close(f);
     return;
   }
   close(f);
-  callback(std::string_view((char *)ptr, buffer.st_size));
+  callback(StrView((char *)ptr, buffer.st_size));
   munmap(ptr, buffer.st_size);
 }
 
-void ReadFile(const char *path, std::function<void(std::string_view)> callback,
-              Status &status) {
+void ReadFile(const Path &path, Fn<void(StrView)> callback, Status &status) {
+  auto expanded = path.ExpandUser();
   // Try reading the real file first.
-  ReadRealFile(path, callback, status);
+  ReadRealFile(expanded, callback, status);
   if (status.Ok()) {
     return;
   }
   // Fallback to embedded filesystem.
-  auto it = embedded::index.find(path);
-  if (it == embedded::index.end()) {
-    status() += "Embedded file not found: " + std::string(path);
+  auto it = gatekeeper::embedded::index.find(expanded);
+  if (it == gatekeeper::embedded::index.end()) {
+    status() += "Embedded file not found: " + Str(expanded);
     return;
   }
   status.Reset();
   callback(it->second->content);
 }
 
-void WriteFile(const char *path, std::string_view contents, Status &status,
+void WriteFile(const Path &path, StrView contents, Status &status,
                mode_t mode) {
   int f = open(path, O_WRONLY | O_CREAT | O_TRUNC, mode);
   if (f == -1) {
-    status() += "Failed to open " + std::string(path);
+    status() += "Failed to open " + Str(path);
     return;
   }
   if (write(f, contents.data(), contents.size()) != (ssize_t)contents.size()) {
-    status() += "Failed to write " + std::string(path);
+    status() += "Failed to write " + Str(path);
     close(f);
     return;
   }
   close(f);
 }
 
-void CopyFile(const char *from_path, const char *to_path, Status &status,
-              mode_t mode) {
-  int fd_from = open(from_path, O_RDONLY);
+void CopyFile(const Path &from, const Path &to, Status &status, mode_t mode) {
+  int fd_from = open(from, O_RDONLY);
   if (fd_from == -1) {
-    status() += "Failed to open " + std::string(from_path);
+    status() += "Failed to open " + Str(from);
     // Try reading the file from the embedded filesystem.
     Status vfs_status;
     ReadFile(
-        from_path,
-        [&](std::string_view contents) {
-          gatekeeper::WriteFile(to_path, contents, vfs_status);
-        },
+        from, [&](StrView contents) { WriteFile(to, contents, vfs_status); },
         vfs_status);
     if (vfs_status.Ok()) {
       status.Reset();
     }
     return;
   }
-  int fd_to = open(to_path, O_WRONLY | O_CREAT | O_TRUNC, mode);
+  int fd_to = open(to, O_WRONLY | O_CREAT | O_TRUNC, mode);
   if (fd_to == -1) {
-    status() += "Failed to open " + std::string(to_path);
+    status() += "Failed to open " + std::string(to);
     close(fd_from);
     return;
   }
   struct stat buffer;
   if (fstat(fd_from, &buffer) != 0) {
-    status() += "Failed to fstat " + std::string(from_path);
+    status() += "Failed to fstat " + std::string(from);
     close(fd_from);
     close(fd_to);
     return;
   }
   if (sendfile(fd_to, fd_from, nullptr, buffer.st_size) != buffer.st_size) {
-    status() += "Failed to sendfile " + std::string(from_path);
+    status() += "Failed to sendfile " + std::string(from);
     close(fd_from);
     close(fd_to);
     return;
@@ -110,4 +103,4 @@ void CopyFile(const char *from_path, const char *to_path, Status &status,
   close(fd_to);
 }
 
-} // namespace gatekeeper
+} // namespace maf

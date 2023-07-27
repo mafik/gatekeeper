@@ -232,13 +232,13 @@ static inline void force_inline fsquare_times(felem output, const felem in,
 }
 
 /* Load a little-endian 64-bit number  */
-static limb load_limb(const U8 *in) {
+static limb load_limb(const char *in) {
   return ((limb)in[0]) | (((limb)in[1]) << 8) | (((limb)in[2]) << 16) |
          (((limb)in[3]) << 24) | (((limb)in[4]) << 32) | (((limb)in[5]) << 40) |
          (((limb)in[6]) << 48) | (((limb)in[7]) << 56);
 }
 
-static void store_limb(U8 *out, limb in) {
+static void store_limb(char *out, limb in) {
   out[0] = in & 0xff;
   out[1] = (in >> 8) & 0xff;
   out[2] = (in >> 16) & 0xff;
@@ -250,7 +250,7 @@ static void store_limb(U8 *out, limb in) {
 }
 
 /* Take a little-endian, 32-byte number and expand it into polynomial form */
-static void fexpand(limb *output, const U8 *in) {
+static void fexpand(limb *output, const char *in) {
   output[0] = load_limb(in) & 0x7ffffffffffff;
   output[1] = (load_limb(in + 6) >> 3) & 0x7ffffffffffff;
   output[2] = (load_limb(in + 12) >> 6) & 0x7ffffffffffff;
@@ -261,7 +261,7 @@ static void fexpand(limb *output, const U8 *in) {
 /* Take a fully reduced polynomial form number and contract it into a
  * little-endian, 32-byte array
  */
-static void fcontract(U8 *output, const felem input) {
+static void fcontract(char *output, const felem input) {
   uint128_t t[5];
 
   t[0] = input[0];
@@ -472,7 +472,8 @@ static void crecip(felem out, const felem z) {
   /* 2^255 - 21 */ fmul(out, t0, a);
 }
 
-int curve25519_donna(U8 *mypublic, const U8 *secret, const U8 *basepoint) {
+int curve25519_donna(char *mypublic, const char *secret,
+                     const char *basepoint) {
   limb bp[5], x[5], z[5], zmone[5];
   uint8_t e[32];
   int i;
@@ -501,7 +502,7 @@ static void Sanitize(Private &key) {
   key.bytes[31] |= 64;
 }
 
-Private Private::From32Bytes(Span<const U8, 32> bytes) {
+Private Private::From32Bytes(Span<char, 32> bytes) {
   Private result = {};
   memcpy(result.bytes.data(), bytes.data(), 32);
   Sanitize(result);
@@ -527,7 +528,7 @@ Private Private::FromDevUrandom(Status &status) {
 }
 
 Public Public::FromPrivate(const Private &private_key) {
-  static Arr<U8, 32> kBasepoint = {9};
+  static Arr<char, 32> kBasepoint = {9};
   Public result = {};
   curve25519_donna(result.bytes.data(), private_key.bytes.data(),
                    kBasepoint.data());

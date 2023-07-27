@@ -1,8 +1,8 @@
 #pragma once
 
 #include "arr.hh"
-#include "mem.hh"
 #include "optional.hh"
+#include "span.hh"
 #include "stream.hh"
 #include "tcp.hh"
 #include "unique_ptr.hh"
@@ -34,7 +34,7 @@ struct Phase {
   virtual void PhaseSend() = 0;
 };
 
-void HKDF_Expand_Label(MemView key, StrView label, MemView ctx, MemView out);
+void HKDF_Expand_Label(Span<> key, StrView label, Span<> ctx, Span<> out);
 
 struct Connection : Stream {
   struct TCP_Connection : tcp::Connection {

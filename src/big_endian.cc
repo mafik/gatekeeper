@@ -3,26 +3,26 @@
 
 namespace maf {
 
-template <> void AppendBigEndian(MemBuf &s, U16 x) {
-  s.insert(s.end(), {(U8)(x >> 8), (U8)(x & 0xff)});
+template <> void AppendBigEndian(Vec<> &s, U16 x) {
+  s.insert(s.end(), {(char)(x >> 8), (char)(x & 0xff)});
 }
 
-template <> void AppendBigEndian(MemBuf &s, U24 x) {
-  s.insert(s.end(), {(U8)(x >> 16), (U8)(x >> 8), (U8)(x & 0xff)});
+template <> void AppendBigEndian(Vec<> &s, U24 x) {
+  s.insert(s.end(), {(char)(x >> 16), (char)(x >> 8), (char)(x & 0xff)});
 }
 
-template <> void PutBigEndian(MemView s, Size offset, U16 x) {
-  s[offset] = (U8)(x >> 8);
-  s[offset + 1] = (U8)(x & 0xff);
+template <> void PutBigEndian(Span<> s, Size offset, U16 x) {
+  s[offset] = (char)(x >> 8);
+  s[offset + 1] = (char)(x & 0xff);
 }
 
-template <> void PutBigEndian(MemView s, Size offset, U24 x) {
-  s[offset] = (U8)(x >> 16);
-  s[offset + 1] = (U8)(x >> 8);
-  s[offset + 2] = (U8)(x & 0xff);
+template <> void PutBigEndian(Span<> s, Size offset, U24 x) {
+  s[offset] = (char)(x >> 16);
+  s[offset + 1] = (char)(x >> 8);
+  s[offset + 2] = (char)(x & 0xff);
 }
 
-template <> U24 PeekBigEndian(MemView s) {
+template <> U24 PeekBigEndian(Span<> s) {
   if (s.size() < 3) {
     return 0;
   }
@@ -30,7 +30,7 @@ template <> U24 PeekBigEndian(MemView s) {
   return x;
 }
 
-template <> U8 ConsumeBigEndian(MemView &s) {
+template <> U8 ConsumeBigEndian(Span<> &s) {
   if (s.size() < 1) {
     return 0;
   }
@@ -39,7 +39,7 @@ template <> U8 ConsumeBigEndian(MemView &s) {
   return x;
 }
 
-template <> U16 ConsumeBigEndian(MemView &s) {
+template <> U16 ConsumeBigEndian(Span<> &s) {
   if (s.size() < 2) {
     return 0;
   }
@@ -48,9 +48,18 @@ template <> U16 ConsumeBigEndian(MemView &s) {
   return x;
 }
 
-template <> U24 ConsumeBigEndian(MemView &s) {
+template <> U24 ConsumeBigEndian(Span<> &s) {
   auto x = PeekBigEndian<U24>(s);
   s = s.subspan<3>();
+  return x;
+}
+
+template <> U32 ConsumeBigEndian(Span<> &s) {
+  if (s.size() < 4) {
+    return 0;
+  }
+  U32 x = s[0] << 24 | s[1] << 16 | s[2] << 8 | s[3];
+  s = s.subspan<4>();
   return x;
 }
 
