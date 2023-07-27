@@ -272,7 +272,7 @@ void Deconfigure() {
 }
 
 int main(int argc, char *argv[]) {
-  LOG << "Gatekeeper " << kVersion << " starting up.";
+  LOG << "Gatekeeper " << kVersionNote.desc << " starting up.";
 
   Status status;
 

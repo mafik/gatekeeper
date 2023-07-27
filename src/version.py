@@ -5,8 +5,8 @@ It is retrieved using `git describe --tags` so if there are any additional
 commits then it will be suffixed with a number & the abbreviated object name
 of the most recent commit.
 
-The version is stored in `maf.version` section of the ELF file. It contains
-a null-terminated string with the git version tag.'''
+The version is stored in `.note.maf.version` section of the ELF file. It
+contains a null-terminated string with the git version tag.'''
 
 import fs_utils
 import make
@@ -24,13 +24,22 @@ def gen():
         print(f'''#pragma once
 
 namespace maf {{
-extern const char kVersion[];
+
+struct VersionNote {{
+    int namesz = 4;
+    int descsz = {len(version) + 1};
+    int type = 1;
+    char name[4] = "MAF";
+    char desc[{len(version) + 1}] = "{version}";
+}};
+
+extern const VersionNote kVersionNote;
 }}''', file=hh)
 
     with cc_path.open('w') as cc:
         print(f'''#include "version.hh"
-           
-__attribute__((section("maf.version"))) const char maf::kVersion[] = "{version}";''', file=cc)
+
+__attribute__((section(".note.maf.version"))) __attribute__((used)) const maf::VersionNote maf::kVersionNote = {{}};''', file=cc)
 
 
 def hook_srcs(srcs: dict[str, src.File], recipe: make.Recipe):
