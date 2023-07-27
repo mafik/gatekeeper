@@ -13,13 +13,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    # - name: Install LLVM
-    #   run: |
+    - name: Install LLVM
+      run: bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
     #     wget https://apt.llvm.org/llvm.sh
     #     chmod +x llvm.sh
     #     sudo ./llvm.sh 17
     - name: Install dependencies
-      run: sudo apt-get install -y clang lld valgrind inotify-tools
+      run: sudo apt-get install -y valgrind inotify-tools
     - name: Run test
       run: ./run test_e2e
     # - name: Debug with tmate on failure
