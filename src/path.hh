@@ -2,6 +2,7 @@
 
 // Class for working with paths. Based on python's pathlib.
 
+#include "status.hh"
 #include "str.hh"
 
 namespace maf {
@@ -17,6 +18,21 @@ struct Path {
 
   // Replace initial "~" or "~user" with user's home directory.
   Path ExpandUser() const;
+  // Follow symlink.
+  Path ReadLink(Status &) const;
+
+  void Unlink(Status &, bool missing_ok = false) const;
+
+  void Rename(const Path &to, Status &) const;
+
+  // Final path component.
+  Str Name() const;
+
+  // Final path component without suffix.
+  Str Stem() const;
+
+  Path WithStem(StrView stem) const;
+
   StrView LoggableString() const { return str; }
 
   operator Str() const { return str; }

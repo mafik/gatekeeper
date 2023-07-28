@@ -146,4 +146,31 @@ Span<> FindSection(Span<> elf_contents, StrView section_name, Status &status) {
   }
 }
 
+static Note kEmptyNote = {
+    .namesz = 0,
+    .descsz = 0,
+    .type = 0,
+};
+
+Note &Note::FromSpan(Span<> span, Status &status) {
+  Note &note = *reinterpret_cast<Note *>(span.data());
+  if (span.size() < sizeof(Note)) {
+    AppendErrorMessage(status) += "ELF note can't be smaller than 12 bytes";
+    return kEmptyNote;
+  }
+  if (note.namesz < 1) {
+    AppendErrorMessage(status) += "ELF note must have a name";
+    return kEmptyNote;
+  }
+  if (sizeof(Note) + note.namesz + note.descsz > span.size()) {
+    AppendErrorMessage(status) += "ELF note out of bounds";
+    return kEmptyNote;
+  }
+  return note;
+}
+
+StrView Note::Name() { return {(char *)(this + 1), (Size)namesz - 1}; }
+
+Span<> Note::Desc() { return {(char *)(this + 1) + namesz, (Size)descsz}; }
+
 } // namespace maf::elf

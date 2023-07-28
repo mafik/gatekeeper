@@ -8,6 +8,15 @@
 
 namespace maf::elf {
 
+struct Note {
+  U32 namesz;
+  U32 descsz;
+  U32 type;
+  static Note &FromSpan(Span<> span, Status &status);
+  StrView Name();
+  Span<> Desc();
+};
+
 // Find a section in an ELF file by name.
 //
 // This function should be safe against maliciously crafted ELF files.

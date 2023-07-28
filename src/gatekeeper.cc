@@ -1,3 +1,4 @@
+#include "random.hh"
 #pragma maf main
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <sys/stat.h>
 
 #include "../build/generated/version.hh"
+#include "atexit.hh"
 #include "config.hh"
 #include "dhcp.hh"
 #include "dns.hh"
@@ -280,6 +282,8 @@ int main(int argc, char *argv[]) {
 
   bool portable = getenv("PORTABLE") != nullptr;
   bool under_systemd = getenv("NOTIFY_SOCKET") != nullptr;
+  bool no_auto_update = getenv("NO_AUTO_UPDATE") != nullptr;
+  bool auto_update = !no_auto_update;
 
   if (!portable && !under_systemd) {
     Install(argv[0]);
@@ -294,18 +298,22 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // update::config.first_check_delay_s = 3;
-  // update::config.check_interval_s = 5;
-  // update::config.url = "https://mrogalski.eu/";
-  // if (!OK(status)) {
-  //   ERROR << status;
-  //   return 1;
-  // }
-  // update::Start();
-  // if (!OK(update::status)) {
-  //   ERROR << update::status;
-  //   return 1;
-  // }
+  if (auto_update) {
+    update::config.first_check_delay_s =
+        15 * 60 + (random<U32>() % (24 * 60 * 60));
+    update::config.check_interval_s = 7 * 24 * 60 * 60;
+    update::config.url = "https://github.com/mafik/gatekeeper/releases/latest/"
+                         "download/gatekeeper.x86_64";
+    if (!OK(status)) {
+      ERROR << status;
+      return 1;
+    }
+    update::Start();
+    if (!OK(update::status)) {
+      ERROR << update::status;
+      return 1;
+    }
+  }
 
   lan = PickLANInterface(status);
   if (!status.Ok()) {
@@ -326,12 +334,9 @@ int main(int argc, char *argv[]) {
   LOG << "Found WAN interface " << wan.name << " with IP " << wan_ip;
 
   lan_network = lan.Network(status);
-  bool externally_configured;
   if (status.Ok()) {
     LOG << "Using preconfigured " << lan.name << " with IP " << lan_network;
-    externally_configured = true;
   } else {
-    externally_configured = false;
     Status pick_status;
     lan_network = PickUnusedSubnet(pick_status);
     if (!pick_status.Ok()) {
@@ -349,7 +354,7 @@ int main(int argc, char *argv[]) {
       ERROR << status;
       return 1;
     }
-    atexit(Deconfigure);
+    AtExit(Deconfigure);
   }
 
   etc::ReadConfig();

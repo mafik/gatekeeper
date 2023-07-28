@@ -15,6 +15,9 @@ namespace maf::http {
 
 // Note for future: this could be a really nice place to use coroutines.
 void ResponseReceived(RequestBase &get) {
+  if (not OK(get.status)) {
+    return;
+  }
   while (get.inbox_pos < get.stream->inbox.size()) {
     StrView resp((char *)&get.stream->inbox[get.inbox_pos],
                  get.stream->inbox.size() - get.inbox_pos);
@@ -26,16 +29,17 @@ void ResponseReceived(RequestBase &get) {
       StrView status_line = resp.substr(0, status_line_end);
       StrView remaining = status_line;
 
-      if (remaining.size() < 8) {
+      if (remaining.size() < 9) {
         AppendErrorMessage(get) += "HTTP response status line is too short \"" +
                                    Str(status_line) + "\"";
         return;
       }
-      if (!remaining.starts_with("HTTP/1.1 ")) {
-        AppendErrorMessage(get) +=
-            "Expected HTTP response to start with \"HTTP/1.1 \" but "
-            "instead got \"" +
-            Str(status_line) + "\"";
+      if (!remaining.starts_with("HTTP/1.1 ") and
+          !remaining.starts_with("HTTP/1.0 ")) {
+        AppendErrorMessage(get) += "Expected HTTP response to start with "
+                                   "\"HTTP/1.1 \" or \"HTTP/1.0\" but "
+                                   "instead got \"" +
+                                   Str(status_line) + "\"";
         return;
       }
       remaining.remove_prefix(9);
@@ -107,11 +111,15 @@ UniquePtr<Stream> MakeRequest(RequestBase &request_base, Str url) {
   size_t host_end = url.find_first_of("/:", host_begin);
   Str host;
   Str path;
+  U16 port = scheme == kHttp ? 80 : 443;
   if (host_end == Str::npos) {
     host = url.substr(host_begin);
     path = "/";
   } else {
     host = url.substr(host_begin, host_end - host_begin);
+    if (url[host_end] == ':') {
+      port = stoi(url.substr(host_end + 1));
+    }
     size_t path_begin = url.find_first_of("/", host_end);
     if (path_begin == Str::npos) {
       path = "/";
@@ -138,10 +146,10 @@ UniquePtr<Stream> MakeRequest(RequestBase &request_base, Str url) {
   if (scheme == kHttp) {
     struct HttpStream : tcp::Connection {
       RequestBase &get;
-      HttpStream(RequestBase &get, IP ip) : get(get) {
+      HttpStream(RequestBase &get, IP ip, U16 port) : get(get) {
         Connect({
             .remote_ip = ip,
-            .remote_port = 80,
+            .remote_port = port,
         });
       }
       void NotifyReceived() override { ResponseReceived(get); }
@@ -151,14 +159,14 @@ UniquePtr<Stream> MakeRequest(RequestBase &request_base, Str url) {
         }
       }
     };
-    stream = std::make_unique<HttpStream>(request_base, ip);
+    stream = std::make_unique<HttpStream>(request_base, ip, port);
   } else if (scheme == kHttps) {
     struct HttpsStream : tls::Connection {
       RequestBase &get;
-      HttpsStream(RequestBase &get, IP ip, Str host) : get(get) {
+      HttpsStream(RequestBase &get, IP ip, U16 port, Str host) : get(get) {
         Connect({tcp::Connection::Config{
                      .remote_ip = ip,
-                     .remote_port = 443,
+                     .remote_port = port,
                  },
                  host});
       }
@@ -169,7 +177,7 @@ UniquePtr<Stream> MakeRequest(RequestBase &request_base, Str url) {
         }
       }
     };
-    stream = std::make_unique<HttpsStream>(request_base, ip, host);
+    stream = std::make_unique<HttpsStream>(request_base, ip, port, host);
   }
 
   auto Append = [&](StrView str) {
@@ -203,14 +211,12 @@ void RequestBase::ClearInbox() {
 Get::Get(Str url, Callback callback) : RequestBase(url), callback(callback) {}
 
 void Get::OnStatus(StrView status_code, StrView reason_phrase) {
-  // LOG << "OnStatus: " << status_code << " " << reason_phrase;
   if (old_stream) {
     old_stream.reset();
   }
 }
 
 void Get::OnHeader(StrView name, StrView value) {
-  // LOG << "OnHeader: " << name << ": " << value;
   if (name == "Location") {
     old_stream = std::move(stream);
     old_stream->Close();
