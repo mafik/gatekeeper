@@ -36,6 +36,21 @@ h1,
   margin: 0 1em;
 }
 
+button {
+  font-family: inherit;
+  font-size: inherit;
+  background: linear-gradient(0deg, #d7d7d7, #fdfdfd);
+  text-shadow: 0 1px white;
+  border-radius: 5px;
+  border: 1px outset;
+  padding: 0.2em 0.5em;
+}
+
+button:hover {
+  cursor: pointer;
+  background: linear-gradient(0deg, rgb(232, 232, 232), #ffffff);
+}
+
 header {
   background: url('/header_day.png') repeat, linear-gradient(to top, #fffee5, #ffd962);
   text-align: left;
@@ -43,7 +58,7 @@ header {
   display: inline-flex;
   flex-flow: row;
   justify-content: start;
-  align-items: baseline;
+  align-items: center;
   border-bottom: 1px solid #ca9f1e;
 }
 

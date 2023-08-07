@@ -518,6 +518,10 @@ static const void RenderHEADER(std::string &html) {
           "hx-preserve=true "
           "hx-trigger=\"every 1s [AutorefreshChecked()]\">"
           "<label for=autorefresh>Auto-refresh</label></div>";
+  if (gatekeeper::install::CanInstall()) {
+    html += "<div class=options><button hx-post=/install "
+            "hx-target=body>Install</button></div>";
+  }
   html += "<a class=github target=_blank "
           "href=https://github.com/mafik/gatekeeper><img src=/tentacles.webp "
           "alt=tentacles title=GitHub></a>";
@@ -592,9 +596,6 @@ void RenderMainPage(Response &response, Request &request) {
   logs_table.RenderTABLE(html, log_opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
-  if (gatekeeper::install::CanInstall()) {
-    html += "<table><tr><td><a href=/install>Install</a></td></tr></table>";
-  }
   html += "</main></body></html>";
   response.Write(html);
 }
