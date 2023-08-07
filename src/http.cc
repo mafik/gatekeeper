@@ -362,12 +362,19 @@ void Connection::Send(std::string_view payload) {
 }
 
 void Connection::Close(uint16_t code, std::string_view reason) {
-  assert(mode == MODE_WEBSOCKET);
-  char payload[reason.size() + 2];
-  *(uint16_t *)(payload) = htobe16(code);
-  memcpy(payload + 2, reason.data(), reason.size());
-  closing = true;
-  AppendWebSocketFrame(*this, 8, std::string_view(payload, reason.size() + 2));
+  if (mode == MODE_WEBSOCKET) {
+    char payload[reason.size() + 2];
+    *(uint16_t *)(payload) = htobe16(code);
+    memcpy(payload + 2, reason.data(), reason.size());
+    closing = true;
+    AppendWebSocketFrame(*this, 8,
+                         std::string_view(payload, reason.size() + 2));
+  } else if (response_buffer.empty()) {
+    CloseTCP();
+  } else {
+    closing = true;
+    TryWriting(*this);
+  }
 }
 
 void Connection::CloseTCP() {

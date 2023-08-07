@@ -415,13 +415,15 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   }
 }
 
+std::atomic_bool running = true;
+
 void Loop() {
   prctl(PR_SET_NAME, "Firewall loop", 0, 0, 0);
-  while (true) {
+  while (running) {
     Status status;
     queue->ReceiveT<nfgenmsg>(NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
                               OnReceive, status);
-    if (!status.Ok()) {
+    if (running && !status.Ok()) {
       status() += "Firewall failed to receive message from kernel";
       ERROR << status;
     }
@@ -429,6 +431,7 @@ void Loop() {
 }
 
 void Start(Status &status) {
+  running = true;
   hook.emplace(status);
   if (!status.Ok()) {
     return;
@@ -445,7 +448,14 @@ void Start(Status &status) {
   CopyPacket copy_packet;
   queue->Send(copy_packet, status);
   loop = std::thread(Loop);
-  loop.detach(); // terminate loop immediately when main thread exits
+}
+
+void Stop() {
+  running = false;
+  queue->fd.Close();
+  loop.join();
+  queue.reset();
+  hook.reset();
 }
 
 } // namespace gatekeeper::firewall

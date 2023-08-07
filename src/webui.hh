@@ -48,4 +48,10 @@ struct Table {
 void Start(maf::Status &);
 void Stop();
 
+// Similar to Stop - but doesn't terminate existing connections.
+void StopListening();
+
+// Nicely terminates all existing connections (sending any buffered data).
+void FlushAndClose();
+
 } // namespace webui

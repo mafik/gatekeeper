@@ -4,10 +4,11 @@ import make
 
 
 def run(args: str):
-    return make.Popen(args.split(), env={
-        'PORTABLE': '1',
-        'LAN': 'enxe8802ee74415'
-    })
+    return make.Popen(args.split(),
+                      env={
+                          'PORTABLE': '1',
+                          'LAN': 'enxe8802ee74415'
+                      })
 
 
 def debug():
@@ -19,11 +20,15 @@ def gdb():
 
 
 def valgrind():
-    return run('valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt build/debug_gatekeeper')
+    return run(
+        'valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt build/debug_gatekeeper'
+    )
 
 
 def massif():
-    return run('valgrind --tool=massif --stacks=yes --massif-out-file=massif-out.txt build/debug_gatekeeper')
+    return run(
+        'valgrind --tool=massif --stacks=yes --massif-out-file=massif-out.txt build/debug_gatekeeper'
+    )
 
 
 def net_reset():

@@ -106,13 +106,14 @@ static void OnCheckFinished() {
   }
 
   ParsedVersion my_version(kVersionNote.desc);
-  ParsedVersion update_version(version_note.Desc());
+  ParsedVersion update_version(StrViewOf(version_note.Desc()));
 
   if (!IsUpdate(my_version, update_version)) {
     return;
   }
 
-  LOG << "Found update " << kVersionNote.desc << " => " << version_note.Desc();
+  LOG << "Found update " << kVersionNote.desc << " => "
+      << StrViewOf(version_note.Desc());
 
   // Step 2: check signature
 

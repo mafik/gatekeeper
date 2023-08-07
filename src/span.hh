@@ -44,4 +44,8 @@ constexpr inline Span<char, N - 1> SpanOf(const char (&c_str)[N]) {
   return Span<char, N - 1>(const_cast<char *>(c_str), N - 1);
 }
 
+inline StrView StrViewOf(Span<char> span) {
+  return StrView(span.data(), span.size());
+}
+
 } // namespace maf

@@ -8,4 +8,6 @@ namespace gatekeeper::firewall {
 // processes it.
 void Start(maf::Status &status);
 
+void Stop();
+
 } // namespace gatekeeper::firewall

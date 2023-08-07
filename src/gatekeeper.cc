@@ -1,5 +1,4 @@
-#include "random.hh"
-#pragma maf main
+#include "gatekeeper.hh"
 
 #include <algorithm>
 #include <csignal>
@@ -18,18 +17,20 @@
 #include "epoll.hh"
 #include "etc.hh"
 #include "firewall.hh"
+#include "gatekeeper.hh"
 #include "interface.hh"
 #include "log.hh"
 #include "netlink.hh"
+#include "random.hh"
 #include "rtnetlink.hh"
 #include "sig.hh" // IWYU pragma: keep
 #include "signal.hh"
 #include "status.hh"
 #include "systemd.hh"
-#include "timer.hh"
 #include "update.hh"
-#include "virtual_fs.hh"
 #include "webui.hh"
+
+#pragma maf main
 
 using namespace gatekeeper;
 using namespace maf;
@@ -45,13 +46,12 @@ void StopSignal(const char *signal) {
   dhcp::server.StopListening();
   systemd::Stop();
   update::Stop();
+  firewall::Stop();
   // Signal handlers must be stopped so that epoll::Loop would terminate.
-  sigabrt.reset();
-  sigterm.reset();
-  sigint.reset();
+  UnhookSignals();
 }
 
-void HookSignals(Status &status) {
+void gatekeeper::HookSignals(Status &status) {
   sigterm.emplace(SIGTERM, status);
   sigterm->handler = [](Status &) { StopSignal("SIGTERM"); };
   if (!OK(status)) {
@@ -69,88 +69,10 @@ void HookSignals(Status &status) {
   }
 }
 
-bool ConfirmInstall(const char *argv0) {
-  LOG << "Gatekeeper will install itself to /opt/gatekeeper/. Press Ctrl+C "
-         "within 10 seconds to abort.";
-  bool confirmed = true;
-  std::optional<SignalHandler> sigint;
-  std::optional<Timer> timer;
-  Status ignored;
-  sigint.emplace(SIGINT, ignored);
-  sigint->handler = [&](Status &) {
-    confirmed = false;
-    LOG << "Aborting. You can run Gatekeeper without installing it by running "
-           "it in a portable mode:\nPORTABLE=1 "
-        << argv0;
-    sigint.reset();
-    timer.reset();
-  };
-  timer.emplace();
-  timer->handler = [&]() {
-    confirmed = true;
-    sigint.reset();
-    timer.reset();
-  };
-  timer->Arm(10);
-  epoll::Loop(ignored);
-  return confirmed;
-}
-
-void Install(const char *argv0) {
-  bool confirmed = ConfirmInstall(argv0);
-  if (!confirmed) {
-    return;
-  }
-  LOG << "- Creating /opt/gatekeeper/";
-  int ret = mkdir("/opt/gatekeeper", 0755);
-  if (ret == -1) {
-    if (errno == EEXIST) {
-      LOG << "  Already exists";
-    } else {
-      ERROR << "  Failed to create /opt/gatekeeper/: " << strerror(errno);
-      return;
-    }
-  }
-  LOG << "- Copying main binary";
-  Status status;
-  CopyFile("/proc/self/exe", "/opt/gatekeeper/gatekeeper", status, 0755);
-  if (!status.Ok()) {
-    ERROR << "  Failed to copy main binary: " << status;
-    return;
-  }
-  LOG << "- Copying systemd service file";
-  CopyFile("gatekeeper.service", "/opt/gatekeeper/gatekeeper.service", status,
-           0644);
-  if (!status.Ok()) {
-    ERROR << "  Failed to copy systemd service file: " << status;
-    return;
-  }
-  LOG << "- Installing systemd service";
-  ret = system("systemctl enable --now /opt/gatekeeper/gatekeeper.service");
-  if (ret == 0) {
-    LOG << "\nInstallation finished successfully.";
-  } else {
-    LOG << "\nInstallation finished successfully but the service didn't start "
-           "correctly. You might try running `systemctl edit gatekeeper` to "
-           "provide it with some startup parameters & then `systemctl restart "
-           "gatekeeper` to restart it.";
-  }
-  LOG << "\nRunning `" << argv0 << "` again will reinstall Gatekeeper.";
-  LOG << R"(
-From now on you can now use the `systemctl` command to manage the `gatekeeper` service.
-
-  systemctl status gatekeeper    # to see the status of the service
-  systemctl stop gatekeeper      # to stop the service
-  systemctl start gatekeeper     # to start the service
-
-Gatekeeper will now show the system journal for the installed service.
-Press Ctrl+C to stop.
-)";
-  char const *args[] = {"journalctl", "-fu", "gatekeeper", nullptr};
-  ret = execvp("journalctl", (char **)args);
-  if (ret != 0) {
-    ERROR << "  journalctl failed with exit code " << ret;
-  }
+void gatekeeper::UnhookSignals() {
+  sigabrt.reset();
+  sigterm.reset();
+  sigint.reset();
 }
 
 Interface PickWANInterface(Status &status) {
@@ -280,15 +202,9 @@ int main(int argc, char *argv[]) {
 
   epoll::Init();
 
-  bool portable = getenv("PORTABLE") != nullptr;
   bool under_systemd = getenv("NOTIFY_SOCKET") != nullptr;
   bool no_auto_update = getenv("NO_AUTO_UPDATE") != nullptr;
   bool auto_update = !no_auto_update;
-
-  if (!portable && !under_systemd) {
-    Install(argv[0]);
-    return 0;
-  }
 
   systemd::Init();
 
@@ -334,6 +250,9 @@ int main(int argc, char *argv[]) {
   LOG << "Found WAN interface " << wan.name << " with IP " << wan_ip;
 
   lan_network = lan.Network(status);
+  if (OK(status)) {
+    lan_ip = lan.IP(status);
+  }
   if (status.Ok()) {
     LOG << "Using preconfigured " << lan.name << " with IP " << lan_network;
   } else {

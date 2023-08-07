@@ -14,7 +14,9 @@
 #include "etc.hh"
 #include "format.hh"
 #include "http.hh"
+#include "install.hh"
 #include "log.hh"
+#include "str.hh"
 #include "virtual_fs.hh"
 
 namespace webui {
@@ -590,6 +592,9 @@ void RenderMainPage(Response &response, Request &request) {
   logs_table.RenderTABLE(html, log_opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
+  if (gatekeeper::install::CanInstall()) {
+    html += "<table><tr><td><a href=/install>Install</a></td></tr></table>";
+  }
   html += "</main></body></html>";
   response.Write(html);
 }
@@ -621,6 +626,30 @@ void Handler(Response &response, Request &request) {
     } else {
       response.WriteStatus("404 Not Found");
       response.Write("Table not found");
+    }
+  } else if (gatekeeper::install::CanInstall() && path == "/install") {
+    Status status;
+    gatekeeper::install::Install(status);
+    if (OK(status)) {
+      response.Write(R"(<!doctype html>
+Gatekeeper installation completed successfully.<br>
+<br>
+Gatekeeper can now be managed as a systemd service. Example commands:<br>
+<br>
+<pre>
+  systemctl status gatekeeper    # to see the status of the service
+  systemctl stop gatekeeper      # to stop the service
+  systemctl start gatekeeper     # to start the service
+  journalctl -fu gatekeeper      # to see logs
+</pre>
+You can now go back to the <a href="/">main page</a>.
+)");
+      FlushAndClose();
+    } else {
+      response.WriteStatus("500 Internal Server Error");
+      Str msg = status.ToString();
+      ReplaceAll(msg, "\n", "<br>\n");
+      response.Write("<!doctype html>" + msg);
     }
   } else {
     RenderMainPage(response, request);
@@ -723,12 +752,20 @@ void Start(Status &status) {
 }
 
 void Stop() {
-  server.StopListening();
+  StopListening();
   for (auto *c : server.connections) {
     c->CloseTCP();
     delete c;
   }
   server.connections.clear();
+}
+
+void StopListening() { server.StopListening(); }
+
+void FlushAndClose() {
+  for (auto *c : server.connections) {
+    c->Close(0, "");
+  }
 }
 
 } // namespace webui
