@@ -11,7 +11,7 @@ struct Path {
   Str str;
 
   Path(const char *str) : str(str) {}
-  Path(Str &&str) : str(std::move(str)) {}
+  Path(Str str) : str(std::move(str)) {}
   Path(StrView path) : str(path) {}
   Path() = default;
   Path(const Path &other) = default;

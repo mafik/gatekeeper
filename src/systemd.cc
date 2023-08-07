@@ -1,12 +1,15 @@
 #include "systemd.hh"
 
+#include <cerrno>
 #include <optional>
 #include <sys/stat.h>
 #include <sys/un.h>
 
 #include "format.hh"
 #include "log.hh"
+#include "status.hh"
 #include "timer.hh"
+#include "virtual_fs.hh"
 
 using namespace maf;
 
@@ -147,6 +150,50 @@ void Init() {
     loggers.push_back(LogErrorAsStatus);
     StartWatchdog();
   }
+}
+
+void OverrideEnvironment(StrView unit, StrView env, StrView value,
+                         Status &status) {
+  Str path = f("/etc/systemd/system/%*s.service.d", unit.size(), unit.data());
+  if (mkdir(path.c_str(), 0755) < 0) {
+    if (errno != EEXIST) {
+      AppendErrorMessage(status) += "Failed to create directory " + path;
+      return;
+    }
+    errno = 0;
+  }
+  path += "/override.conf";
+  Status read_status;
+  Str override_conf = "";
+  ReadRealFile(
+      path,
+      [&](StrView old_override_conf) { override_conf = old_override_conf; },
+      read_status);
+  Str service_tag = "\n[Service]\n";
+  Size service_tag_pos = override_conf.find(service_tag);
+  if (service_tag_pos == Str::npos) {
+    service_tag_pos = override_conf.size();
+    override_conf += "\n[Service]\n";
+  }
+  Size service_begin = service_tag_pos + service_tag.size();
+  Str needle = f("\nEnvironment=\"%*s=", env.size(), env.data());
+  Size needle_pos = override_conf.find(needle, service_begin);
+  if (needle_pos == Str::npos) {
+    override_conf.insert(service_begin,
+                         f("Environment=\"%*s=%*s\"\n", env.size(), env.data(),
+                           value.size(), value.data()));
+  } else {
+    Size needle_end = override_conf.find("\"\n", needle_pos + needle.size());
+    if (needle_end == Str::npos) {
+      needle_end = override_conf.size();
+    } else {
+      needle_end += 2;
+    }
+    override_conf.replace(needle_pos, needle_end - needle_pos,
+                          f("\nEnvironment=\"%*s=%*s\"\n", env.size(),
+                            env.data(), value.size(), value.data()));
+  }
+  WriteFile(path, override_conf, status);
 }
 
 void Ready() { Notify("READY=1"); }

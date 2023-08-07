@@ -2,11 +2,13 @@
 
 #include <sys/stat.h>
 
+#include "config.hh"
 #include "dhcp.hh"
 #include "dns.hh"
 #include "firewall.hh"
 #include "gatekeeper.hh"
 #include "status.hh"
+#include "systemd.hh"
 #include "update.hh"
 #include "virtual_fs.hh"
 #include "webui.hh"
@@ -35,7 +37,26 @@ void Install(Status &status) {
     AppendErrorMessage(status) += "Failed to copy main binary";
     return;
   }
-  // TODO: copy environment overrides
+
+  for (int i = 0; kUnderstoodEnvironmentVariables[i]; ++i) {
+    auto env = kUnderstoodEnvironmentVariables[i];
+    if (auto val = getenv(env)) {
+      systemd::OverrideEnvironment("gatekeeper", env, val, status);
+      if (!status.Ok()) {
+        AppendErrorMessage(status) += "Failed to configure systemd service";
+        return;
+      }
+    }
+  }
+
+  // Always set the LAN variable - just in case we can't find the interface
+  // later.
+  systemd::OverrideEnvironment("gatekeeper", "LAN", lan.name, status);
+  if (!status.Ok()) {
+    AppendErrorMessage(status) += "Failed to configure systemd service";
+    return;
+  }
+
   CopyFile("gatekeeper.service", "/opt/gatekeeper/gatekeeper.service", status,
            0644);
   if (!status.Ok()) {

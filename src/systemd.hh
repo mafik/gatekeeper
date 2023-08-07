@@ -1,5 +1,8 @@
 #pragma once
 
+#include "status.hh"
+#include "str.hh"
+
 namespace systemd {
 
 // Call this function after epoll::Init to setup systemd integration.
@@ -21,5 +24,10 @@ void Ready();
 //
 // This function does nothing when not running under systemd.
 void Stop();
+
+// Update /etc/systemd/system/<unit>.service.d/override.conf to set the given
+// environment variable.
+void OverrideEnvironment(maf::StrView unit, maf::StrView env,
+                         maf::StrView value, maf::Status &status);
 
 } // namespace systemd

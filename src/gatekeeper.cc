@@ -75,6 +75,9 @@ void gatekeeper::UnhookSignals() {
   sigint.reset();
 }
 
+const char *gatekeeper::kUnderstoodEnvironmentVariables[] = {
+    "LAN", "WAN", "NO_AUTO_UPDATE", nullptr};
+
 Interface PickWANInterface(Status &status) {
   if (auto env_WAN = getenv("WAN")) {
     Interface if_WAN = {.name = env_WAN, .index = 0};
