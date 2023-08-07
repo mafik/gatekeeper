@@ -18,6 +18,8 @@ namespace systemd {
 std::optional<FD> notify_socket;
 std::optional<FD> journal_socket;
 
+bool IsRunningUnderSystemd() { return getenv("NOTIFY_SOCKET") != nullptr; }
+
 static void Notify(StrView msg) {
   if (notify_socket) {
     send(*notify_socket, msg.data(), msg.size(), MSG_NOSIGNAL);

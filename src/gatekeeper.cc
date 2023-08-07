@@ -205,7 +205,6 @@ int main(int argc, char *argv[]) {
 
   epoll::Init();
 
-  bool under_systemd = getenv("NOTIFY_SOCKET") != nullptr;
   bool no_auto_update = getenv("NO_AUTO_UPDATE") != nullptr;
   bool auto_update = !no_auto_update;
 

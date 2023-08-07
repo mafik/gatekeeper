@@ -17,10 +17,7 @@ using namespace maf;
 
 namespace gatekeeper::install {
 
-bool CanInstall() {
-  bool under_systemd = getenv("NOTIFY_SOCKET") != nullptr;
-  return not under_systemd;
-}
+bool CanInstall() { return not systemd::IsRunningUnderSystemd(); }
 
 void Install(Status &status) {
   int ret = mkdir("/opt/gatekeeper", 0755);

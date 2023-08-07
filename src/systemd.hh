@@ -5,6 +5,8 @@
 
 namespace systemd {
 
+bool IsRunningUnderSystemd();
+
 // Call this function after epoll::Init to setup systemd integration.
 //
 // This function does nothing when not running under systemd.
