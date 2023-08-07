@@ -19,7 +19,9 @@ std::optional<FD> notify_socket;
 std::optional<FD> journal_socket;
 
 static void Notify(StrView msg) {
-  send(*notify_socket, msg.data(), msg.size(), MSG_NOSIGNAL);
+  if (notify_socket) {
+    send(*notify_socket, msg.data(), msg.size(), MSG_NOSIGNAL);
+  }
 }
 
 static void LogErrorAsStatus(const LogEntry &log_entry) {
