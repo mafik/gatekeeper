@@ -632,7 +632,7 @@ void Handler(Response &response, Request &request) {
     gatekeeper::install::Install(status);
     if (OK(status)) {
       response.Write(R"(<!doctype html>
-Gatekeeper installation completed successfully.<br>
+Installation completed successfully.<br>
 <br>
 Gatekeeper can now be managed as a systemd service. Example commands:<br>
 <br>

@@ -17,6 +17,7 @@
 #include "epoll.hh"
 #include "etc.hh"
 #include "firewall.hh"
+#include "format.hh"
 #include "gatekeeper.hh"
 #include "interface.hh"
 #include "log.hh"
@@ -309,6 +310,14 @@ int main(int argc, char *argv[]) {
 
   LOG << "Gatekeeper running at http://" << lan_ip << ":1337/";
   systemd::Ready();
+  if (not systemd::IsRunningUnderSystemd()) {
+    Str xdg_open_cmd =
+        f("xdg-open http://%s:1337/", lan_ip.to_string().c_str());
+    if (auto sudo_user = getenv("SUDO_USER")) {
+      xdg_open_cmd = f("sudo -u %s %s", sudo_user, xdg_open_cmd.c_str());
+    }
+    system(xdg_open_cmd.c_str());
+  }
 
   epoll::Loop(status);
   if (!OK(status)) {
