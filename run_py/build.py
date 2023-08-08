@@ -117,17 +117,27 @@ def plan(srcs) -> tuple[list[ObjectFile], list[Binary]]:
     return list(objs.values()), binaries
 
 
-compiler = os.environ['CXX'] = os.environ['CXX'] if 'CXX' in os.environ else 'clang++'
+compiler = os.environ[
+    'CXX'] = os.environ['CXX'] if 'CXX' in os.environ else 'clang++'
 
-default_compile_args = ['-std=c++2b', '-fcolor-diagnostics',
-                        '-static', '-ffunction-sections', '-fdata-sections', '-funsigned-char']
-release_compile_args = ['-O3', '-DNDEBUG', '-flto']
+default_compile_args = [
+    '-std=c++2b', '-fcolor-diagnostics', '-static', '-ffunction-sections',
+    '-fdata-sections', '-funsigned-char', '-D_FORTIFY_SOURCE=2', '-Wformat',
+    '-Wformat-security', '-Werror=format-security'
+]
+release_compile_args = [
+    '-O3',
+    '-DNDEBUG',
+    '-flto',
+    '-fstack-protector',
+]
 # -gdwarf-4 is needed by valgrind (called by test_e2e.sh, during GitHub Actions CI)
 debug_compile_args = ['-O0', '-g', '-gdwarf-4', '-D_DEBUG']
 
-default_link_args = ['-fuse-ld=lld', '-static',
-                     '-Wl,--gc-sections', '-Wl,--build-id=none']
-release_link_args = ['-flto', '-Wl,--strip-all']
+default_link_args = [
+    '-fuse-ld=lld', '-static', '-Wl,--gc-sections', '-Wl,--build-id=none'
+]
+release_link_args = ['-flto', '-Wl,--strip-all', '-Wl,-z,relro', '-Wl,-z,now']
 debug_link_args = []
 
 if args.verbose:
@@ -165,12 +175,14 @@ def recipe() -> make.Recipe:
         pargs += [str(obj.source.path)]
         pargs += ['-c', '-o', str(obj.path)]
         builder = functools.partial(make.Popen, pargs)
-        r.add_step(builder, outputs=[obj.path],
+        r.add_step(builder,
+                   outputs=[obj.path],
                    inputs=obj.deps | set(['compile_commands.json']),
-                   desc=f'Compiling {obj.path.name}', shortcut=obj.path.name)
+                   desc=f'Compiling {obj.path.name}',
+                   shortcut=obj.path.name)
         r.generated.add(obj.path)
-        compilation_db.append(CompilationEntry(
-            str(obj.source.path), str(obj.path), pargs))
+        compilation_db.append(
+            CompilationEntry(str(obj.source.path), str(obj.path), pargs))
     for bin in bins:
         pargs = [compiler] + default_link_args
         if bin.build_type == 'debug':
@@ -181,8 +193,11 @@ def recipe() -> make.Recipe:
         pargs += bin.link_args
         pargs += ['-o', str(bin.path)]
         builder = functools.partial(make.Popen, pargs)
-        r.add_step(builder, outputs=[bin.path], inputs=bin.objects,
-                   desc=f'Linking {bin.path.name}', shortcut=f'link {bin.path.name}')
+        r.add_step(builder,
+                   outputs=[bin.path],
+                   inputs=bin.objects,
+                   desc=f'Linking {bin.path.name}',
+                   shortcut=f'link {bin.path.name}')
         r.generated.add(bin.path)
 
         # if platform == 'win32':
@@ -191,8 +206,11 @@ def recipe() -> make.Recipe:
         #     r.add_step(mt_runner, outputs=[path], inputs=[path, 'src/win32.manifest'], name=f'mt {binary_name}')
 
         runner = functools.partial(make.Popen, [bin.path] + bin.run_args)
-        r.add_step(runner, outputs=[], inputs=[bin.path],
-                   desc=f'Running {bin.path.name}', shortcut=bin.path.name)
+        r.add_step(runner,
+                   outputs=[],
+                   inputs=[bin.path],
+                   desc=f'Running {bin.path.name}',
+                   shortcut=bin.path.name)
 
     for ext in extensions:
         if hasattr(ext, 'hook_final'):
@@ -201,8 +219,8 @@ def recipe() -> make.Recipe:
     def compile_commands():
         jsons = []
         for entry in compilation_db:
-            arguments = ',\n    '.join(json.dumps(str(arg))
-                                       for arg in entry.arguments)
+            arguments = ',\n    '.join(
+                json.dumps(str(arg)) for arg in entry.arguments)
             json_entry = f'''{{
   "directory": { json.dumps(str(fs_utils.project_root)) },
   "file": { json.dumps(entry.file) },
@@ -214,7 +232,8 @@ def recipe() -> make.Recipe:
             print('[' + ', '.join(jsons) + ']', file=f)
 
     r.add_step(compile_commands, ['compile_commands.json'], [],
-               desc='Writing JSON Compilation Database', shortcut='compile_commands.json')
+               desc='Writing JSON Compilation Database',
+               shortcut='compile_commands.json')
     r.generated.add('compile_commands.json')
 
     return r

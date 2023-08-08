@@ -61,8 +61,8 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
     buf_arg.RemovePrefix(len);
     return ret;
   };
-  StrView cipher_name = ConsumeSizedSpan(buf);
-  StrView kdf_name = ConsumeSizedSpan(buf);
+  StrView cipher_name = StrViewOf(ConsumeSizedSpan(buf));
+  StrView kdf_name = StrViewOf(ConsumeSizedSpan(buf));
   Span<> kdf = ConsumeSizedSpan(buf);
   U32 num_keys = ConsumeBigEndian<U32>(buf);
   if (num_keys != 1) {
@@ -79,7 +79,7 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
     // Parse `priv`
     U32 check1 = ConsumeBigEndian<U32>(priv);
     U32 check2 = ConsumeBigEndian<U32>(priv);
-    StrView key_type = ConsumeSizedSpan(priv);
+    StrView key_type = StrViewOf(ConsumeSizedSpan(priv));
     if (key_type == "ssh-ed25519"sv) {
       Span<> pub0 = ConsumeSizedSpan(priv);
       if (pub0.size() != 32) {
@@ -99,7 +99,7 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
       // The private key is actually a concatenation of private+public. Each of
       // them 32-bytes long. We copy out only the private part.
       memcpy(k.private_key.bytes, priv0.data(), 32);
-      k.comment = ConsumeSizedSpan(priv);
+      k.comment = StrViewOf(ConsumeSizedSpan(priv));
       return k;
     } else {
       AppendErrorMessage(status) += "Unknown key type: " + Str(key_type);
