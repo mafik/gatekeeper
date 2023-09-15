@@ -1,5 +1,5 @@
 [Unit]
-Description=Gatekeeper - A DHCP+DNS server for your home gateway
+Description=Gatekeeper - A DHCP+DNS server for home gateway
 Requires=network.target
 Wants=nss-lookup.target
 Before=nss-lookup.target
