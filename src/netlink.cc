@@ -292,17 +292,17 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
         while (buf_iter < msg_end - sizeof(Attr)) {
           buf_iter = (char *)(((uintptr_t)buf_iter + 3ull) & ~3ull);
           Attr *a = (Attr *)buf_iter;
-          if (a->type > attribute_max) {
-            status() += "Attribute type " + std::to_string(a->type) +
-                        " is out of range";
-            return;
-          }
           if (a->len < sizeof(Attr)) { // Detect parsing errors early
             status() +=
                 "Attribute length " + std::to_string(a->len) + " is too small";
             return;
           }
-          attrs[a->type] = a;
+          if (a->type > attribute_max) {
+            // New kernel versions can add new attributes.
+            // They should be ignored.
+          } else {
+            attrs[a->type] = a;
+          }
           buf_iter += a->len;
           if (buf_iter > msg_end) {
             status() +=
