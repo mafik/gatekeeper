@@ -9,6 +9,8 @@ if [ "$reason" = "REBOOT" -o "$reason" = "BOUND" ]; then
   ip addr add ${new_ip_address}/$new_subnet_mask broadcast $new_broadcast_address dev $interface
   ip route add default via $new_routers dev $interface
   ip link set $interface up
+  ip link set lo up
+  echo "nameserver $new_domain_name_servers" >/etc/resolv.conf
 else
   # uncomment & run test to see available events
   # echo "Unknown reason: $reason"

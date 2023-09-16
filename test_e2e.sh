@@ -18,6 +18,12 @@ fi
 if [ ! -e /sys/class/net/$DEV_A ]; then
   ip link add $DEV_A type veth peer name $DEV_B netns $NS
 fi
+
+# Setup resolv.conf
+mkdir -p /etc/netns/$NS
+touch /etc/netns/$NS/resolv.conf # empty file is enough for `ip netns` to bind mount it over /etc/resolv.conf
+# this file will be filled by `test-dhclient-hook`
+
 ip addr flush dev $DEV_A
 ip netns exec $NS ip addr flush dev $DEV_B
 ip netns exec $NS ip link set $DEV_B up
@@ -32,13 +38,13 @@ ip netns exec $NS dhclient -1 -cf ./test-dhclient.conf $DEV_B
 
 # Collect results
 GATEKEEPER_IP=$(ip addr show dev $DEV_A | grep -oP '(?<=inet )([0-9.]*)')
-CLIENT_IP=$(sudo ip netns exec ns0 hostname -I | xargs)
+CLIENT_IP=$(ip netns exec $NS hostname -I | xargs)
 HOSTNAME=$(hostname)
 TEST_DOMAIN="www.google.com"
 DIG_RESULT=$(ip netns exec $NS dig +short $TEST_DOMAIN @$GATEKEEPER_IP | head -n 1)
 CURL_1337=$(ip netns exec $NS curl -s http://$GATEKEEPER_IP:1337)
-CURL_EXAMPLE=$(ip netns exec $NS curl -s -k --max-time 10 -H "Host: $TEST_DOMAIN" https://$DIG_RESULT)
-CURL_EXAMPLE_RESULT=$?
+CURL_EXAMPLE=$(ip netns exec $NS curl -s --connect-timeout 5 --max-time 10 $TEST_DOMAIN)
+CURL_EXAMPLE_STATUS=$?
 
 # Stop dhclient
 dhclient -x 2>/dev/null
@@ -65,7 +71,7 @@ if [[ $CURL_1337 != *Gatekeeper* ]]; then
   exit 1
 fi
 
-if [[ $CURL_EXAMPLE_RESULT -ne 0 ]]; then
-  echo "curl https://$TEST_DOMAIN should return 0. Got [$CURL_EXAMPLE_RESULT]"
+if [[ $CURL_EXAMPLE_STATUS -ne 0 ]]; then
+  echo "curl $TEST_DOMAIN should return 0. Got [$CURL_EXAMPLE_STATUS]"
   exit 1
 fi
