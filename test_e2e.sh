@@ -36,6 +36,8 @@ CLIENT_IP=$(sudo ip netns exec ns0 hostname -I | xargs)
 HOSTNAME=$(hostname)
 DIG_RESULT=$(ip netns exec $NS dig +short TXT gatekeeper.mrogalski.eu @$GATEKEEPER_IP | tr -d '"')
 CURL_1337=$(ip netns exec $NS curl -s http://$GATEKEEPER_IP:1337)
+CURL_EXAMPLE=$(ip netns exec $NS curl -s -k --connect-timeout 3 -H 'Host: mrogalski.eu' https://77.237.29.200) # hardcoded IP because we want to only test NAT (not DNS)
+CURL_EXAMPLE_RESULT=$?
 
 # Stop dhclient
 dhclient -x 2>/dev/null
@@ -61,5 +63,10 @@ fi
 
 if [[ $CURL_1337 != *Gatekeeper* ]]; then
   echo "http://$GATEKEEPER_IP:1337 should contain [Gatekeeper]. Got [$CURL_1337]"
+  exit 1
+fi
+
+if [[ $CURL_EXAMPLE_RESULT -ne 0 ]]; then
+  echo "curl https://mrogalski.eu should return 0. Got [$CURL_EXAMPLE_RESULT]"
   exit 1
 fi
