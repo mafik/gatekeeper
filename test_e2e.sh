@@ -1,4 +1,4 @@
-#!/usr/bin/bash -x
+#!/usr/bin/bash
 
 if [[ $EUID -ne 0 ]]; then
   echo "This script must be run as root" 1>&2
@@ -35,7 +35,7 @@ GATEKEEPER_IP=$(ip addr show dev $DEV_A | grep -oP '(?<=inet )([0-9.]*)')
 CLIENT_IP=$(sudo ip netns exec ns0 hostname -I | xargs)
 HOSTNAME=$(hostname)
 TEST_DOMAIN="www.google.com"
-DIG_RESULT=$(ip netns exec $NS dig +short $TEST_DOMAIN @$GATEKEEPER_IP | tr -d '"')
+DIG_RESULT=$(ip netns exec $NS dig +short $TEST_DOMAIN @$GATEKEEPER_IP | head -n 1)
 CURL_1337=$(ip netns exec $NS curl -s http://$GATEKEEPER_IP:1337)
 CURL_EXAMPLE=$(ip netns exec $NS curl -s -k --max-time 10 -H "Host: $TEST_DOMAIN" https://$DIG_RESULT)
 CURL_EXAMPLE_RESULT=$?
