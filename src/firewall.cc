@@ -272,11 +272,18 @@ std::pair<uint16_t, FD> BindPort(IP ip, uint16_t preferred_port, Status &status,
   return {preferred_port, fd};
 }
 
+constexpr static uint16_t kMasqueradedPortBegin = 61000;
+constexpr static uint16_t kMasqueradedPortEnd = 65535;
+
+// TODO: Make it work.
+// TODO: Use hash maps for constant time lookup.
+// TODO: Remove entries from the table when they expire.
+
 struct NAT_Entry {
-  IP original_ip;
-  uint16_t original_port;
-  uint16_t local_port;
-  FD local_fd;
+  IP original_lan_ip;
+  uint16_t original_lan_port;
+  uint16_t masqueraded_wan_port;
+  IP wan_ip;
 };
 
 std::vector<NAT_Entry> tcp_nat_table;
@@ -347,10 +354,13 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   int socket_type = ip.proto == ProtocolID::TCP ? SOCK_STREAM : SOCK_DGRAM;
 
   if (ip.destination_ip == wan_ip) {
+    // Packet coming to our WAN IP. We may need to modify the destination.
+
     for (auto &entry : nat_table) {
-      if (entry.local_port == inet.destination_port) {
-        inet.destination_port = entry.original_port;
-        ip.destination_ip = entry.original_ip;
+      if (entry.masqueraded_wan_port == inet.destination_port &&
+          entry.wan_ip == ip.source_ip) {
+        inet.destination_port = entry.original_lan_port;
+        ip.destination_ip = entry.original_lan_ip;
         ip.UpdateChecksum();
         UpdateLayer4Checksum(ip, checksum);
         Status status;
@@ -363,36 +373,46 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
       }
     }
   } else if (from_net && ip.source_ip != lan_ip) {
+    // Packet coming from LAN. We may need to modify the source.
 
     // Replace the source IP with our IP
-    IP original_ip = ip.source_ip;
+    IP original_lan_ip = ip.source_ip;
     ip.source_ip = wan_ip;
-    uint16_t original_port = inet.source_port;
+    uint16_t original_lan_port = inet.source_port;
     NAT_Entry *existing_entry = nullptr;
     for (int i = 0; i < nat_table.size(); ++i) {
       auto &entry = nat_table[i];
-      if (entry.original_ip == original_ip &&
-          entry.original_port == original_port) {
+      if (entry.original_lan_ip == original_lan_ip &&
+          entry.original_lan_port == original_lan_port &&
+          entry.wan_ip == ip.destination_ip) {
         existing_entry = &entry;
         break;
       }
     }
     if (existing_entry) {
-      inet.source_port = existing_entry->local_port;
+      inet.source_port = existing_entry->masqueraded_wan_port;
     } else {
-      Status status;
-      auto [local_port, fd] =
-          BindPort(wan_ip, inet.source_port, status, socket_type);
-      if (!status.Ok()) {
-        status() += "Couldn't assign local port";
+      uint16_t masqueraded_wan_port = kMasqueradedPortBegin;
+    check_port:
+      if (masqueraded_wan_port == kMasqueradedPortEnd) {
+        Status status;
+        status() += "Dropping packet because NAT is impossible: no free ports";
         ERROR << status;
         return;
       }
-      inet.source_port = local_port;
-      nat_table.push_back({.original_ip = original_ip,
-                           .original_port = original_port,
-                           .local_port = local_port,
-                           .local_fd = std::move(fd)});
+      for (auto &entry : nat_table) {
+        if (entry.masqueraded_wan_port == masqueraded_wan_port &&
+            entry.wan_ip == ip.destination_ip) {
+          masqueraded_wan_port = entry.masqueraded_wan_port + 1;
+          goto check_port;
+        }
+      }
+
+      inet.source_port = masqueraded_wan_port;
+      nat_table.push_back({.original_lan_ip = original_lan_ip,
+                           .original_lan_port = original_lan_port,
+                           .masqueraded_wan_port = masqueraded_wan_port,
+                           .wan_ip = ip.destination_ip});
     }
     ip.UpdateChecksum();
     UpdateLayer4Checksum(ip, checksum);
