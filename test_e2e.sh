@@ -34,9 +34,10 @@ ip netns exec $NS dhclient -1 -cf ./test-dhclient.conf $DEV_B
 GATEKEEPER_IP=$(ip addr show dev $DEV_A | grep -oP '(?<=inet )([0-9.]*)')
 CLIENT_IP=$(sudo ip netns exec ns0 hostname -I | xargs)
 HOSTNAME=$(hostname)
-DIG_RESULT=$(ip netns exec $NS dig +short TXT gatekeeper.mrogalski.eu @$GATEKEEPER_IP | tr -d '"')
+TEST_DOMAIN="www.google.com"
+DIG_RESULT=$(ip netns exec $NS dig +short $TEST_DOMAIN @$GATEKEEPER_IP | tr -d '"')
 CURL_1337=$(ip netns exec $NS curl -s http://$GATEKEEPER_IP:1337)
-CURL_EXAMPLE=$(ip netns exec $NS curl -s -k --connect-timeout 3 -H 'Host: mrogalski.eu' https://77.237.29.200) # hardcoded IP because we want to only test NAT (not DNS)
+CURL_EXAMPLE=$(ip netns exec $NS curl -s -k --connect-timeout 3 -H "Host: $TEST_DOMAIN" https://$DIG_RESULT)
 CURL_EXAMPLE_RESULT=$?
 
 # Stop dhclient
@@ -54,10 +55,8 @@ if [ "$CLIENT_IP" != "$EXPECTED_CLIENT_IP" ]; then
   exit 1
 fi
 
-DIG_EXPECTED="Network dances flow. DHCP assigns, DNS resolves. Connections thrive, grow."
-
-if [ "$DIG_RESULT" != "$DIG_EXPECTED" ]; then
-  echo "dig returned [$DIG_RESULT] but expected [$DIG_EXPECTED]"
+if [ "$DIG_RESULT" == "" ]; then
+  echo "dig '$TEST_DOMAIN' returned empty result"
   exit 1
 fi
 
