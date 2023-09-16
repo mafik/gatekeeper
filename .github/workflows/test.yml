@@ -25,6 +25,6 @@ jobs:
       run: sudo apt install -y valgrind inotify-tools
     - name: Run test
       run: ./run test_e2e
-    # - name: Debug with tmate on failure
-    #   if: ${{ failure() }}
-    #   uses: mxschmitt/action-tmate@v3
+    - name: Debug with tmate on failure
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
