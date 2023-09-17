@@ -1,4 +1,4 @@
-# [![Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/static/gatekeeper.gif?raw=true)](https://github.com/mafik/gatekeeper) Gatekeeper
+# [![Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/static/gatekeeper.webp?raw=true)](https://github.com/mafik/gatekeeper) Gatekeeper
 DHCP &amp; DNS server optimized for use in home networks.
 
 [![End-to-end test](https://github.com/mafik/gatekeeper/actions/workflows/test.yml/badge.svg)](https://github.com/mafik/gatekeeper/actions/workflows/test.yml)
