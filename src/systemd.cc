@@ -79,8 +79,16 @@ static void StructuredLog(const LogEntry &log_entry) {
   send(*journal_socket, message.data(), message.size(), MSG_NOSIGNAL);
 }
 
+static void DisableStdoutLogging() {
+  if (auto it =
+          std::find_if(loggers.begin(), loggers.end(), FnIs(DefaultLogger));
+      it != loggers.end()) {
+    loggers.erase(it);
+  }
+}
+
 // See: https://systemd.io/JOURNAL_NATIVE_PROTOCOL/
-static void ConfigureLogging() {
+static void EnableStructuredLogging() {
   if (char *journal_stream = getenv("JOURNAL_STREAM")) {
     int device, inode;
     if (sscanf(journal_stream, "%i:%i", &device, &inode) != 2) {
@@ -101,7 +109,6 @@ static void ConfigureLogging() {
           journal_socket.reset();
           return;
         }
-        loggers.clear();
         loggers.push_back(StructuredLog);
       } else {
         // STDOUT is not connected to the journal.
@@ -150,7 +157,8 @@ void Init() {
       notify_socket.reset();
       return;
     }
-    ConfigureLogging();
+    DisableStdoutLogging();
+    EnableStructuredLogging();
     loggers.push_back(LogErrorAsStatus);
     StartWatchdog();
   }

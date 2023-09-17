@@ -51,6 +51,8 @@ struct LogEntry {
 
 using Logger = std::function<void(const LogEntry &)>;
 
+void DefaultLogger(const LogEntry &e);
+
 // The default logger prints to stdout (or JavaScript console when running under
 // Emscripten).
 extern std::vector<Logger> loggers;

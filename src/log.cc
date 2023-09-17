@@ -41,20 +41,22 @@ LogEntry::~LogEntry() {
   }
 }
 
-void __attribute__((__constructor__)) InitDefaultLoggers() {
-  loggers.emplace_back([](const LogEntry &e) {
+void DefaultLogger(const LogEntry &e) {
 #if defined(__EMSCRIPTEN__)
-    if (e.log_level == LogLevel::Error) {
-      EM_ASM({ console.warn(UTF8ToString($0)); }, e.buffer.c_str());
-    } else if (e.log_level == LogLevel::Fatal) {
-      EM_ASM({ console.error(UTF8ToString($0)); }, e.buffer.c_str());
-    } else {
-      EM_ASM({ console.log(UTF8ToString($0)); }, e.buffer.c_str());
-    }
+  if (e.log_level == LogLevel::Error) {
+    EM_ASM({ console.warn(UTF8ToString($0)); }, e.buffer.c_str());
+  } else if (e.log_level == LogLevel::Fatal) {
+    EM_ASM({ console.error(UTF8ToString($0)); }, e.buffer.c_str());
+  } else {
+    EM_ASM({ console.log(UTF8ToString($0)); }, e.buffer.c_str());
+  }
 #else
-    printf("%s\n", e.buffer.c_str());
+  printf("%s\n", e.buffer.c_str());
 #endif
-  });
+}
+
+void __attribute__((__constructor__)) InitDefaultLoggers() {
+  loggers.emplace_back(DefaultLogger);
 }
 
 const LogEntry &operator<<(const LogEntry &logger, int i) {
