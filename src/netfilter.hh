@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "netlink.hh"
+#include "optional.hh"
 #include "status.hh"
 
 // Utilities for interacting with the Linux Netfilter framework.
@@ -33,8 +34,9 @@ void DelTable(Netlink &netlink, Family family, const char *name,
 
 // Create a new nftables chain.
 void NewChain(Netlink &netlink, Family family, const char *table_name,
-              const char *chain_name, Hook hook, int32_t priority,
-              Status &status);
+              const char *chain_name,
+              Optional<std::pair<Hook, int32_t>> hook_priority,
+              Optional<bool> policy_accept, Status &status);
 
 // Create a new nftables rule.
 //

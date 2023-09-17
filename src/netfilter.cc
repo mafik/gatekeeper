@@ -1,4 +1,5 @@
 #include "netfilter.hh"
+#include "optional.hh"
 
 #include <cstring>
 #include <linux/netfilter/nf_tables.h>
@@ -145,8 +146,9 @@ err:
 }
 
 void NewChain(Netlink &netlink, Family family, const char *table_name,
-              const char *chain_name, Hook hook, int32_t priority,
-              Status &status) {
+              const char *chain_name,
+              Optional<std::pair<Hook, int32_t>> hook_priority,
+              Optional<bool> policy_accept, Status &status) {
   {
     // Calculate the size of the buffer.
     const size_t table_name_len = strlen(table_name) + 1;
@@ -161,12 +163,18 @@ void NewChain(Netlink &netlink, Family family, const char *table_name,
     buffer_size += sizeof(nlattr); // NFTA_CHAIN_NAME
     buffer_size += NLA_ALIGN(chain_name_len);
     const uint32_t hook_start = buffer_size;
-    buffer_size += sizeof(nlattr); // NFTA_CHAIN_HOOK (nested)
-    buffer_size += sizeof(nlattr); // NFTA_HOOK_HOOKNUM
-    buffer_size += sizeof(uint32_t);
-    buffer_size += sizeof(nlattr); // NFTA_HOOK_PRIORITY
-    buffer_size += sizeof(int32_t);
+    if (hook_priority.has_value()) {
+      buffer_size += sizeof(nlattr); // NFTA_CHAIN_HOOK (nested)
+      buffer_size += sizeof(nlattr); // NFTA_HOOK_HOOKNUM
+      buffer_size += sizeof(uint32_t);
+      buffer_size += sizeof(nlattr); // NFTA_HOOK_PRIORITY
+      buffer_size += sizeof(int32_t);
+    }
     const uint32_t hook_end = buffer_size;
+    if (policy_accept.has_value()) {
+      buffer_size += sizeof(nlattr); // NFTA_CHAIN_POLICY
+      buffer_size += sizeof(uint32_t);
+    }
     const uint32_t message_end = buffer_size;
     buffer_size += sizeof(BatchEnd);
     char buffer[buffer_size];
@@ -196,25 +204,37 @@ void NewChain(Netlink &netlink, Family family, const char *table_name,
     ptr += sizeof(nlattr);
     memcpy(ptr, chain_name, chain_name_len);
     ptr += NLA_ALIGN(chain_name_len);
-    new (ptr) nlattr{
-        .nla_len = (uint16_t)(hook_end - hook_start),
-        .nla_type = NFTA_CHAIN_HOOK | NLA_F_NESTED,
-    };
-    ptr += sizeof(nlattr);
-    new (ptr) nlattr{
-        .nla_len = (uint16_t)(sizeof(nlattr) + sizeof(uint32_t)),
-        .nla_type = NFTA_HOOK_HOOKNUM,
-    };
-    ptr += sizeof(nlattr);
-    *(uint32_t *)ptr = htobe32((uint32_t)hook);
-    ptr += sizeof(uint32_t);
-    new (ptr) nlattr{
-        .nla_len = (uint16_t)(sizeof(nlattr) + sizeof(uint32_t)),
-        .nla_type = NFTA_HOOK_PRIORITY,
-    };
-    ptr += sizeof(nlattr);
-    *(int32_t *)ptr = htobe32(priority);
-    ptr += sizeof(uint32_t);
+    if (hook_priority.has_value()) {
+      new (ptr) nlattr{
+          .nla_len = (uint16_t)(hook_end - hook_start),
+          .nla_type = NFTA_CHAIN_HOOK | NLA_F_NESTED,
+      };
+      ptr += sizeof(nlattr);
+      new (ptr) nlattr{
+          .nla_len = (uint16_t)(sizeof(nlattr) + sizeof(uint32_t)),
+          .nla_type = NFTA_HOOK_HOOKNUM,
+      };
+      ptr += sizeof(nlattr);
+      *(uint32_t *)ptr = htobe32((uint32_t)hook_priority->first);
+      ptr += sizeof(uint32_t);
+      new (ptr) nlattr{
+          .nla_len = (uint16_t)(sizeof(nlattr) + sizeof(uint32_t)),
+          .nla_type = NFTA_HOOK_PRIORITY,
+      };
+      ptr += sizeof(nlattr);
+      *(int32_t *)ptr = htobe32(hook_priority->second);
+      ptr += sizeof(uint32_t);
+    }
+    if (policy_accept.has_value()) {
+      new (ptr) nlattr{
+          .nla_len = (uint16_t)(sizeof(nlattr) + sizeof(uint32_t)),
+          .nla_type = NFTA_CHAIN_POLICY,
+      };
+      ptr += sizeof(nlattr);
+      uint32_t policy_accept_little_endian = policy_accept.value();
+      *(uint32_t *)ptr = htobe32(policy_accept_little_endian);
+      ptr += sizeof(uint32_t);
+    }
     new (ptr) BatchEnd();
     netlink.SendRaw(std::string_view((const char *)buffer, buffer_size),
                     status);

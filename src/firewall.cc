@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <thread>
+#include <utility>
 
 #include "config.hh"
 #include "format.hh"
@@ -95,14 +96,14 @@ struct NetfilterHook {
       status() += "Error while creating netfilter table";
       return;
     }
-    NewChain(netlink, family, kTableName, "POSTROUTING", Hook::POST_ROUTING,
-             -300, status);
+    NewChain(netlink, family, kTableName, "POSTROUTING",
+             std::make_pair(Hook::POST_ROUTING, -300), std::nullopt, status);
     if (!status.Ok()) {
       status() += "Error while creating POSTROUTING netfilter chain";
       return;
     }
-    NewChain(netlink, family, kTableName, "PREROUTING", Hook::PRE_ROUTING, -300,
-             status);
+    NewChain(netlink, family, kTableName, "PREROUTING",
+             std::make_pair(Hook::PRE_ROUTING, -300), std::nullopt, status);
     if (!status.Ok()) {
       status() += "Error while creating PREROUTING netfilter chain";
       return;
@@ -117,6 +118,13 @@ struct NetfilterHook {
             status);
     if (!status.Ok()) {
       status() += "Error while creating PREROUTING netfilter rule";
+      return;
+    }
+    // On some machines the default policy of "filter" "FORWARD" is to drop.
+    // We override it with "accept".
+    NewChain(netlink, family, "filter", "FORWARD", std::nullopt, true, status);
+    if (!status.Ok()) {
+      status() += "Error while creating POSTROUTING netfilter chain";
       return;
     }
   }
