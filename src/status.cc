@@ -33,15 +33,13 @@ Str Status::ToString() const {
     auto &location = i->location;
     ret += f("(%s:%d).", location.file_name(), location.line());
   }
-  if (!ret.empty()) {
-    ret += " ";
-  }
   if (errno) {
+    if (!ret.empty()) {
+      ret += " ";
+    }
     ret += strerror(errsv);
-  } else {
-    ret += "Errno not set";
+    ret += '.';
   }
-  ret += ".";
   return ret;
 }
 
