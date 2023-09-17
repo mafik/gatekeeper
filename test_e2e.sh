@@ -47,7 +47,7 @@ TEST_DOMAIN="www.google.com"
 CURL_1337=$(ip netns exec $NS curl -s http://$GATEKEEPER_IP:1337)
 CURL_EXAMPLE=$(ip netns exec $NS curl -v --no-progress-meter --connect-timeout 5 --max-time 10 $TEST_DOMAIN)
 CURL_EXAMPLE_STATUS=$?
-NFT_RULES=$(nft list table gatekeeper)
+NFT_RULES=$(nft list ruleset)
 
 # Stop dhclient
 dhclient -x 2>/dev/null
@@ -77,7 +77,8 @@ if [[ $CURL_EXAMPLE_STATUS -ne 0 ]]; then
   echo "DNS / NAT issue. Curl $TEST_DOMAIN should return status code 0 but returned $CURL_EXAMPLE_STATUS."
   echo "Gatekeeper log:"
   cat $LOG_TO_FILE
-  echo "Netfilter rules (nft list table gatekeeper):"
+  echo 'Netfilter rules (`nft list ruleset`):'
   echo "$NFT_RULES"
+  echo
   exit 1
 fi
