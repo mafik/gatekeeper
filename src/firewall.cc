@@ -244,59 +244,21 @@ void UpdateLayer4Checksum(IP_Header &ip, uint16_t &checksum) {
   checksum = htons((uint16_t)sum);
 }
 
-std::pair<uint16_t, FD> BindPort(IP ip, uint16_t preferred_port, Status &status,
-                                 int socket_type) {
-  int fd = socket(AF_INET, socket_type, 0);
-  if (fd < 0) {
-    status() += "socket(AF_INET, " + std::to_string(socket_type) + ", 0)";
-    return {0, fd};
-  }
-  sockaddr_in addr = {
-      .sin_family = AF_INET,
-      .sin_port = htons(preferred_port),
-      .sin_addr =
-          {
-              .s_addr = ip.addr,
-          },
-  };
-  if (bind(fd, (sockaddr *)&addr, sizeof(addr)) < 0) {
-    if (errno == EADDRINUSE) {
-      addr.sin_port = 0;
-      if (bind(fd, (sockaddr *)&addr, sizeof(addr)) < 0) {
-        status() += "bind(AF_INET)";
-        return {0, fd};
-      }
-      socklen_t addr_len = sizeof(addr);
-      if (getsockname(fd, (sockaddr *)&addr, &addr_len) < 0) {
-        status() += "getsockname(AF_INET)";
-        return {0, fd};
-      }
-      return {ntohs(addr.sin_port), fd};
-    } else {
-      status() += "bind(AF_INET)";
-      return {0, fd};
-    }
-  }
-  return {preferred_port, fd};
-}
-
-constexpr static uint16_t kMasqueradedPortBegin = 61000;
-constexpr static uint16_t kMasqueradedPortEnd = 65535;
-
-// TODO: Make it work.
-// TODO: Use hash maps for constant time lookup.
-// TODO: Remove entries from the table when they expire.
-
 struct NAT_Entry {
-  IP original_lan_ip;
-  uint16_t original_lan_port;
-  uint16_t masqueraded_wan_port;
-  IP wan_ip;
+  // Note: theoretically we could only store the last two bytes of the IP
+  // because our network is /16. This might change in the future though and it's
+  // not that much of a saving anyway so let's keep things simple.
+  IP lan_host_ip;
+
+  static NAT_Entry &Lookup(ProtocolID protocol, uint16_t local_port);
 };
 
-std::vector<NAT_Entry> tcp_nat_table;
-std::vector<NAT_Entry> udp_nat_table;
+static NAT_Entry nat_table[2][65536];
 
+NAT_Entry &NAT_Entry::Lookup(ProtocolID protocol, uint16_t local_port) {
+  int protocol_index = protocol == ProtocolID::TCP ? 0 : 1;
+  return nat_table[protocol_index][local_port];
+}
 void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   if (attrs[NFQA_PACKET_HDR] == nullptr) {
     ERROR << "NFQA_PACKET_HDR is missing";
@@ -357,71 +319,39 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
         << protocol_string << "): " << f("%4d", payload.size()) << " B";
   }
 
-  auto &nat_table = ip.proto == ProtocolID::TCP ? tcp_nat_table : udp_nat_table;
   auto &checksum = ip.proto == ProtocolID::TCP ? tcp.checksum : udp.checksum;
   int socket_type = ip.proto == ProtocolID::TCP ? SOCK_STREAM : SOCK_DGRAM;
 
   if (ip.destination_ip == wan_ip) {
     // Packet coming to our WAN IP. We may need to modify the destination.
-
-    for (auto &entry : nat_table) {
-      if (entry.masqueraded_wan_port == inet.destination_port &&
-          entry.wan_ip == ip.source_ip) {
-        inet.destination_port = entry.original_lan_port;
-        ip.destination_ip = entry.original_lan_ip;
-        ip.UpdateChecksum();
-        UpdateLayer4Checksum(ip, checksum);
-        Status status;
-        queue->SendWithAttr(verdict, *attrs[NFQA_PAYLOAD], status);
-        if (!status.Ok()) {
-          status() += "Couldn't send verdict";
-          ERROR << status;
-        }
-        return;
+    NAT_Entry &entry = NAT_Entry::Lookup(ip.proto, inet.destination_port);
+    if (entry.lan_host_ip.addr != 0) {
+      ip.destination_ip = entry.lan_host_ip;
+      ip.UpdateChecksum();
+      UpdateLayer4Checksum(ip, checksum);
+      Status status;
+      queue->SendWithAttr(verdict, *attrs[NFQA_PAYLOAD], status);
+      if (!status.Ok()) {
+        status() += "Couldn't send verdict";
+        ERROR << status;
       }
+      return;
     }
   } else if (from_net && ip.source_ip != lan_ip) {
     // Packet coming from LAN. We may need to modify the source.
 
-    // Replace the source IP with our IP
-    IP original_lan_ip = ip.source_ip;
+    // Record the original source IP
+    NAT_Entry &existing_entry = NAT_Entry::Lookup(ip.proto, inet.source_port);
+    if (existing_entry.lan_host_ip != ip.source_ip) {
+      if (existing_entry.lan_host_ip != 0) {
+        LOG << "NAT table collision. Port " << inet.source_port << " already "
+            << "mapped to " << existing_entry.lan_host_ip.LoggableString()
+            << ", is being remapped to " << ip.source_ip.LoggableString();
+      }
+      existing_entry.lan_host_ip = ip.source_ip;
+    }
+    // Mangle the source IP to point back at our WAN IP
     ip.source_ip = wan_ip;
-    uint16_t original_lan_port = inet.source_port;
-    NAT_Entry *existing_entry = nullptr;
-    for (int i = 0; i < nat_table.size(); ++i) {
-      auto &entry = nat_table[i];
-      if (entry.original_lan_ip == original_lan_ip &&
-          entry.original_lan_port == original_lan_port &&
-          entry.wan_ip == ip.destination_ip) {
-        existing_entry = &entry;
-        break;
-      }
-    }
-    if (existing_entry) {
-      inet.source_port = existing_entry->masqueraded_wan_port;
-    } else {
-      uint16_t masqueraded_wan_port = kMasqueradedPortBegin;
-    check_port:
-      if (masqueraded_wan_port == kMasqueradedPortEnd) {
-        Status status;
-        status() += "Dropping packet because NAT is impossible: no free ports";
-        ERROR << status;
-        return;
-      }
-      for (auto &entry : nat_table) {
-        if (entry.masqueraded_wan_port == masqueraded_wan_port &&
-            entry.wan_ip == ip.destination_ip) {
-          masqueraded_wan_port = entry.masqueraded_wan_port + 1;
-          goto check_port;
-        }
-      }
-
-      inet.source_port = masqueraded_wan_port;
-      nat_table.push_back({.original_lan_ip = original_lan_ip,
-                           .original_lan_port = original_lan_port,
-                           .masqueraded_wan_port = masqueraded_wan_port,
-                           .wan_ip = ip.destination_ip});
-    }
     ip.UpdateChecksum();
     UpdateLayer4Checksum(ip, checksum);
 
