@@ -31,7 +31,7 @@ using namespace std::string_literals;
 // All firewall rules are cleaned up on shutdown.
 namespace gatekeeper::firewall {
 
-static constexpr bool kLogPackets = false;
+static constexpr bool kLogPackets = true;
 static constexpr char kTableName[] = "gatekeeper";
 
 // Equivalent to:
