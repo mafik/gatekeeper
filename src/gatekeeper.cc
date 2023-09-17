@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <linux/if.h>
 #include <linux/wireless.h>
+#include <mutex>
 #include <string>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -205,6 +206,8 @@ Optional<FD> log_file;
 
 void LogToFile(const LogEntry &l) {
   if (log_file) {
+    static std::mutex mutex;
+    std::lock_guard lock(mutex);
     write(*log_file, l.buffer.data(), l.buffer.size());
     write(*log_file, "\n", 1);
   }
