@@ -2,6 +2,7 @@
 #include "optional.hh"
 
 #include <cstring>
+#include <endian.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink.h>
 

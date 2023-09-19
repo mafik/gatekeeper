@@ -67,7 +67,7 @@ map<MAC, IP> ReadEthers(const map<IP, vector<string>> &etc_hosts) {
           }
         }
       }
-    outer:
+    outer:;
     }
   }
   return etc_ethers;

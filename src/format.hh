@@ -2,6 +2,10 @@
 
 #include "str.hh"
 
+#if !__has_builtin(__builtin_dump_struct)
+#include <typeinfo>
+#endif
+
 namespace maf {
 
 // TODO: replace this with std::format when it's available
@@ -25,7 +29,17 @@ constexpr void constexpr_sprintf(std::string &out, const char *format,
 
 template <typename T> std::string dump_struct(const T &t) {
   std::string s;
+#if __has_builtin(__builtin_dump_struct)
   __builtin_dump_struct(&t, constexpr_sprintf, s);
+#else
+#if __cpp_rtti
+  s += typeid(T).name();
+  s += ' ';
+#endif
+  for (int i = 0; i < sizeof(T); ++i) {
+    constexpr_sprintf(s, "%02x ", ((unsigned char *)&t)[i]);
+  }
+#endif
   return s;
 }
 

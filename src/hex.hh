@@ -15,7 +15,7 @@ inline Str BytesToHex(const char *bytes, size_t len) {
   return BytesToHex(Span<>{const_cast<char *>(bytes), len});
 }
 
-template <typename T> inline Str ValToHex(T &val) {
+template <typename T> inline Str ValToHex(const T &val) {
   return BytesToHex(Span<>((char *)(&val), sizeof(T)));
 }
 

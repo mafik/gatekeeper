@@ -11,11 +11,11 @@ namespace {
 static constexpr size_t BLOCK_INTS = 16;
 static constexpr size_t BLOCK_BYTES = BLOCK_INTS * 4;
 
-inline static uint32_t rol(const uint32_t value, const size_t bits) {
+inline static U32 rol(const U32 value, const size_t bits) {
   return (value << bits) | (value >> (32 - bits));
 }
 
-inline static uint32_t blk(const uint32_t block[BLOCK_INTS], const size_t i) {
+inline static U32 blk(const U32 block[BLOCK_INTS], const size_t i) {
   return rol(block[(i + 13) & 15] ^ block[(i + 8) & 15] ^ block[(i + 2) & 15] ^
                  block[i],
              1);
@@ -25,40 +25,35 @@ inline static uint32_t blk(const uint32_t block[BLOCK_INTS], const size_t i) {
  * (R0+R1), R2, R3, R4 are the different operations used in SHA1
  */
 
-inline static void R0(const uint32_t block[BLOCK_INTS], const uint32_t v,
-                      uint32_t &w, const uint32_t x, const uint32_t y,
-                      uint32_t &z, const size_t i) {
+inline static void R0(const U32 block[BLOCK_INTS], const U32 v, U32 &w,
+                      const U32 x, const U32 y, U32 &z, const size_t i) {
   z += ((w & (x ^ y)) ^ y) + block[i] + 0x5a827999 + rol(v, 5);
   w = rol(w, 30);
 }
 
-inline static void R1(uint32_t block[BLOCK_INTS], const uint32_t v, uint32_t &w,
-                      const uint32_t x, const uint32_t y, uint32_t &z,
-                      const size_t i) {
+inline static void R1(U32 block[BLOCK_INTS], const U32 v, U32 &w, const U32 x,
+                      const U32 y, U32 &z, const size_t i) {
   block[i] = blk(block, i);
   z += ((w & (x ^ y)) ^ y) + block[i] + 0x5a827999 + rol(v, 5);
   w = rol(w, 30);
 }
 
-inline static void R2(uint32_t block[BLOCK_INTS], const uint32_t v, uint32_t &w,
-                      const uint32_t x, const uint32_t y, uint32_t &z,
-                      const size_t i) {
+inline static void R2(U32 block[BLOCK_INTS], const U32 v, U32 &w, const U32 x,
+                      const U32 y, U32 &z, const size_t i) {
   block[i] = blk(block, i);
   z += (w ^ x ^ y) + block[i] + 0x6ed9eba1 + rol(v, 5);
   w = rol(w, 30);
 }
 
-inline static void R3(uint32_t block[BLOCK_INTS], const uint32_t v, uint32_t &w,
-                      const uint32_t x, const uint32_t y, uint32_t &z,
-                      const size_t i) {
+inline static void R3(U32 block[BLOCK_INTS], const U32 v, U32 &w, const U32 x,
+                      const U32 y, U32 &z, const size_t i) {
   block[i] = blk(block, i);
   z += (((w | x) & y) | (w & x)) + block[i] + 0x8f1bbcdc + rol(v, 5);
   w = rol(w, 30);
 }
 
-inline static void R4(uint32_t block[BLOCK_INTS], const uint32_t v, uint32_t &w,
-                      const uint32_t x, const uint32_t y, uint32_t &z,
-                      const size_t i) {
+inline static void R4(U32 block[BLOCK_INTS], const U32 v, U32 &w, const U32 x,
+                      const U32 y, U32 &z, const size_t i) {
   block[i] = blk(block, i);
   z += (w ^ x ^ y) + block[i] + 0xca62c1d6 + rol(v, 5);
   w = rol(w, 30);
@@ -68,13 +63,13 @@ inline static void R4(uint32_t block[BLOCK_INTS], const uint32_t v, uint32_t &w,
  * Hash a single 512-bit block. This is the core of the algorithm.
  */
 
-inline static void transform(uint32_t digest[5], uint32_t block[BLOCK_INTS]) {
+inline static void transform(U32 digest[5], U32 block[BLOCK_INTS]) {
   /* Copy digest[] to working vars */
-  uint32_t a = digest[0];
-  uint32_t b = digest[1];
-  uint32_t c = digest[2];
-  uint32_t d = digest[3];
-  uint32_t e = digest[4];
+  U32 a = digest[0];
+  U32 b = digest[1];
+  U32 c = digest[2];
+  U32 d = digest[3];
+  U32 e = digest[4];
 
   /* 4 rounds of 20 operations each. Loop unrolled. */
   R0(block, a, b, c, d, e, 0);
@@ -168,7 +163,7 @@ inline static void transform(uint32_t digest[5], uint32_t block[BLOCK_INTS]) {
 
 inline static void buffer_to_block(const char buffer[BLOCK_BYTES],
                                    U32 block[BLOCK_INTS]) {
-  /* Convert the std::string (byte buffer) to a uint32_t array (MSB) */
+  /* Convert the std::string (byte buffer) to a U32 array (MSB) */
   for (size_t i = 0; i < BLOCK_INTS; i++) {
     block[i] = (buffer[4 * i + 3] & 0xff) | (buffer[4 * i + 2] & 0xff) << 8 |
                (buffer[4 * i + 1] & 0xff) << 16 |
@@ -181,31 +176,29 @@ inline static void buffer_to_block(const char buffer[BLOCK_BYTES],
 // From https://github.com/983/SHA-256 (public domain)
 namespace {
 
-static inline uint32_t rotr(uint32_t x, int n) {
-  return (x >> n) | (x << (32 - n));
-}
+static inline U32 rotr(U32 x, int n) { return (x >> n) | (x << (32 - n)); }
 
-static inline uint32_t step1(uint32_t e, uint32_t f, uint32_t g) {
+static inline U32 step1(U32 e, U32 f, U32 g) {
   return (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ ((~e) & g));
 }
 
-static inline uint32_t step2(uint32_t a, uint32_t b, uint32_t c) {
+static inline U32 step2(U32 a, U32 b, U32 c) {
   return (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) +
          ((a & b) ^ (a & c) ^ (b & c));
 }
 
-static inline void update_w(uint32_t *w, int i, const uint8_t *buffer) {
+static inline void update_w(U32 *w, int i, const U8 *buffer) {
   int j;
   for (j = 0; j < 16; j++) {
     if (i < 16) {
-      w[j] = ((uint32_t)buffer[0] << 24) | ((uint32_t)buffer[1] << 16) |
-             ((uint32_t)buffer[2] << 8) | ((uint32_t)buffer[3]);
+      w[j] = ((U32)buffer[0] << 24) | ((U32)buffer[1] << 16) |
+             ((U32)buffer[2] << 8) | ((U32)buffer[3]);
       buffer += 4;
     } else {
-      uint32_t a = w[(j + 1) & 15];
-      uint32_t b = w[(j + 14) & 15];
-      uint32_t s0 = (rotr(a, 7) ^ rotr(a, 18) ^ (a >> 3));
-      uint32_t s1 = (rotr(b, 17) ^ rotr(b, 19) ^ (b >> 10));
+      U32 a = w[(j + 1) & 15];
+      U32 b = w[(j + 14) & 15];
+      U32 s0 = (rotr(a, 7) ^ rotr(a, 18) ^ (a >> 3));
+      U32 s1 = (rotr(b, 17) ^ rotr(b, 19) ^ (b >> 10));
       w[j] += w[(j + 9) & 15] + s0 + s1;
     }
   }
@@ -226,25 +219,22 @@ namespace {
 
 #define LOAD64H(x, y)                                                          \
   {                                                                            \
-    x = (((uint64_t)((y)[0] & 255)) << 56) |                                   \
-        (((uint64_t)((y)[1] & 255)) << 48) |                                   \
-        (((uint64_t)((y)[2] & 255)) << 40) |                                   \
-        (((uint64_t)((y)[3] & 255)) << 32) |                                   \
-        (((uint64_t)((y)[4] & 255)) << 24) |                                   \
-        (((uint64_t)((y)[5] & 255)) << 16) |                                   \
-        (((uint64_t)((y)[6] & 255)) << 8) | (((uint64_t)((y)[7] & 255)));      \
+    x = (((U64)((y)[0] & 255)) << 56) | (((U64)((y)[1] & 255)) << 48) |        \
+        (((U64)((y)[2] & 255)) << 40) | (((U64)((y)[3] & 255)) << 32) |        \
+        (((U64)((y)[4] & 255)) << 24) | (((U64)((y)[5] & 255)) << 16) |        \
+        (((U64)((y)[6] & 255)) << 8) | (((U64)((y)[7] & 255)));                \
   }
 
 #define STORE64H(x, y)                                                         \
   {                                                                            \
-    (y)[0] = (uint8_t)(((x) >> 56) & 255);                                     \
-    (y)[1] = (uint8_t)(((x) >> 48) & 255);                                     \
-    (y)[2] = (uint8_t)(((x) >> 40) & 255);                                     \
-    (y)[3] = (uint8_t)(((x) >> 32) & 255);                                     \
-    (y)[4] = (uint8_t)(((x) >> 24) & 255);                                     \
-    (y)[5] = (uint8_t)(((x) >> 16) & 255);                                     \
-    (y)[6] = (uint8_t)(((x) >> 8) & 255);                                      \
-    (y)[7] = (uint8_t)((x) & 255);                                             \
+    (y)[0] = (U8)(((x) >> 56) & 255);                                          \
+    (y)[1] = (U8)(((x) >> 48) & 255);                                          \
+    (y)[2] = (U8)(((x) >> 40) & 255);                                          \
+    (y)[3] = (U8)(((x) >> 32) & 255);                                          \
+    (y)[4] = (U8)(((x) >> 24) & 255);                                          \
+    (y)[5] = (U8)(((x) >> 16) & 255);                                          \
+    (y)[6] = (U8)(((x) >> 8) & 255);                                           \
+    (y)[7] = (U8)((x) & 255);                                                  \
   }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -252,7 +242,7 @@ namespace {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // The K array
-static const uint64_t K[80] = {
+static const U64 K[80] = {
     0x428a2f98d728ae22ULL, 0x7137449123ef65cdULL, 0xb5c0fbcfec4d3b2fULL,
     0xe9b5dba58189dbbcULL, 0x3956c25bf348b538ULL, 0x59f111f1b605d019ULL,
     0x923f82a4af194f9bULL, 0xab1c5ed5da6d8118ULL, 0xd807aa98a3030242ULL,
@@ -291,7 +281,7 @@ static const uint64_t K[80] = {
 #define Ch(x, y, z) (z ^ (x & (y ^ z)))
 #define Maj(x, y, z) (((x | y) & z) | (x & y))
 #define S(x, n) ROR64(x, n)
-#define R(x, n) (((x) & 0xFFFFFFFFFFFFFFFFULL) >> ((uint64_t)n))
+#define R(x, n) (((x) & 0xFFFFFFFFFFFFFFFFULL) >> ((U64)n))
 #define Sigma0(x) (S(x, 28) ^ S(x, 34) ^ S(x, 39))
 #define Sigma1(x) (S(x, 14) ^ S(x, 18) ^ S(x, 41))
 #define Gamma0(x) (S(x, 1) ^ S(x, 8) ^ R(x, 7))
@@ -303,11 +293,11 @@ static const uint64_t K[80] = {
   d += t0;                                                                     \
   h = t0 + t1;
 
-static void TransformFunction(uint64_t state[8], uint8_t const *Buffer) {
-  uint64_t S[8];
-  uint64_t W[80];
-  uint64_t t0;
-  uint64_t t1;
+static void TransformFunction(U64 state[8], U8 const *Buffer) {
+  U64 S[8];
+  U64 W[80];
+  U64 t0;
+  U64 t1;
   int i;
 
   // Copy state into S
@@ -346,11 +336,11 @@ static void TransformFunction(uint64_t state[8], uint8_t const *Buffer) {
 }; // namespace
 
 SHA1::SHA1(Span<> mem) {
-  uint64_t total_bits = mem.size() * 8;
-  uint32_t digest[5] = {
+  U64 total_bits = mem.size() * 8;
+  U32 digest[5] = {
       0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0,
   };
-  uint32_t block[BLOCK_INTS];
+  U32 block[BLOCK_INTS];
 
   while (mem.size() >= BLOCK_BYTES) {
     buffer_to_block(mem.data(), block);
@@ -372,9 +362,9 @@ SHA1::SHA1(Span<> mem) {
     }
   }
 
-  /* Append total_bits, split this uint64_t into two uint32_t */
-  block[BLOCK_INTS - 1] = (uint32_t)total_bits;
-  block[BLOCK_INTS - 2] = (uint32_t)(total_bits >> 32);
+  /* Append total_bits, split this U64 into two U32 */
+  block[BLOCK_INTS - 1] = (U32)total_bits;
+  block[BLOCK_INTS - 2] = (U32)(total_bits >> 32);
   transform(digest, block);
 
   for (size_t i = 0; i < 5; i++) {
@@ -390,9 +380,9 @@ SHA256::Builder::Builder()
       n_bits(0), buffer_counter(0) {}
 
 static void Block(SHA256::Builder &sha) {
-  uint32_t *state = sha.state;
+  U32 *state = sha.state;
 
-  static const uint32_t k[8 * 8] = {
+  static const U32 k[8 * 8] = {
       0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
       0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
       0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
@@ -406,23 +396,23 @@ static void Block(SHA256::Builder &sha) {
       0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
   };
 
-  uint32_t a = state[0];
-  uint32_t b = state[1];
-  uint32_t c = state[2];
-  uint32_t d = state[3];
-  uint32_t e = state[4];
-  uint32_t f = state[5];
-  uint32_t g = state[6];
-  uint32_t h = state[7];
+  U32 a = state[0];
+  U32 b = state[1];
+  U32 c = state[2];
+  U32 d = state[3];
+  U32 e = state[4];
+  U32 f = state[5];
+  U32 g = state[6];
+  U32 h = state[7];
 
-  uint32_t w[16];
+  U32 w[16];
 
   int i, j;
   for (i = 0; i < 64; i += 16) {
     update_w(w, i, sha.buffer);
 
     for (j = 0; j < 16; j += 4) {
-      uint32_t temp;
+      U32 temp;
       temp = h + step1(e, f, g) + k[i + j + 0] + w[j + 0];
       h = temp + d;
       d = temp + step2(a, b, c);
@@ -448,7 +438,7 @@ static void Block(SHA256::Builder &sha) {
   state[7] += h;
 }
 
-static void AppendByte(SHA256::Builder &builder, uint8_t byte) {
+static void AppendByte(SHA256::Builder &builder, U8 byte) {
   builder.buffer[builder.buffer_counter++] = byte;
   builder.n_bits += 8;
 
@@ -468,7 +458,7 @@ SHA256::Builder &SHA256::Builder::Update(Span<> mem) {
 static void FinalizeTo(SHA256::Builder &builder, SHA256 &out_sha) {
   char *ptr = out_sha.bytes;
 
-  uint64_t n_bits = builder.n_bits;
+  U64 n_bits = builder.n_bits;
 
   AppendByte(builder, 0x80);
 
@@ -477,7 +467,7 @@ static void FinalizeTo(SHA256::Builder &builder, SHA256 &out_sha) {
   }
 
   for (int i = 7; i >= 0; i--) {
-    uint8_t byte = (n_bits >> 8 * i) & 0xff;
+    U8 byte = (n_bits >> 8 * i) & 0xff;
     AppendByte(builder, byte);
   }
 
@@ -507,14 +497,14 @@ static void FinalizeTo(SHA512::Builder &builder, SHA512 &sha) {
   builder.length += builder.curlen * 8ULL;
 
   // Append the '1' bit
-  builder.buf[builder.curlen++] = (uint8_t)0x80;
+  builder.buf[builder.curlen++] = (U8)0x80;
 
   // If the length is currently above 112 bytes we append zeros
   // then compress.  Then we can fall back to padding zeros and length
   // encoding like normal.
   if (builder.curlen > 112) {
     while (builder.curlen < 128) {
-      builder.buf[builder.curlen++] = (uint8_t)0;
+      builder.buf[builder.curlen++] = (U8)0;
     }
     TransformFunction(builder.state, builder.buf);
     builder.curlen = 0;
@@ -524,7 +514,7 @@ static void FinalizeTo(SHA512::Builder &builder, SHA512 &sha) {
   // note: that from 112 to 120 is the 64 MSB of the length.  We assume that you
   // won't hash > 2^64 bits of data... :-)
   while (builder.curlen < 120) {
-    builder.buf[builder.curlen++] = (uint8_t)0;
+    builder.buf[builder.curlen++] = (U8)0;
   }
 
   // Store length
@@ -559,11 +549,11 @@ SHA512::Builder::Builder() {
 SHA512::Builder &SHA512::Builder::Update(Span<> mem) {
   while (mem.size() > 0) {
     if (curlen == 0 && mem.size() >= BLOCK_SIZE) {
-      TransformFunction(state, (uint8_t *)mem.data());
+      TransformFunction(state, (U8 *)mem.data());
       length += BLOCK_SIZE * 8;
       mem = mem.subspan<BLOCK_SIZE>();
     } else {
-      uint32_t n = MIN(mem.size(), (BLOCK_SIZE - curlen));
+      U32 n = MIN(mem.size(), (BLOCK_SIZE - curlen));
       memcpy(buf + curlen, mem.data(), (size_t)n);
       curlen += n;
       mem = mem.subspan(n);

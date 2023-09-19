@@ -1,6 +1,7 @@
 #include "systemd.hh"
 
 #include <cerrno>
+#include <cstring>
 #include <optional>
 #include <sys/stat.h>
 #include <sys/un.h>

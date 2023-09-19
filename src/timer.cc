@@ -1,7 +1,7 @@
 #include "timer.hh"
 #include "epoll.hh"
 #include "status.hh"
-#include <bits/types/time_t.h>
+
 #include <cassert>
 #include <cstring>
 #include <sys/timerfd.h>
