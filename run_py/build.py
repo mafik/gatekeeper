@@ -123,8 +123,11 @@ compiler = os.environ[
 default_compile_args = [
     '-std=c++2b', '-fcolor-diagnostics', '-static', '-ffunction-sections',
     '-fdata-sections', '-funsigned-char', '-D_FORTIFY_SOURCE=2', '-Wformat',
-    '-Wformat-security', '-Werror=format-security'
+    '-Wformat-security', '-Werror=format-security', '-fno-plt'
 ]
+if 'CXXFLAGS' in os.environ:
+    default_compile_args += os.environ['CXXFLAGS'].split()
+
 release_compile_args = [
     '-O3',
     '-DNDEBUG',
@@ -137,8 +140,24 @@ debug_compile_args = ['-O0', '-g', '-gdwarf-4', '-D_DEBUG']
 default_link_args = [
     '-fuse-ld=lld', '-static', '-Wl,--gc-sections', '-Wl,--build-id=none'
 ]
+
+if 'LDFLAGS' in os.environ:
+    for flag in os.environ['LDFLAGS'].split():
+        default_link_args.append(f'-Wl,{flag}')
+
 release_link_args = ['-flto', '-Wl,--strip-all', '-Wl,-z,relro', '-Wl,-z,now']
 debug_link_args = []
+
+if 'gcc' in compiler:
+    # GCC doesn't support -fcolor-diagnostics
+    default_compile_args.remove('-fcolor-diagnostics')
+
+if 'OPENWRT_BUILD' in os.environ:
+    # OpenWRT has issues with -static C++ builds
+    # https://github.com/openwrt/openwrt/issues/6710
+    default_link_args.append('-lgcc_pic')
+    # OpenWRT doesn't come with lld
+    default_link_args.remove('-fuse-ld=lld')
 
 if args.verbose:
     default_compile_args.append('-v')
@@ -184,12 +203,13 @@ def recipe() -> make.Recipe:
         compilation_db.append(
             CompilationEntry(str(obj.source.path), str(obj.path), pargs))
     for bin in bins:
-        pargs = [compiler] + default_link_args
+        pargs = [compiler]
+        pargs += [str(obj.path) for obj in bin.objects]
+        pargs += default_link_args
         if bin.build_type == 'debug':
             pargs += debug_link_args
         elif bin.build_type == 'release':
             pargs += release_link_args
-        pargs += [str(obj.path) for obj in bin.objects]
         pargs += bin.link_args
         pargs += ['-o', str(bin.path)]
         builder = functools.partial(make.Popen, pargs)
