@@ -345,7 +345,7 @@ private:
 
 struct __attribute__((__packed__)) HostName : Base {
   static constexpr OptionCode kCode = OptionCode_HostName;
-  const uint8_t value[0];
+  const uint8_t value[];
   HostName() = delete;
   string to_string() const { return "HostName(" + hostname() + ")"; }
   string hostname() const { return std::string((const char *)value, length); }
@@ -353,7 +353,7 @@ struct __attribute__((__packed__)) HostName : Base {
 
 struct __attribute__((__packed__)) DomainName : Base {
   static constexpr OptionCode kCode = OptionCode_DomainName;
-  const uint8_t value[0];
+  const uint8_t value[];
   static unique_ptr<DomainName, FreeDeleter> Make(string domain_name) {
     int n = domain_name.size();
     void *buffer = malloc(sizeof(DomainName) + n);
