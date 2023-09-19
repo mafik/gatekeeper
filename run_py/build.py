@@ -148,7 +148,7 @@ if 'LDFLAGS' in os.environ:
 release_link_args = ['-flto', '-Wl,--strip-all', '-Wl,-z,relro', '-Wl,-z,now']
 debug_link_args = []
 
-if 'gcc' in compiler:
+if 'g++' in compiler and 'clang' not in compiler:
     # GCC doesn't support -fcolor-diagnostics
     default_compile_args.remove('-fcolor-diagnostics')
 
