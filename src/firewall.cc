@@ -112,6 +112,10 @@ struct NetfilterHook {
             status);
     if (!status.Ok()) {
       status() += "Error while creating POSTROUTING netfilter rule";
+      status() +=
+          "Note: the following error is known to happen when Linux lacks "
+          "support for packet processing in userspace. Make sure to install & "
+          "load kernel modules: nfnetlink-queue & nft-queue";
       return;
     }
     NewRule(netlink, family, kTableName, "PREROUTING", PreroutingRule(),
@@ -122,12 +126,26 @@ struct NetfilterHook {
     }
     // On some machines the default policy of "filter" "FORWARD" is to drop.
     // We override it with "accept".
-    NewChain(netlink, family, "filter", "FORWARD", std::nullopt, true, status);
-    if (!status.Ok()) {
-      status() += "Error while creating POSTROUTING netfilter chain";
-      return;
+    // Errors can be safely ignored - not all devices have this table.
+    Status status_ignore;
+    NewChain(netlink, Family::IPv4, "filter", "FORWARD", std::nullopt, true,
+             status_ignore);
+    DisableOpenWRTFirewall(netlink);
+  }
+
+  // OpenWRT ships with a firewall (called "fw4") and plenty of rules for
+  // handling different types of (often malicious) traffic. We take care of all
+  // of that in userspace. This function clears all of "fw4" rules so they don't
+  // interfere.
+  void DisableOpenWRTFirewall(Netlink &netlink) {
+    Status ok_if_openwrt;
+    DelTable(netlink, Family::INET, "fw4", ok_if_openwrt);
+    if (ok_if_openwrt.Ok()) {
+      LOG << "Disabled OpenWRT fw4 firewall. This is OK because Gatekeeper "
+             "will take care of it now.";
     }
   }
+
   ~NetfilterHook() {
     Status status;
     Netlink netlink(NETLINK_NETFILTER, status);

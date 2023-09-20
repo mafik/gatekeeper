@@ -6,7 +6,6 @@
 #include <linux/netfilter/nfnetlink_queue.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include <optional>
 #include <string>
 
 namespace maf {

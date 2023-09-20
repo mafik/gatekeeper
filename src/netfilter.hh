@@ -13,7 +13,8 @@ namespace maf::netfilter {
 
 enum class Family : uint8_t {
   UNSPEC = 0,
-  IPv4 = 2,
+  INET = 1, // AF_UNIX, corresponds to the "inet" family
+  IPv4 = 2, // AF_INET, corresponds to the "ip" family
 };
 
 enum class Hook {
@@ -25,18 +26,22 @@ enum class Hook {
 };
 
 // Create a new nftables table.
-void NewTable(Netlink &netlink, Family family, const char *name,
-              Status &status);
+void NewTable(Netlink &, Family, const char *name, Status &status);
 
 // Delete an existing nftables table.
-void DelTable(Netlink &netlink, Family family, const char *name,
-              Status &status);
+void DelTable(Netlink &, Family, const char *name, Status &status);
+
+// Clear all rules in a table.
+void FlushTable(Netlink &, Family, const char *table_name, Status &status);
 
 // Create a new nftables chain.
-void NewChain(Netlink &netlink, Family family, const char *table_name,
-              const char *chain_name,
+void NewChain(Netlink &, Family, const char *table_name, const char *chain_name,
               Optional<std::pair<Hook, int32_t>> hook_priority,
               Optional<bool> policy_accept, Status &status);
+
+// Clear all rules in a chain.
+void FlushChain(Netlink &, Family, const char *table_name,
+                const char *chain_name, Status &status);
 
 // Create a new nftables rule.
 //
@@ -52,7 +57,7 @@ void NewChain(Netlink &netlink, Family family, const char *table_name,
 // values in the <expression> passed to `nft` and observing contents of the
 // generated buffer. It may also be usefull to diff a couple invocations with
 // different values to see where they're located.
-void NewRule(Netlink &netlink, Family family, const char *table_name,
-             const char *chain_name, std::string_view rule, Status &status);
+void NewRule(Netlink &, Family, const char *table_name, const char *chain_name,
+             std::string_view rule, Status &status);
 
 } // namespace maf::netfilter
