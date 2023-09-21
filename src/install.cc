@@ -29,7 +29,8 @@ void Install(Status &status) {
       return;
     }
   }
-  CopyFile("/proc/self/exe", "/opt/gatekeeper/gatekeeper", status, 0755);
+  fs::Copy(fs::real, "/proc/self/exe", fs::real, "/opt/gatekeeper/gatekeeper",
+           status, 0755);
   if (!status.Ok()) {
     AppendErrorMessage(status) += "Failed to copy main binary";
     return;
@@ -54,8 +55,8 @@ void Install(Status &status) {
     return;
   }
 
-  CopyFile("gatekeeper.service", "/opt/gatekeeper/gatekeeper.service", status,
-           0644);
+  fs::Copy(fs::real_then_embedded, "gatekeeper.service", fs::real,
+           "/opt/gatekeeper/gatekeeper.service", status, 0644);
   if (!status.Ok()) {
     AppendErrorMessage(status) += "Failed to copy systemd service file";
     return;

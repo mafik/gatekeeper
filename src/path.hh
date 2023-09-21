@@ -18,6 +18,7 @@ struct Path {
 
   // Replace initial "~" or "~user" with user's home directory.
   Path ExpandUser() const;
+
   // Follow symlink.
   Path ReadLink(Status &) const;
 

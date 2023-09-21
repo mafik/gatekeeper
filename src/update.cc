@@ -164,7 +164,7 @@ static void OnCheckFinished() {
 
   Path update_path = my_path.WithStem(my_path.Stem() + ".update");
 
-  WriteFile(update_path, get->response, status, 0775);
+  fs::Write(fs::real, update_path, get->response, status, 0775);
   if (not OK(status)) {
     AppendErrorMessage(status) += "Update failed while writing updated file";
     ERROR << status;

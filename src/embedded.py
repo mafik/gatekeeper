@@ -32,11 +32,12 @@ def gen(embedded_paths):
 
 namespace gatekeeper::embedded {{
 
-extern std::unordered_map<maf::StrView, maf::VFile*> index;
-''', file=hh)
+extern std::unordered_map<maf::StrView, maf::fs::VFile*> index;
+''',
+              file=hh)
         for path in embedded_paths:
             slug = slug_from_path(path)
-            print(f'extern maf::VFile {slug};', file=hh)
+            print(f'extern maf::fs::VFile {slug};', file=hh)
         print(f'''
 }}  // namespace gatekeeper::embedded''', file=hh)
 
@@ -45,23 +46,28 @@ extern std::unordered_map<maf::StrView, maf::VFile*> index;
 
 using namespace std::string_literals;
 using namespace maf;
+using namespace maf::fs;
 
-namespace gatekeeper::embedded {{''', file=cc)
+namespace gatekeeper::embedded {{''',
+              file=cc)
         for path in embedded_paths:
             slug = slug_from_path(path)
             print(f'''
 VFile {slug} = {{
   .path = "{path}"s,
-  .content = ''', file=cc, end='')
+  .content = ''',
+                  file=cc,
+                  end='')
             buf = path.read_bytes()
             bytes_per_line = 200
             for i in range(0, len(buf), bytes_per_line):
-                chunk = buf[i:i+bytes_per_line]
-                print('\n    ' + cc_embed.bytes_to_c_string(chunk), file=cc, end='')
+                chunk = buf[i:i + bytes_per_line]
+                print('\n    ' + cc_embed.bytes_to_c_string(chunk),
+                      file=cc,
+                      end='')
             print(f'''s,
 }};''', file=cc)
-        print(
-            '''std::unordered_map<maf::StrView, VFile*> index = {''', file=cc)
+        print('''std::unordered_map<StrView, VFile*> index = {''', file=cc)
         for path in embedded_paths:
             slug = slug_from_path(path)
             print(f'  {{ {slug}.path, &{slug} }},', file=cc)
@@ -79,7 +85,9 @@ def hook_srcs(srcs: dict[str, src.File], recipe: make.Recipe):
     fs_utils.generated_dir.mkdir(exist_ok=True)
 
     recipe.add_step(partial(gen, paths), [hh_path, cc_path],
-                    paths, desc='Embedding static files', shortcut='embedded')
+                    paths,
+                    desc='Embedding static files',
+                    shortcut='embedded')
     recipe.generated.add(hh_path)
     recipe.generated.add(cc_path)
 

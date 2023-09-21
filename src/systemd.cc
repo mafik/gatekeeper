@@ -178,8 +178,8 @@ void OverrideEnvironment(StrView unit, StrView env, StrView value,
   path += "/override.conf";
   Status read_status;
   Str override_conf = "";
-  ReadRealFile(
-      path,
+  fs::Map(
+      fs::real, path,
       [&](StrView old_override_conf) { override_conf = old_override_conf; },
       read_status);
   Str service_tag = "\n[Service]\n";
@@ -206,7 +206,7 @@ void OverrideEnvironment(StrView unit, StrView env, StrView value,
                           f("\nEnvironment=\"%*s=%*s\"\n", env.size(),
                             env.data(), value.size(), value.data()));
   }
-  WriteFile(path, override_conf, status);
+  fs::Write(fs::real, path, override_conf, status);
 }
 
 void Ready() { Notify("READY=1"); }

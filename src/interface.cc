@@ -93,7 +93,7 @@ void Interface::Configure(::IP ip, ::Network network, Status &status) {
   }
   // Enable forwarding
   Path path = "/proc/sys/net/ipv4/conf/" + name + "/forwarding";
-  WriteFile(path, "1", status);
+  fs::Write(fs::real, path, "1", status);
   close(fd);
 }
 

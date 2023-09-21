@@ -44,9 +44,9 @@ bool WriteStaticFile(Response &response, Request &request) {
   string path = "static";
   path += request.path;
   Status status;
-  ReadFile(
-      path.c_str(), [&](string_view content) { response.Write(content); },
-      status);
+  fs::Map(
+      fs::real_then_embedded, path.c_str(),
+      [&](string_view content) { response.Write(content); }, status);
   return status.Ok();
 }
 
