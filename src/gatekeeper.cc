@@ -10,6 +10,7 @@
 #include <string>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <unordered_set>
 
 #include "../build/generated/version.hh"
 #include "atexit.hh"
@@ -25,10 +26,12 @@
 #include "log.hh"
 #include "netlink.hh"
 #include "optional.hh"
+#include "proc.hh"
 #include "random.hh"
 #include "rtnetlink.hh"
 #include "sig.hh" // IWYU pragma: keep
 #include "signal.hh"
+#include "sock_diag.hh"
 #include "status.hh"
 #include "systemd.hh"
 #include "update.hh"
@@ -202,6 +205,65 @@ void Deconfigure() {
   }
 }
 
+void KillConflictingProcesses(Status &status) {
+  std::unordered_set<U32> inodes, pids;
+  ScanUdpSockets(
+      [&](InternetSocketDescription &desc) {
+        // Include DHCP (67) & DNS (53).
+        if (desc.local_port == 53 || desc.local_port == 67) {
+          if (desc.local_ip.bytes[0] == 127) {
+            return; // Ignore apps that listen only on localhost (like
+                    // systemd-resolved).
+          }
+          if (desc.local_ip != IP::kZero && desc.local_ip != wan_ip &&
+              desc.local_ip != lan_ip) {
+            return; // Ignore apps that listen on other IPs.
+          }
+          if (desc.interface != 0 && desc.interface != wan.index &&
+              desc.interface != lan.index) {
+            return; // Ignore apps that listen on other interfaces.
+          }
+          inodes.insert(desc.inode);
+        }
+      },
+      status);
+  if (!OK(status)) {
+    return;
+  }
+  ScanTcpSockets(
+      [&](InternetSocketDescription &desc) {
+        if (desc.local_port == 1337) {
+          inodes.insert(desc.inode);
+        }
+      },
+      status);
+  if (!OK(status)) {
+    return;
+  }
+  ScanProcesses(
+      [&inodes, &pids](U32 pid, Status &status) {
+        ScanOpenedFiles(
+            pid,
+            [&](U32 fd, StrView path, Status &status) {
+              if (path.starts_with("socket:[") && path.ends_with("]")) {
+                U32 inode = strtoul(path.data() + 8, nullptr, 10);
+                if (inodes.contains(inode)) {
+                  pids.insert(pid);
+                }
+              }
+            },
+            status);
+      },
+      status);
+  if (!OK(status)) {
+    return;
+  }
+  for (U32 pid : pids) {
+    LOG << "Killing conflicting process " << pid;
+    kill(pid, SIGKILL);
+  }
+}
+
 Optional<FD> log_file;
 
 void LogToFile(const LogEntry &l) {
@@ -299,6 +361,13 @@ int main(int argc, char *argv[]) {
   }
 
   etc::ReadConfig();
+
+  KillConflictingProcesses(status);
+  if (!OK(status)) {
+    status() += "Couldn't kill conflicting processes";
+    ERROR << status;
+    return 1;
+  }
 
   // Note: firewall can be started only after LAN & WAN are configured.
   firewall::Start(status);

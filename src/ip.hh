@@ -37,6 +37,8 @@ union __attribute__((__packed__)) IP {
     return *this;
   }
   bool TryParse(const char *cp) { return inet_pton(AF_INET, cp, &addr) == 1; }
+
+  const static IP kZero;
 };
 
 struct Network {

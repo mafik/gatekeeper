@@ -12,7 +12,7 @@ constexpr Size DynamicExtent = std::dynamic_extent;
 // Wrapper around std::span with some quality-of-life improvements.
 template <class T = char, Size Extent = DynamicExtent>
 struct Span : std::span<T, Extent> {
-  using std::span<char, Extent>::span;
+  using std::span<T, Extent>::span;
 
   // Allow Span of const arrays.
   inline Span(const T *arr, Size n)

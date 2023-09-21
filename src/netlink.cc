@@ -2,6 +2,7 @@
 #include "format.hh"
 
 #include <cstring>
+#include <linux/inet_diag.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink_queue.h>
 #include <linux/netlink.h>
@@ -66,6 +67,8 @@ static constexpr uint32_t AttributeMax(uint32_t protocol, nlmsghdr &hdr) {
     default:
       return -1; // unknown netlink subsystem
     }
+  case NETLINK_SOCK_DIAG:
+    return INET_DIAG_MAX;
   default: // unknown protocol (should have been reported in the constructor)
     return -1;
   }
@@ -78,6 +81,9 @@ Netlink::Netlink(int protocol, Status &status) : protocol(protocol) {
     break;
   case NETLINK_NETFILTER:
     fixed_message_size = sizeof(nfgenmsg);
+    break;
+  case NETLINK_SOCK_DIAG:
+    fixed_message_size = sizeof(inet_diag_msg);
     break;
   default:
     status() += "Unknown netlink protocol " + std::to_string(protocol);
@@ -311,8 +317,13 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
         }
 
         if (buf_iter != msg_end) {
-          status() += f("Parsing error");
-          return; // Parsing error - don't progress further to avoid more noise
+          buf_iter = (char *)(((uintptr_t)buf_iter + 3ull) & ~3ull);
+          if (buf_iter != msg_end) {
+            status() += f("Parsing error (buf_iter=%p, msg_end=%p)",
+                          buf_iter - buf, msg_end - buf);
+            return; // Parsing error - don't progress further to avoid more
+                    // noise
+          }
         }
 
         if ((hdr->nlmsg_flags & NLM_F_MULTI) == 0) {

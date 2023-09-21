@@ -3,9 +3,10 @@
 #include <functional>
 
 #include <linux/netlink.h>
-#include <span>
 
 #include "fd.hh"
+#include "fn.hh"
+#include "span.hh"
 #include "status.hh"
 
 namespace maf {
@@ -83,7 +84,7 @@ struct Netlink {
   void SendRaw(std::string_view, Status &status);
 
   using ReceiveCallback =
-      std::function<void(void *fixed_message, std::span<Attr *> attributes)>;
+      Fn<void(void *fixed_message, Span<Attr *> attributes)>;
 
   // Receive one or more netlink messages.
   //
@@ -108,13 +109,12 @@ struct Netlink {
   void ReceiveAck(Status &status);
 
   template <typename T>
-  void ReceiveT(
-      uint16_t expected_type,
-      std::function<void(T &message, std::span<Attr *> attributes)> callback,
-      Status &status) {
+  void ReceiveT(uint16_t expected_type,
+                Fn<void(T &message, Span<Attr *> attributes)> callback,
+                Status &status) {
     Receive(
         expected_type,
-        [&](void *fixed_message, std::span<Attr *> attributes) {
+        [&](void *fixed_message, Span<Attr *> attributes) {
           callback(*(T *)fixed_message, attributes);
         },
         status);

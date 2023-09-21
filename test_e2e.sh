@@ -32,6 +32,11 @@ ip addr flush dev $DEV_A
 ip netns exec $NS ip addr flush dev $DEV_B
 ip netns exec $NS ip link set $DEV_B up
 
+# Start a "blocker" of port 53
+# Gatekeeper should kill it during startup
+nc -lup 53 &
+BLOCKER_PID=$!
+
 # Start Gatekeeper
 systemctl reset-failed
 systemd-run --service-type=notify --same-dir --unit=gatekeeper-e2e --setenv=LAN=$DEV_A --setenv=LOG_TO_FILE=$LOG_TO_FILE --quiet valgrind --leak-check=yes --track-origins=yes --log-file=valgrind.log build/debug_gatekeeper
@@ -55,6 +60,11 @@ rm -f /etc/dhcp/dhclient-enter-hooks.d/test-dhclient-hook
 
 # Stop Gatekeeper
 systemctl stop gatekeeper-e2e
+
+if ps -p $BLOCKER_PID >/dev/null; then
+  echo "Startup issue. Gatekeeper failed to kill another process listening on DNS port"
+  kill $BLOCKER_PID
+fi
 
 # replace the last segment of $GATEKEEPER_IP with "2"
 EXPECTED_CLIENT_IP=$(echo $GATEKEEPER_IP | sed 's/\.[0-9]*$/.2/')

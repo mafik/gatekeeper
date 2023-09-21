@@ -9,6 +9,8 @@
 
 namespace maf {
 
+const IP IP::kZero;
+
 IP IP::FromInterface(std::string_view interface_name, Status &status) {
   ifreq ifr = {};
   int sock = socket(AF_INET, SOCK_DGRAM, 0);
