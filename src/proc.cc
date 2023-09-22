@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "fd.hh"
@@ -11,11 +12,11 @@
 namespace maf {
 
 struct linux_dirent64 {
-  ino64_t d_ino;           /* 64-bit inode number */
-  off64_t d_off;           /* 64-bit offset to next structure */
-  unsigned short d_reclen; /* Size of this dirent */
-  unsigned char d_type;    /* File type */
-  char d_name[];           /* Filename (null-terminated) */
+  U64 d_ino;     /* 64-bit inode number */
+  U64 d_off;     /* 64-bit offset to next structure */
+  U16 d_reclen;  /* Size of this linux_dirent64 */
+  U8 d_type;     /* File type */
+  char d_name[]; /* Filename (null-terminated) */
 };
 
 void ScanProcesses(Fn<void(U32 pid, Status &)> callback, Status &status) {
@@ -26,7 +27,7 @@ void ScanProcesses(Fn<void(U32 pid, Status &)> callback, Status &status) {
   }
   while (true) {
     U8 buf[4096];
-    SSize ret = getdents64(proc.fd, buf, sizeof(buf));
+    SSize ret = syscall(SYS_getdents64, proc.fd, buf, sizeof(buf));
     if (ret == 0) {
       return;
     }
@@ -56,7 +57,7 @@ void ScanOpenedFiles(U32 pid, Fn<void(U32 fd, StrView path, Status &)> callback,
   }
   while (true) {
     U8 buf[4096];
-    SSize ret = getdents64(proc.fd, buf, sizeof(buf));
+    SSize ret = syscall(SYS_getdents64, proc.fd, buf, sizeof(buf));
     if (ret == 0) {
       return;
     }
