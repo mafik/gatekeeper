@@ -36,6 +36,7 @@
 #include "systemd.hh"
 #include "update.hh"
 #include "webui.hh"
+#include "xdg.hh"
 
 #pragma maf main
 
@@ -401,18 +402,9 @@ int main(int argc, char *argv[]) {
   LOG << "Gatekeeper running at http://" << lan_ip << ":1337/";
   systemd::Ready();
   if (not systemd::IsRunningUnderSystemd()) {
-    Str xdg_open_cmd =
-        f("xdg-open http://%s:1337/", lan_ip.to_string().c_str());
-    if (auto sudo_user = getenv("SUDO_USER")) {
-      if (auto sudo_uid = getenv("SUDO_UID")) {
-        xdg_open_cmd = f(
-            "sudo -u %s DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%s/bus %s",
-            sudo_user, sudo_uid, xdg_open_cmd.c_str());
-      } else {
-        xdg_open_cmd = f("sudo -u %s %s", sudo_user, xdg_open_cmd.c_str());
-      }
-    }
-    system(xdg_open_cmd.c_str());
+    Str url = f("http://%s:1337/", lan_ip.to_string().c_str());
+    Status status_ignored;
+    xdg::Open(url, status_ignored);
   }
 
   epoll::Loop(status);
