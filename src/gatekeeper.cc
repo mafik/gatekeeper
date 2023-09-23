@@ -259,7 +259,9 @@ void KillConflictingProcesses(Status &status) {
     return;
   }
   for (U32 pid : pids) {
-    LOG << "Killing conflicting process " << pid;
+    Status status_ignored;
+    LOG << "Killing conflicting process \""
+        << GetProcessName(pid, status_ignored) << "\" (PID=" << pid << ")";
     kill(pid, SIGKILL);
   }
 }

@@ -8,6 +8,7 @@
 
 #include "fd.hh"
 #include "format.hh"
+#include "virtual_fs.hh"
 
 namespace maf {
 
@@ -81,6 +82,18 @@ void ScanOpenedFiles(U32 pid, Fn<void(U32 fd, StrView path, Status &)> callback,
       }
     }
   }
+}
+
+Str GetProcessName(U32 pid, Status &status) {
+  Path path = f("/proc/%d/comm", pid);
+  Str process_name = fs::Read(fs::real, path, status);
+  if (!OK(status)) {
+    return "";
+  }
+  if (process_name.ends_with('\n')) {
+    process_name.pop_back();
+  }
+  return process_name;
 }
 
 } // namespace maf
