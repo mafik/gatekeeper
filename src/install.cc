@@ -17,7 +17,9 @@ using namespace maf;
 
 namespace gatekeeper::install {
 
-bool CanInstall() { return not systemd::IsRunningUnderSystemd(); }
+bool CanInstall() {
+  return not systemd::IsRunningUnderSystemd() && systemd::IsSystemdAvailable();
+}
 
 void Install(Status &status) {
   int ret = mkdir("/opt/gatekeeper", 0755);

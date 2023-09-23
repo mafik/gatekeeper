@@ -21,6 +21,18 @@ std::optional<FD> journal_socket;
 
 bool IsRunningUnderSystemd() { return getenv("NOTIFY_SOCKET") != nullptr; }
 
+bool IsSystemdAvailable() {
+  static const bool is_systemd_available = []() {
+    Status status_ignored;
+    Str process_name = fs::Read(fs::real, "/proc/1/comm", status_ignored);
+    if (!OK(status_ignored)) {
+      return false;
+    }
+    return process_name == "systemd\n";
+  }();
+  return is_systemd_available;
+}
+
 static void Notify(StrView msg) {
   if (notify_socket) {
     send(*notify_socket, msg.data(), msg.size(), MSG_NOSIGNAL);

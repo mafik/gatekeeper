@@ -5,7 +5,11 @@
 
 namespace systemd {
 
+// Returns true when the current process is running under systemd.
 bool IsRunningUnderSystemd();
+
+// Returns true when systemd is available on the system.
+bool IsSystemdAvailable();
 
 // Call this function after epoll::Init to setup systemd integration.
 //
