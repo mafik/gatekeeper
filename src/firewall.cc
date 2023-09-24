@@ -1,11 +1,13 @@
 #include "firewall.hh"
 
+#include <csignal>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_queue.h>
 #include <sys/prctl.h>
 
 #include <optional>
 #include <thread>
+#include <unistd.h>
 #include <utility>
 
 #include "config.hh"
@@ -391,15 +393,20 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   }
 }
 
-std::atomic_bool running = true;
+std::atomic_int loop_tid = 0;
+
+bool stop = false;
+
+static void sig_handler(int signum) { stop = true; }
 
 void Loop() {
   prctl(PR_SET_NAME, "Firewall loop", 0, 0, 0);
-  while (running) {
+  loop_tid = gettid();
+  while (!stop) {
     Status status;
     queue->ReceiveT<nfgenmsg>(NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
                               OnReceive, status);
-    if (running && !status.Ok()) {
+    if (!stop && !status.Ok()) {
       status() += "Firewall failed to receive message from kernel";
       ERROR << status;
     }
@@ -407,7 +414,6 @@ void Loop() {
 }
 
 void Start(Status &status) {
-  running = true;
   hook.emplace(status);
   if (!status.Ok()) {
     return;
@@ -423,12 +429,26 @@ void Start(Status &status) {
 
   CopyPacket copy_packet;
   queue->Send(copy_packet, status);
+
+  // Use SIGUSR1 to stop the firewall loop.
+  //
+  // This may seem strange but it's the best way to interrupt the blocked `recv`
+  // call.
+  //
+  // Signal is established using sigaction to avoid SA_RESTART flag, and make
+  // the `recv` call return EINTR.
+  //
+  // One alternative might be to use a pipe and `select` to wait for either data
+  // from the firewall queue or a stop command.
+  struct sigaction sa = {};
+  sa.sa_handler = sig_handler;
+  sigaction(SIGUSR1, &sa, nullptr);
+
   loop = std::thread(Loop);
 }
 
 void Stop() {
-  running = false;
-  queue->fd.Close();
+  tgkill(getpid(), loop_tid, SIGUSR1);
   loop.join();
   queue.reset();
   hook.reset();
