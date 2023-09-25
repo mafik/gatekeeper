@@ -12,6 +12,7 @@ struct Status {
     std::unique_ptr<Entry> next;
     std::source_location location;
     Str message;
+    Str advice;
   };
 
   std::unique_ptr<Entry> entry;
@@ -35,5 +36,6 @@ inline Str &AppendErrorMessage(
     const std::source_location location_arg = std::source_location::current()) {
   return s(location_arg);
 }
+void AppendErrorAdvice(Status &, StrView advice);
 
 } // namespace maf

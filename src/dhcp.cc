@@ -901,11 +901,17 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
 
   if (source_ip == IP(0, 0, 0, 0)) {
     // Set client MAC in the ARP table
-    arp::Set(lan.name, response_ip, packet.client_mac_address, fd, log_error);
-    if (!log_error.empty()) {
-      ERROR << "Failed to set the client IP/MAC association in the system "
-               "ARP table: "
-            << log_error;
+    Status status;
+    arp::Set(lan.name, response_ip, packet.client_mac_address, fd, status);
+    if (!OK(status)) {
+      AppendErrorMessage(status) +=
+          "Failed to set the client IP/MAC association in the system ARP table";
+      AppendErrorAdvice(status,
+                        "This may happen when the server is under "
+                        "a denial of service attack. You may identify where "
+                        "the attack comes from by unplugging LAN devices one "
+                        "by one until the error stops coming up.");
+      ERROR << status;
       return;
     }
   }

@@ -5,9 +5,9 @@
 #include "ip.hh"
 #include "mac.hh"
 
-namespace arp {
+namespace maf::arp {
 
 void Set(const std::string &interface, maf::IP ip, MAC mac, int af_inet_fd,
-         std::string &error);
+         Status &status);
 
-} // namespace arp
+} // namespace maf::arp

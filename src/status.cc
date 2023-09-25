@@ -18,6 +18,12 @@ Str &Status::operator()(const std::source_location location_arg) {
   return entry->message;
 }
 
+void AppendErrorAdvice(Status &status, StrView advice) {
+  if (status.entry) {
+    status.entry->advice += advice;
+  }
+}
+
 bool Status::Ok() const { return errsv == 0 && entry == nullptr; }
 
 Str Status::ToString() const {

@@ -34,11 +34,7 @@
 __pycache__
 .cache
 
-gatekeeper.tar.gz
-
-valgrind.log
-valgrind-out.txt
-massif-out.txt
+*.log
 log-e2e.txt
 
 build

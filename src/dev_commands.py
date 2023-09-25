@@ -41,6 +41,10 @@ def test_e2e():
     return make.Popen(['sudo', './test_e2e.sh'])
 
 
+def test_dhcp():
+    return make.Popen(['sudo', './tests/dhcp.sh'])
+
+
 def hook_final(srcs, objs, bins, recipe: make.Recipe):
     deps = ['build/debug_gatekeeper']
     recipe.add_step(debug, [], deps)
@@ -49,3 +53,4 @@ def hook_final(srcs, objs, bins, recipe: make.Recipe):
     recipe.add_step(massif, [], deps)
     recipe.add_step(net_reset, [], deps)
     recipe.add_step(test_e2e, [], deps)
+    recipe.add_step(test_dhcp, [], deps)

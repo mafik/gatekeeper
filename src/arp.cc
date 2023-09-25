@@ -1,11 +1,10 @@
 #include "arp.hh"
+#include "status.hh"
 
 #include <net/if_arp.h>
 #include <sys/ioctl.h>
 
-using namespace maf;
-
-namespace arp {
+namespace maf::arp {
 
 struct IOCtlRequest {
   struct sockaddr_in protocol_address;
@@ -19,7 +18,7 @@ static_assert(sizeof(IOCtlRequest) == sizeof(arpreq),
               "IOCtlRequest doesn't match `struct arpreq` from <net/if_arp.h>");
 
 void Set(const std::string &interface, IP ip, MAC mac, int af_inet_fd,
-         std::string &error) {
+         Status &status) {
   IOCtlRequest r{
       .protocol_address = {.sin_family = AF_INET,
                            .sin_addr = {.s_addr = ip.addr}},
@@ -31,9 +30,8 @@ void Set(const std::string &interface, IP ip, MAC mac, int af_inet_fd,
   };
   strncpy(r.device, interface.c_str(), sizeof(r.device));
   if (ioctl(af_inet_fd, SIOCSARP, &r) < 0) {
-    error = "ioctl(SIOCSARP) failed: ";
-    error += strerror(errno);
+    AppendErrorMessage(status) += "ioctl(SIOCSARP) failed";
   }
 }
 
-} // namespace arp
+} // namespace maf::arp
