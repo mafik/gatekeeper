@@ -49,6 +49,10 @@ def test_dns():
     return make.Popen(['sudo', './tests/dns.sh'])
 
 
+def test_tcp():
+    return make.Popen(['sudo', './tests/tcp.sh'])
+
+
 def hook_final(srcs, objs, bins, recipe: make.Recipe):
     deps = ['build/debug_gatekeeper']
     recipe.add_step(debug, [], deps)
@@ -59,3 +63,4 @@ def hook_final(srcs, objs, bins, recipe: make.Recipe):
     recipe.add_step(test_e2e, [], deps)
     recipe.add_step(test_dhcp, [], deps)
     recipe.add_step(test_dns, [], deps)
+    recipe.add_step(test_tcp, [], deps)
