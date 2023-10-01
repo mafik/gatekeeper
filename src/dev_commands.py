@@ -34,7 +34,13 @@ def massif():
 def net_reset():
     import subprocess
     subprocess.run('sudo nft delete table gatekeeper', shell=True)
-    subprocess.run('sudo ip addr flush dev enxe8802ee74415', shell=True)
+    subprocess.run('sudo ip addr flush dev veth0a', shell=True)
+    subprocess.run('sudo ip netns exec ns0 ip addr flush dev veth0b',
+                   shell=True)
+    subprocess.run('sudo dhclient -x', shell=True)
+    subprocess.run(
+        'sudo rm -f /etc/dhcp/dhclient-enter-hooks.d/test-dhclient-hook',
+        shell=True)
 
 
 def test_e2e():
