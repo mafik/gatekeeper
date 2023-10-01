@@ -21,6 +21,7 @@ namespace dns {
 
 static constexpr uint16_t kServerPort = 53;
 static constexpr steady_clock::duration kAuthoritativeTTL = 60s;
+static constexpr steady_clock::duration kPendingTTL = 20s;
 
 string TypeToString(Type t) {
   switch (t) {
@@ -386,10 +387,10 @@ struct Client : UDPListener {
       uint16_t id = AllocateRequestId();
       Entry *new_entry = new Entry{
           .question = question,
-          .expiration = steady_clock::now() + 10s,
+          .expiration = steady_clock::now() + kPendingTTL,
           .state = Entry::Pending{id, {}},
       };
-      new_entry->UpdateExpiration(steady_clock::now() + 10s);
+      new_entry->UpdateExpiration(steady_clock::now() + kPendingTTL);
       entry = new_entry;
       cache.insert(entry);
       string buffer;
@@ -814,7 +815,7 @@ void Entry::HandleIncomingRequest(const IncomingRequest &request) const {
                   return;
                 }
               }
-              UpdateExpiration(steady_clock::now() + 10s);
+              UpdateExpiration(steady_clock::now() + kPendingTTL);
               p.incoming_requests.push_back(request);
             },
         },
