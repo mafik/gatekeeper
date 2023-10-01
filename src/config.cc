@@ -1,6 +1,7 @@
 #include "config.hh"
 
-const std::string kLocalDomain = "local";
+// Domain used to access hosts in the local network. Hardcoded to "lan".
+const std::string kLocalDomain = "lan";
 
 // Default values will be overwritten during startup.
 Interface lan = {.name = "eth0", .index = 0};
