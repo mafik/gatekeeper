@@ -331,6 +331,12 @@ int main(int argc, char *argv[]) {
   }
   wan_ip = wan.IP(status);
   if (!status.Ok()) {
+    AppendErrorMessage(status) += "WAN interface doesn't have an IP address";
+    AppendErrorAdvice(
+        status,
+        "Gatekeeper relies on the operating system to configure the external "
+        "internet connection. Try going into internet settings and enable DHCP "
+        "(sometimes called \"automatic\" configuration).");
     ERROR << status;
     return 1;
   }
