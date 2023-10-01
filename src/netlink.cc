@@ -94,7 +94,7 @@ Netlink::Netlink(int protocol, Status &status) : protocol(protocol) {
     status() += "socket(AF_NETLINK, SOCK_RAW, " + f("%x", protocol) + ")";
     return;
   }
-  int sndbuf = 32 * 1024;
+  int sndbuf = 64 * 1024;
   if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) < 0) {
     status() += "setsockopt(SO_SNDBUF)";
     return;

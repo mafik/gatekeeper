@@ -33,18 +33,17 @@ static void ScanInternetSockets(U8 protocol,
   if (!OK(status)) {
     status() += "Couldn't request the list of internet sockets from the kernel";
   }
-  netlink_diag.Receive(
+  netlink_diag.ReceiveT<inet_diag_msg>(
       SOCK_DIAG_BY_FAMILY,
-      [&](void *fixed_message, Span<Netlink::Attr *> attributes) {
-        inet_diag_msg *msg = (inet_diag_msg *)fixed_message;
+      [&](inet_diag_msg &msg, Span<Netlink::Attr *> attributes) {
         InternetSocketDescription desc{
-            .local_ip = IP(msg->id.idiag_src[0]),
-            .local_port = ntohs(msg->id.idiag_sport),
-            .remote_ip = IP(msg->id.idiag_dst[0]),
-            .remote_port = ntohs(msg->id.idiag_dport),
-            .inode = msg->idiag_inode,
-            .uid = msg->idiag_uid,
-            .interface = msg->id.idiag_if,
+            .local_ip = IP(msg.id.idiag_src[0]),
+            .local_port = ntohs(msg.id.idiag_sport),
+            .remote_ip = IP(msg.id.idiag_dst[0]),
+            .remote_port = ntohs(msg.id.idiag_dport),
+            .inode = msg.idiag_inode,
+            .uid = msg.idiag_uid,
+            .interface = msg.id.idiag_if,
         };
         callback(desc);
       },

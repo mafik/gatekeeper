@@ -1,7 +1,5 @@
 #pragma once
 
-#include <functional>
-
 #include <linux/netlink.h>
 
 #include "fd.hh"

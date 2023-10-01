@@ -1,13 +1,18 @@
 #include "firewall.hh"
 
-#include <csignal>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_queue.h>
+#include <set>
 #include <sys/prctl.h>
+#include <unistd.h>
 
+#include <csignal>
 #include <optional>
 #include <thread>
-#include <unistd.h>
+#include <unordered_set>
 #include <utility>
 
 #include "config.hh"
@@ -264,21 +269,111 @@ void UpdateLayer4Checksum(IP_Header &ip, uint16_t &checksum) {
   checksum = htons((uint16_t)sum);
 }
 
-struct NAT_Entry {
+struct FullConeNAT {
   // Note: theoretically we could only store the last two bytes of the IP
   // because our network is /16. This might change in the future though and it's
   // not that much of a saving anyway so let's keep things simple.
   IP lan_host_ip;
 
-  static NAT_Entry &Lookup(ProtocolID protocol, uint16_t local_port);
+  static FullConeNAT &Lookup(ProtocolID protocol, uint16_t local_port);
 };
 
-static NAT_Entry nat_table[2][65536];
+static FullConeNAT nat_table[2][65536];
 
-NAT_Entry &NAT_Entry::Lookup(ProtocolID protocol, uint16_t local_port) {
+FullConeNAT &FullConeNAT::Lookup(ProtocolID protocol, uint16_t local_port) {
   int protocol_index = protocol == ProtocolID::TCP ? 0 : 1;
   return nat_table[protocol_index][local_port];
 }
+
+struct SymmetricNAT {
+  struct Key {
+    IP remote_ip;
+    uint16_t remote_port;
+    uint16_t local_port;
+
+    bool operator==(const Key &other) const {
+      return remote_ip == other.remote_ip && remote_port == other.remote_port &&
+             local_port == other.local_port;
+    }
+
+    size_t Hash() const { return *reinterpret_cast<const size_t *>(this); }
+  } key;
+  IP local_ip;
+  std::chrono::steady_clock::time_point last_used;
+
+  struct OrderByLastUsed {
+    using is_transparent = std::true_type;
+
+    bool operator()(const SymmetricNAT *a, const SymmetricNAT *b) const {
+      return a->last_used < b->last_used;
+    }
+
+    bool operator()(const SymmetricNAT *a,
+                    const std::chrono::steady_clock::time_point b) const {
+      return a->last_used < b;
+    }
+
+    bool operator()(const std::chrono::steady_clock::time_point a,
+                    const SymmetricNAT *b) const {
+      return a < b->last_used;
+    }
+  };
+
+  struct HashByRemote {
+    using is_transparent = std::true_type;
+
+    size_t operator()(const SymmetricNAT *n) const { return n->key.Hash(); }
+    size_t operator()(const Key &key) const { return key.Hash(); }
+  };
+
+  struct EqualByRemote {
+    using is_transparent = std::true_type;
+
+    bool operator()(const SymmetricNAT *a, const SymmetricNAT *b) const {
+      return a->key == b->key;
+    }
+
+    bool operator()(const Key &a, const SymmetricNAT *b) const {
+      return a == b->key;
+    }
+  };
+
+  static std::multiset<SymmetricNAT *, OrderByLastUsed> expiration_queue;
+  static std::unordered_set<SymmetricNAT *, HashByRemote, EqualByRemote> table;
+
+  void BumpExpiration() {
+    // First remove self from the expiration queue
+    auto [begin, end] = expiration_queue.equal_range(last_used);
+    for (auto it = begin; it != end; ++it) {
+      SymmetricNAT *exp = *it;
+      if (exp == this) {
+        expiration_queue.erase(it);
+        break;
+      }
+    }
+    // Then update the last_used time and re-insert
+    last_used = std::chrono::steady_clock::now();
+    expiration_queue.insert(this);
+  }
+
+  static void ExpireOldEntries() {
+    auto cutoff = std::chrono::steady_clock::now() - std::chrono::minutes(30);
+    while (!expiration_queue.empty() &&
+           (*expiration_queue.begin())->last_used < cutoff) {
+      SymmetricNAT *entry = *expiration_queue.begin();
+      expiration_queue.erase(expiration_queue.begin());
+      table.erase(entry);
+      delete entry;
+    }
+  }
+};
+
+std::multiset<SymmetricNAT *, SymmetricNAT::OrderByLastUsed>
+    SymmetricNAT::expiration_queue;
+std::unordered_set<SymmetricNAT *, SymmetricNAT::HashByRemote,
+                   SymmetricNAT::EqualByRemote>
+    SymmetricNAT::table;
+
 void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   if (attrs[NFQA_PACKET_HDR] == nullptr) {
     ERROR << "NFQA_PACKET_HDR is missing";
@@ -286,6 +381,9 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   }
   nfqnl_msg_packet_hdr &phdr =
       attrs[NFQA_PACKET_HDR]->As<nfqnl_msg_packet_hdr>();
+
+  netfilter::Verdict verdict(phdr.packet_id, true);
+
   if (attrs[NFQA_PAYLOAD] == nullptr) {
     ERROR << "NFQA_PAYLOAD is missing";
     return;
@@ -293,31 +391,10 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   std::string_view payload = attrs[NFQA_PAYLOAD]->View();
   IP_Header &ip = attrs[NFQA_PAYLOAD]->As<IP_Header>();
 
-  bool interesting = true;
-
-  bool from_net = lan_network.Contains(ip.source_ip);
-  bool to_net = lan_network.Contains(ip.destination_ip);
-
-  netfilter::Verdict verdict(phdr.packet_id, true);
-
-  if (from_net == to_net && ip.destination_ip != wan_ip) {
-    interesting = false;
-  }
-
-  if (ip.proto != ProtocolID::TCP && ip.proto != ProtocolID::UDP) {
-    interesting = false;
-  }
-
-  if (!interesting) {
-    // Let boring packets through
-    Status status;
-    queue->Send(verdict, status);
-    if (!status.Ok()) {
-      status() += "Couldn't send verdict";
-      ERROR << status;
-    }
-    return;
-  }
+  bool from_lan = lan_network.Contains(ip.source_ip);
+  bool to_lan = lan_network.Contains(ip.destination_ip);
+  bool has_ports = ip.proto == ProtocolID::TCP || ip.proto == ProtocolID::UDP;
+  bool packet_modified = false;
 
   INET_Header &inet = *(INET_Header *)(payload.data() + ip.HeaderLength());
   TCP_Header &tcp = *(TCP_Header *)(&inet);
@@ -342,51 +419,67 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   auto &checksum = ip.proto == ProtocolID::TCP ? tcp.checksum : udp.checksum;
   int socket_type = ip.proto == ProtocolID::TCP ? SOCK_STREAM : SOCK_DGRAM;
 
-  if (ip.destination_ip == wan_ip) {
-    // Packet coming to our WAN IP. We may need to modify the destination.
-    NAT_Entry &entry = NAT_Entry::Lookup(ip.proto, inet.destination_port);
-    if (entry.lan_host_ip.addr != 0) {
-      ip.destination_ip = entry.lan_host_ip;
-      ip.UpdateChecksum();
-      UpdateLayer4Checksum(ip, checksum);
-      Status status;
-      queue->SendWithAttr(verdict, *attrs[NFQA_PAYLOAD], status);
-      if (!status.Ok()) {
-        status() += "Couldn't send verdict";
-        ERROR << status;
-      }
-      return;
-    }
-  } else if (from_net && ip.source_ip != lan_ip) {
-    // Packet coming from LAN. We may need to modify the source.
+  SymmetricNAT::ExpireOldEntries();
 
-    // Record the original source IP
-    NAT_Entry &existing_entry = NAT_Entry::Lookup(ip.proto, inet.source_port);
-    if (existing_entry.lan_host_ip != ip.source_ip) {
-      if (existing_entry.lan_host_ip != 0) {
-        LOG << "NAT table collision. Port " << inet.source_port << " already "
-            << "mapped to " << existing_entry.lan_host_ip.LoggableString()
-            << ", is being remapped to " << ip.source_ip.LoggableString();
+  if (ip.destination_ip == wan_ip && !from_lan && has_ports) {
+    // Packet coming to our WAN IP from outside of LAN.
+    // We may need to modify the destination (NAT demangling).
+
+    // Attempt to find a matching entry in the Symmetric NAT table.
+    auto it = SymmetricNAT::table.find<SymmetricNAT::Key>(
+        {ip.source_ip, inet.source_port, inet.destination_port});
+    if (it != SymmetricNAT::table.end()) {
+      // Found a matching entry. Update the last_used time.
+      (*it)->BumpExpiration();
+      // Mangle the destination IP to point at the LAN IP
+      ip.destination_ip = (*it)->local_ip;
+      packet_modified = true;
+    } else {
+      // If no Symmetric NAT entry exists, try the Full Cone NAT table.
+      FullConeNAT &fullcone =
+          FullConeNAT::Lookup(ip.proto, inet.destination_port);
+      if (fullcone.lan_host_ip.addr != 0) {
+        ip.destination_ip = fullcone.lan_host_ip;
+        packet_modified = true;
       }
-      existing_entry.lan_host_ip = ip.source_ip;
+    }
+  } else if (from_lan && !to_lan && ip.source_ip != lan_ip && has_ports) {
+    // Packet coming from LAN into the Internet.
+    // We have to modify the source (NAT mangling).
+
+    // Record the original source IP in the Full Cone NAT table.
+    // New packets from unknown sources will be sent to this LAN IP.
+    FullConeNAT &fullcone = FullConeNAT::Lookup(ip.proto, inet.source_port);
+    fullcone.lan_host_ip = ip.source_ip;
+
+    // Record the original source IP in the Symmetric NAT table.
+    // New packets from this destination will be sent back to this LAN IP.
+    auto it = SymmetricNAT::table.find<SymmetricNAT::Key>(
+        {ip.destination_ip, inet.destination_port, inet.source_port});
+    if (it == SymmetricNAT::table.end()) {
+      SymmetricNAT *e = new SymmetricNAT{
+          .key = {ip.destination_ip, inet.destination_port, inet.source_port},
+          .local_ip = ip.source_ip,
+          .last_used = std::chrono::steady_clock::now(),
+      };
+      SymmetricNAT::table.insert(e);
+      SymmetricNAT::expiration_queue.insert(e);
+    } else {
+      (*it)->BumpExpiration();
     }
     // Mangle the source IP to point back at our WAN IP
     ip.source_ip = wan_ip;
-    ip.UpdateChecksum();
-    UpdateLayer4Checksum(ip, checksum);
-
-    Status status;
-    // Send modified packet
-    queue->SendWithAttr(verdict, *attrs[NFQA_PAYLOAD], status);
-    if (!status.Ok()) {
-      status() += "Couldn't send verdict";
-      ERROR << status;
-    }
-    return;
+    packet_modified = true;
   }
 
   Status status;
-  queue->Send(verdict, status);
+  if (packet_modified) {
+    ip.UpdateChecksum();
+    UpdateLayer4Checksum(ip, checksum);
+    queue->SendWithAttr(verdict, *attrs[NFQA_PAYLOAD], status);
+  } else {
+    queue->Send(verdict, status);
+  }
   if (!status.Ok()) {
     status() += "Couldn't send verdict";
     ERROR << status;
@@ -416,11 +509,14 @@ void Loop() {
 void Start(Status &status) {
   hook.emplace(status);
   if (!status.Ok()) {
+    hook.reset();
     return;
   }
 
   queue.emplace(NETLINK_NETFILTER, status);
   if (!status.Ok()) {
+    queue.reset();
+    hook.reset();
     return;
   }
 

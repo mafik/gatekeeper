@@ -8,14 +8,16 @@
 
 namespace maf::netfilter {
 
-// Default queue used to initialize messages.
-extern thread_local uint16_t default_queue;
+// Number of the nfqueue used to intercept messages.
+constexpr uint16_t kQueueNumber = 1337;
 
 // All netlink structures are manually padded. Any compiler-injected padding
 // shold be treated as an error.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wpadded"
 
+// Message that binds this netlink socket to a specific nfqueue
+// (`kQueueNumber`).
 struct Bind : nlmsghdr {
   Bind()
       : nlmsghdr({
@@ -26,7 +28,7 @@ struct Bind : nlmsghdr {
         }) {}
   nfgenmsg msg{.nfgen_family = (uint8_t)Family::UNSPEC,
                .version = NFNETLINK_V0,
-               .res_id = htons(default_queue)};
+               .res_id = htons(kQueueNumber)};
   nlattr cmd_attr{
       .nla_len = sizeof(cmd_attr) + sizeof(cmd),
       .nla_type = NFQA_CFG_CMD,
@@ -36,6 +38,7 @@ struct Bind : nlmsghdr {
   };
 };
 
+// Configure nfqueue to copy the entire packet into userspace.
 struct CopyPacket : nlmsghdr {
   CopyPacket()
       : nlmsghdr({
@@ -46,7 +49,7 @@ struct CopyPacket : nlmsghdr {
         }) {}
   nfgenmsg msg{.nfgen_family = AF_UNSPEC,
                .version = NFNETLINK_V0,
-               .res_id = htons(default_queue)};
+               .res_id = htons(kQueueNumber)};
   nlattr params_attr{
       .nla_len = sizeof(params_attr) + sizeof(params),
       .nla_type = NFQA_CFG_PARAMS,
@@ -74,7 +77,7 @@ public:
 
 struct Verdict : nlmsghdr {
   static constexpr uint32_t NF_ACCEPT = 1;
-  static constexpr uint32_t NF_DROP = 1;
+  static constexpr uint32_t NF_DROP = 0;
   Verdict(uint32_t packet_id_be32, bool accept)
       : nlmsghdr({
             .nlmsg_len = sizeof(*this),
@@ -88,7 +91,7 @@ struct Verdict : nlmsghdr {
         }) {}
   nfgenmsg msg{.nfgen_family = AF_UNSPEC,
                .version = NFNETLINK_V0,
-               .res_id = htons(default_queue)};
+               .res_id = htons(kQueueNumber)};
   nlattr verdict_attr{
       .nla_len = sizeof(verdict_attr) + sizeof(verdict),
       .nla_type = NFQA_VERDICT_HDR,
