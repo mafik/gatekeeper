@@ -12,8 +12,8 @@ namespace maf {
 
 SSHKey SSHKey::FromFile(const Path &path, Status &status) {
   Vec<> decoded;
-  ReadFile(
-      path,
+  fs::Map(
+      fs::real, path,
       [&](StrView contents) {
         static constexpr StrView kSshKeyPrefix =
             "-----BEGIN OPENSSH PRIVATE KEY-----\n"sv;

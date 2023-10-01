@@ -24,10 +24,7 @@ int main(int argc, char *argv[]) {
   if (not OK(status)) {
     FATAL << "Failed to read key: " << status;
   }
-  Str elf_copy;
-  ReadFile(
-      argv[2], [&](StrView elf_contents) { elf_copy = Str(elf_contents); },
-      status);
+  Str elf_copy = fs::Read(fs::real, argv[2], status);
   if (not OK(status)) {
     FATAL << "Failed to read ELF file: " << status;
   }
@@ -43,7 +40,7 @@ int main(int argc, char *argv[]) {
   }
   SignatureNote &note = *reinterpret_cast<SignatureNote *>(sig_section.data());
   memcpy(note.desc.bytes, signature.bytes, sizeof(signature.bytes));
-  WriteFile(argv[3], elf_copy, status, 0775);
+  fs::Write(fs::real, argv[3], elf_copy, status, 0775);
   if (not OK(status)) {
     FATAL << "Failed to write ELF file: " << status;
   }
