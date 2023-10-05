@@ -393,6 +393,7 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
 
   bool from_lan = lan_network.Contains(ip.source_ip);
   bool to_lan = lan_network.Contains(ip.destination_ip);
+  bool to_internet = !to_lan && (ip.destination_ip != IP(255, 255, 255, 255));
   bool has_ports = ip.proto == ProtocolID::TCP || ip.proto == ProtocolID::UDP;
   bool packet_modified = false;
 
@@ -443,7 +444,7 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
         packet_modified = true;
       }
     }
-  } else if (from_lan && !to_lan && ip.source_ip != lan_ip && has_ports) {
+  } else if (from_lan && to_internet && ip.source_ip != lan_ip && has_ports) {
     // Packet coming from LAN into the Internet.
     // We have to modify the source (NAT mangling).
 
