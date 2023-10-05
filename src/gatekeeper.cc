@@ -284,22 +284,22 @@ int main(int argc, char *argv[]) {
     loggers.emplace_back(LogToFile);
   }
 
-  LOG << "Gatekeeper " << kVersionNote.desc << " starting up.";
-
   Status status;
 
   epoll::Init();
 
-  bool no_auto_update = getenv("NO_AUTO_UPDATE") != nullptr;
-  bool auto_update = !no_auto_update;
-
   systemd::Init();
+
+  LOG << "Gatekeeper " << kVersionNote.desc << " starting up.";
 
   HookSignals(status);
   if (!status.Ok()) {
     ERROR << status;
     return 1;
   }
+
+  bool no_auto_update = getenv("NO_AUTO_UPDATE") != nullptr;
+  bool auto_update = !no_auto_update;
 
   if (auto_update) {
     update::config.first_check_delay_s =
