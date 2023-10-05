@@ -261,7 +261,6 @@ void Entry::UpdateExpiration(steady_clock::time_point new_expiration) const {
 void ExpireEntries() {
   auto now = steady_clock::now();
   while (!expiration_queue.empty() && expiration_queue.begin()->first < now) {
-    LOG << "Expiring " << expiration_queue.begin()->second->question.to_html();
     cache.erase(expiration_queue.begin()->second);
     expiration_queue.erase(expiration_queue.begin());
   }
@@ -400,9 +399,6 @@ struct Client : UDPListener {
       IP upstream_ip =
           etc::resolv[(++server_i) % etc::resolv.size()]; // Round-robin
       fd.SendTo(upstream_ip, kServerPort, buffer, err);
-      if (err.empty()) {
-        LOG << f("Forwarding %s.", question.to_html().c_str());
-      }
     }
     return *entry;
   }
@@ -485,10 +481,6 @@ struct Server : UDPListener {
           << ". Full query: " << msg.header.to_string();
       return;
     }
-
-    LOG << f("#%04hx %s:%hu Asks for %s", msg.header.id,
-             source_ip.to_string().c_str(), source_port,
-             msg.question.to_html().c_str());
 
     const Entry &entry = client.GetCachedEntryOrSendRequest(msg.question, err);
     if (!err.empty()) {
@@ -797,9 +789,6 @@ string Header::to_string() const {
 void Entry::HandleIncomingRequest(const IncomingRequest &request) const {
   visit(overloaded{
             [&](Ready &r) {
-              LOG << f("#%04hx %s:%hu Answering %s (cached)", request.header.id,
-                       request.client_ip.to_string().c_str(),
-                       request.client_port, question.to_html().c_str());
               string err;
               AnswerRequest(request, *this, err);
               if (!err.empty()) {
@@ -927,15 +916,8 @@ void Entry::HandleAnswer(const Message &msg, string &err) const {
 
   UpdateExpiration(new_expiration);
 
-  LOG << f("Received %s from upstream. Caching for %s.",
-           question.to_html().c_str(),
-           FormatDuration(new_expiration - steady_clock::now()).c_str());
-
   for (auto &inc_req : incoming_requests) {
     AnswerRequest(inc_req, *this, err);
-    LOG << f("#%04hx %s:%hu Answering %s (from upstream)", inc_req.header.id,
-             inc_req.client_ip.to_string().c_str(), inc_req.client_port,
-             msg.question.to_html().c_str());
     if (!err.empty()) {
       break;
     }
