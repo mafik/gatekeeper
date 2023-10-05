@@ -664,7 +664,7 @@ struct __attribute__((__packed__)) PacketView : Header {
   }
   string client_id() const {
     if (auto *opt = FindOption<options::ClientIdentifier>()) {
-      opt->hardware_address.to_string();
+      return opt->hardware_address.to_string();
     }
     return client_mac_address.to_string();
   }
@@ -876,6 +876,12 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     lease_time = 0s;
     inform = true;
     break;
+  case options::MessageType::RELEASE:
+    if (auto it = entries.find(packet.client_ip);
+        it != entries.end() && it->second.client_id == packet.client_id()) {
+      entries.erase(it);
+    }
+    return;
   default:
     response_type = options::MessageType::UNKNOWN;
     break;
