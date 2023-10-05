@@ -1,6 +1,13 @@
 '''Commands used for development.'''
 
 import make
+import subprocess
+from functools import wraps
+
+
+@wraps(subprocess.run)
+def sh(*args, **kwargs):
+    return subprocess.run(*args, shell=True, **kwargs)
 
 
 def run(args: str):
@@ -32,15 +39,19 @@ def massif():
 
 
 def net_reset():
-    import subprocess
-    subprocess.run('sudo nft delete table gatekeeper', shell=True)
-    subprocess.run('sudo ip addr flush dev veth0a', shell=True)
-    subprocess.run('sudo ip netns exec ns0 ip addr flush dev veth0b',
-                   shell=True)
-    subprocess.run('sudo dhclient -x', shell=True)
-    subprocess.run(
-        'sudo rm -f /etc/dhcp/dhclient-enter-hooks.d/test-dhclient-hook',
-        shell=True)
+    sh('sudo nft delete table gatekeeper')
+    sh('sudo ip addr flush dev veth0a')
+    sh('sudo ip netns exec ns0 ip addr flush dev veth0b')
+    sh('sudo dhclient -x')
+    sh('sudo rm -f /etc/dhcp/dhclient-enter-hooks.d/test-dhclient-hook')
+
+
+def dogfood():
+    '''Copy the binary to maf's router and run it.'''
+    sh('scp build/release_gatekeeper root@protectli:/opt/gatekeeper/gatekeeper.new',
+       check=True)
+    sh('ssh root@protectli "mv /opt/gatekeeper/gatekeeper{,.old} && mv /opt/gatekeeper/gatekeeper{.new,} && systemctl restart gatekeeper"',
+       check=True)
 
 
 def test_e2e():
@@ -75,3 +86,4 @@ def hook_final(srcs, objs, bins, recipe: make.Recipe):
     recipe.add_step(test_dns, [], deps)
     recipe.add_step(test_tcp, [], deps)
     recipe.add_step(test_udp, [], deps)
+    recipe.add_step(dogfood, [], ['build/release_gatekeeper'])
