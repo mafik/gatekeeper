@@ -887,7 +887,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     break;
   }
 
-  if (inform && source_ip != packet.client_ip) {
+  if (inform && source_ip != packet.client_ip && source_ip != IP(0, 0, 0, 0)) {
     ERROR << "DHCP server received an INFORM packet with a mismatching "
              "source IP: "
           << source_ip.to_string() << " (source IP) vs "
