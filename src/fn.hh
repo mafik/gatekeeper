@@ -12,7 +12,8 @@ template <typename T> struct FnIs {
   FnIs(T *bare_ptr) : bare_ptr(bare_ptr) {}
 
   bool operator()(const Fn<T> &fn) const {
-    return fn.template target<T>() == bare_ptr;
+    T *const *fn_ptr_ptr = fn.template target<T *>();
+    return (fn_ptr_ptr != nullptr) && (*fn_ptr_ptr == bare_ptr);
   }
 };
 
