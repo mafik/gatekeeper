@@ -11,8 +11,6 @@ DEV=veth0
 DEV_A=${DEV}a
 DEV_B=${DEV}b
 
-LOG_TO_FILE=tests/dhcp.log
-
 # Setup network
 if [ ! -e /run/netns/$NS ]; then
   ip netns add $NS
@@ -27,7 +25,18 @@ ip netns exec $NS ip link set $DEV_B up
 
 # Start Gatekeeper
 systemctl reset-failed
-systemd-run --service-type=notify --same-dir --unit=gatekeeper-e2e --setenv=LAN=$DEV_A --setenv=LOG_TO_FILE=$LOG_TO_FILE --quiet build/debug_gatekeeper
+systemd-run --service-type=notify --same-dir --unit=gatekeeper-e2e --setenv=LAN=$DEV_A --quiet build/debug_gatekeeper
+GATEKEEPER_STATUS=$?
+INVOCATION_ID=$(systemctl show --value -p InvocationID gatekeeper-e2e)
+
+if [ $GATEKEEPER_STATUS -ne 0 ]; then
+  echo "Gatekeeper failed to start. Status code: $GATEKEEPER_STATUS"
+  echo "Gatekeeper log:"
+  journalctl _SYSTEMD_INVOCATION_ID=$INVOCATION_ID
+  exit 1
+fi
+
+echo "Use 'journalctl _SYSTEMD_INVOCATION_ID=$INVOCATION_ID' to see Gatekeeper logs"
 
 # Start dhammer
 # 200 requests / second over 10 seconds

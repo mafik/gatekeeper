@@ -11,8 +11,6 @@ DEV=veth0
 DEV_A=${DEV}a
 DEV_B=${DEV}b
 
-LOG_TO_FILE=log-e2e.txt
-
 # Setup network
 if [ ! -e /run/netns/$NS ]; then
   ip netns add $NS
@@ -39,7 +37,19 @@ BLOCKER_PID=$!
 
 # Start Gatekeeper
 systemctl reset-failed
-systemd-run --service-type=notify --same-dir --unit=gatekeeper-e2e --setenv=LAN=$DEV_A --setenv=LOG_TO_FILE=$LOG_TO_FILE --quiet valgrind --leak-check=yes --track-origins=yes --log-file=valgrind.log build/debug_gatekeeper
+systemd-run --service-type=notify --same-dir --unit=gatekeeper-e2e --setenv=LAN=$DEV_A --quiet valgrind --leak-check=yes --track-origins=yes --log-file=valgrind.log build/debug_gatekeeper
+GATEKEEPER_STATUS=$?
+INVOCATION_ID=$(systemctl show --value -p InvocationID gatekeeper-e2e)
+
+if [ $GATEKEEPER_STATUS -ne 0 ]; then
+  kill $BLOCKER_PID
+  echo "Gatekeeper failed to start. Status code: $GATEKEEPER_STATUS"
+  echo "Gatekeeper log:"
+  journalctl _SYSTEMD_INVOCATION_ID=$INVOCATION_ID
+  exit 1
+fi
+
+echo "Use 'journalctl _SYSTEMD_INVOCATION_ID=$INVOCATION_ID' to see Gatekeeper logs"
 
 # Start dhclient
 cp -f test-dhclient-hook /etc/dhcp/dhclient-enter-hooks.d/
@@ -72,21 +82,21 @@ EXPECTED_CLIENT_IP=$(echo $GATEKEEPER_IP | sed 's/\.[0-9]*$/.2/')
 if [ "$CLIENT_IP" != "$EXPECTED_CLIENT_IP" ]; then
   echo "DHCP issue. Client IP is [$CLIENT_IP] but expected [$EXPECTED_CLIENT_IP]."
   echo "Gatekeeper log:"
-  cat $LOG_TO_FILE
+  journalctl _SYSTEMD_INVOCATION_ID=$INVOCATION_ID
   exit 1
 fi
 
 if [[ $CURL_1337 != *Gatekeeper* ]]; then
   echo "Web UI issue. http://$GATEKEEPER_IP:1337 should contain [Gatekeeper]. Got [$CURL_1337]."
   echo "Gatekeeper log:"
-  cat $LOG_TO_FILE
+  journalctl _SYSTEMD_INVOCATION_ID=$INVOCATION_ID
   exit 1
 fi
 
 if [[ $CURL_EXAMPLE_STATUS -ne 0 ]]; then
   echo "DNS / NAT issue. Curl $TEST_DOMAIN should return status code 0 but returned $CURL_EXAMPLE_STATUS."
   echo "Gatekeeper log:"
-  cat $LOG_TO_FILE
+  journalctl _SYSTEMD_INVOCATION_ID=$INVOCATION_ID
   echo 'Netfilter rules (`nft list ruleset`):'
   echo "$NFT_RULES"
   echo

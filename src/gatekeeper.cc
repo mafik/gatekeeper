@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <linux/if.h>
 #include <linux/wireless.h>
-#include <mutex>
 #include <string>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -25,7 +24,6 @@
 #include "interface.hh"
 #include "log.hh"
 #include "netlink.hh"
-#include "optional.hh"
 #include "proc.hh"
 #include "random.hh"
 #include "rtnetlink.hh"
@@ -267,23 +265,7 @@ void KillConflictingProcesses(Status &status) {
   }
 }
 
-Optional<FD> log_file;
-
-void LogToFile(const LogEntry &l) {
-  if (log_file) {
-    static std::mutex mutex;
-    std::lock_guard lock(mutex);
-    write(*log_file, l.buffer.data(), l.buffer.size());
-    write(*log_file, "\n", 1);
-  }
-}
-
 int main(int argc, char *argv[]) {
-  if (char *log_file_path = getenv("LOG_TO_FILE")) {
-    log_file.emplace(open(log_file_path, O_WRONLY | O_CREAT | O_TRUNC, 0644));
-    loggers.emplace_back(LogToFile);
-  }
-
   Status status;
 
   epoll::Init();
