@@ -459,6 +459,27 @@ struct Server : UDPListener {
     close(fd);
   }
 
+  void AnswerNotImplemented(const Message &msg, IP client_ip,
+                            uint16_t client_port, string &err) {
+    Header response{
+        .id = msg.header.id,
+        .recursion_desired = msg.header.recursion_desired,
+        .truncated = false,
+        .authoritative = false,
+        .opcode = msg.header.opcode,
+        .reply = true,
+        .response_code = ResponseCode::NOT_IMPLEMENTED,
+        .reserved = 0,
+        .recursion_available = msg.header.recursion_available,
+        .question_count = htons(0),
+        .answer_count = htons(0),
+        .authority_count = htons(0),
+        .additional_count = htons(0),
+    };
+    fd.SendTo(client_ip, client_port,
+              StrView((const char *)(&response), sizeof(response)), err);
+  }
+
   void HandleRequest(string_view buf, IP source_ip,
                      uint16_t source_port) override {
     if (!lan_network.Contains(source_ip)) {
@@ -475,10 +496,21 @@ struct Server : UDPListener {
       return;
     }
 
+    if (msg.header.opcode == Header::STATUS) {
+      // maf's Samsung S10e was observed to send a malformed DNS query for
+      // "google.com" with STATUS opcode & ID=0x0002.
+      // Maybe it's some kind of a connectivity probe?
+      AnswerNotImplemented(msg, source_ip, source_port, err);
+      return;
+    }
+
     if (msg.header.opcode != Header::QUERY) {
       LOG << "DNS server received a packet with an unsupported opcode: "
           << Header::OperationCodeToString(msg.header.opcode)
-          << ". Full query: " << msg.header.to_string();
+          << ". Full query: " << msg.header.to_string()
+          << "\nQuestion: " << msg.question.to_string()
+          << "\nSource: " << source_ip;
+      AnswerNotImplemented(msg, source_ip, source_port, err);
       return;
     }
 
