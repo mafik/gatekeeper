@@ -343,7 +343,7 @@ struct Client : UDPListener {
     string err;
     msg.Parse(buf.data(), buf.size(), err);
     if (!err.empty()) {
-      ERROR << err;
+      ERROR << "DNS client couldn't parse response. " << err;
       return;
     }
 
@@ -492,7 +492,7 @@ struct Server : UDPListener {
     string err;
     msg.Parse(buf.data(), buf.size(), err);
     if (!err.empty()) {
-      ERROR << err;
+      ERROR << "DNS server couldn't parse request. " << err;
       return;
     }
 
@@ -853,7 +853,9 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
   header = *(Header *)ptr;
 
   if (ntohs(header.question_count) != 1) {
-    err = "DNS message contains more than one question. This is not supported.";
+    err = "DNS message must have exactly one question. "
+          "Full header:\n" +
+          header.to_string();
     return;
   }
 
