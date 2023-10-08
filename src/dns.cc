@@ -360,10 +360,16 @@ struct Client : UDPListener {
       return;
     }
 
-    const Entry *entry = GetCachedEntry(msg.question);
+    if (msg.questions.size() != 1) {
+      LOG << "DNS client expected a packet with one question. Received: "
+          << msg.to_string();
+      return;
+    }
+
+    const Entry *entry = GetCachedEntry(msg.questions[0]);
     if (entry == nullptr) {
       LOG << "DNS client received an unexpected / expired reply: "
-          << msg.question.to_string();
+          << msg.questions[0].to_string();
       return;
     }
     entry->HandleAnswer(msg, err);
@@ -498,8 +504,19 @@ struct Server : UDPListener {
 
     if (msg.header.opcode == Header::STATUS) {
       // maf's Samsung S10e was observed to send a malformed DNS query for
-      // "google.com" with STATUS opcode & ID=0x0002.
+      // "google.com" with opcode=STATUS & ID=0x0002.
+      //
       // Maybe it's some kind of a connectivity probe?
+      AnswerNotImplemented(msg, source_ip, source_port, err);
+      return;
+    }
+
+    if (msg.header.opcode == Header::IQUERY) {
+      // Similarly to the STATUS opcode above, that Android device was also
+      // sending IQUERY requests with ID=0x000a & 0x000b for 216.58.202.4 (a
+      // Google IP address).
+      //
+      // IQUERY requests were obsoleted by RFC 3425.
       AnswerNotImplemented(msg, source_ip, source_port, err);
       return;
     }
@@ -507,14 +524,21 @@ struct Server : UDPListener {
     if (msg.header.opcode != Header::QUERY) {
       LOG << "DNS server received a packet with an unsupported opcode: "
           << Header::OperationCodeToString(msg.header.opcode)
-          << ". Full query: " << msg.header.to_string()
-          << "\nQuestion: " << msg.question.to_string()
-          << "\nSource: " << source_ip;
+          << ". Source: " << source_ip << ". DNS message: " << msg.to_string();
       AnswerNotImplemented(msg, source_ip, source_port, err);
       return;
     }
 
-    const Entry &entry = client.GetCachedEntryOrSendRequest(msg.question, err);
+    if (msg.questions.size() != 1) {
+      LOG << "DNS server expected a packet with exactly one question. "
+             "Received: "
+          << msg.to_string();
+      AnswerNotImplemented(msg, source_ip, source_port, err);
+      return;
+    }
+
+    const Entry &entry =
+        client.GetCachedEntryOrSendRequest(msg.questions.front(), err);
     if (!err.empty()) {
       ERROR << err;
       return;
@@ -852,19 +876,15 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
   }
   header = *(Header *)ptr;
 
-  if (ntohs(header.question_count) != 1) {
-    err = "DNS message must have exactly one question. "
-          "Full header:\n" +
-          header.to_string();
-    return;
-  }
-
   size_t offset = sizeof(Header);
-  if (auto q_size = question.LoadFrom(ptr, len, offset)) {
-    offset += q_size;
-  } else {
-    err = "Failed to load DNS question from " + BytesToHex(ptr, len);
-    return;
+
+  for (int i = 0; i < ntohs(header.question_count); ++i) {
+    if (auto q_size = questions.emplace_back().LoadFrom(ptr, len, offset)) {
+      offset += q_size;
+    } else {
+      err = "Failed to load DNS question from " + BytesToHex(ptr, len);
+      return;
+    }
   }
 
   auto LoadRecordList = [&](vector<Record> &v, uint16_t n) {
@@ -893,7 +913,9 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
 string Message::to_string() const {
   string r = "dns::Message {\n";
   r += IndentString(header.to_string()) + "\n";
-  r += "  " + question.to_string() + "\n";
+  for (auto &q : questions) {
+    r += "  " + q.to_string() + "\n";
+  }
   for (const Record &a : answers) {
     r += "  " + a.to_string() + "\n";
   }

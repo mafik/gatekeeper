@@ -101,7 +101,7 @@ struct __attribute__((__packed__)) Header {
 
 struct Message {
   Header header;
-  Question question;
+  vector<Question> questions;
   vector<Record> answers;
   vector<Record> authority;
   vector<Record> additional;
