@@ -465,16 +465,15 @@ struct Server : UDPListener {
     close(fd);
   }
 
-  void AnswerNotImplemented(const Message &msg, IP client_ip,
-                            uint16_t client_port, string &err) {
-    Header response{
+  Header ResponseHeader(const Message &msg) {
+    return Header{
         .id = msg.header.id,
         .recursion_desired = msg.header.recursion_desired,
         .truncated = false,
         .authoritative = false,
         .opcode = msg.header.opcode,
         .reply = true,
-        .response_code = ResponseCode::NOT_IMPLEMENTED,
+        .response_code = ResponseCode::NO_ERROR,
         .reserved = 0,
         .recursion_available = msg.header.recursion_available,
         .question_count = htons(0),
@@ -482,6 +481,12 @@ struct Server : UDPListener {
         .authority_count = htons(0),
         .additional_count = htons(0),
     };
+  }
+
+  void SendError(ResponseCode code, const Message &msg, IP client_ip,
+                 uint16_t client_port, string &err) {
+    Header response = ResponseHeader(msg);
+    response.response_code = code;
     fd.SendTo(client_ip, client_port,
               StrView((const char *)(&response), sizeof(response)), err);
   }
@@ -498,7 +503,7 @@ struct Server : UDPListener {
     string err;
     msg.Parse(buf.data(), buf.size(), err);
     if (!err.empty()) {
-      ERROR << "DNS server couldn't parse request. " << err;
+      SendError(ResponseCode::FORMAT_ERROR, msg, source_ip, source_port, err);
       return;
     }
 
@@ -507,7 +512,8 @@ struct Server : UDPListener {
       // "google.com" with opcode=STATUS & ID=0x0002.
       //
       // Maybe it's some kind of a connectivity probe?
-      AnswerNotImplemented(msg, source_ip, source_port, err);
+      SendError(ResponseCode::NOT_IMPLEMENTED, msg, source_ip, source_port,
+                err);
       return;
     }
 
@@ -517,7 +523,8 @@ struct Server : UDPListener {
       // Google IP address).
       //
       // IQUERY requests were obsoleted by RFC 3425.
-      AnswerNotImplemented(msg, source_ip, source_port, err);
+      SendError(ResponseCode::NOT_IMPLEMENTED, msg, source_ip, source_port,
+                err);
       return;
     }
 
@@ -525,7 +532,8 @@ struct Server : UDPListener {
       LOG << "DNS server received a packet with an unsupported opcode: "
           << Header::OperationCodeToString(msg.header.opcode)
           << ". Source: " << source_ip << ". DNS message: " << msg.to_string();
-      AnswerNotImplemented(msg, source_ip, source_port, err);
+      SendError(ResponseCode::NOT_IMPLEMENTED, msg, source_ip, source_port,
+                err);
       return;
     }
 
@@ -533,7 +541,8 @@ struct Server : UDPListener {
       LOG << "DNS server expected a packet with exactly one question. "
              "Received: "
           << msg.to_string();
-      AnswerNotImplemented(msg, source_ip, source_port, err);
+      SendError(ResponseCode::NOT_IMPLEMENTED, msg, source_ip, source_port,
+                err);
       return;
     }
 
@@ -893,8 +902,11 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
       if (auto r_size = r.LoadFrom(ptr, len, offset)) {
         offset += r_size;
       } else {
-        err = "Failed to load a record from DNS query. Full query:\n" +
-              BytesToHex(ptr, len);
+        v.pop_back();
+        err = "Failed to load a record from DNS message. Loaded part: \n" +
+              this->to_string() + "\nFull message:\n" + BytesToHex(ptr, len) +
+              "\nFailed when parsing:\n" +
+              BytesToHex(ptr + offset, len - offset);
         return;
       }
     }
