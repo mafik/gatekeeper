@@ -22,6 +22,7 @@
 #include "netlink.hh"
 #include "nfqueue.hh"
 #include "status.hh"
+#include "traffic_log.hh"
 
 using namespace maf;
 using namespace netfilter;
@@ -374,6 +375,8 @@ std::unordered_set<SymmetricNAT *, SymmetricNAT::HashByRemote,
                    SymmetricNAT::EqualByRemote>
     SymmetricNAT::table;
 
+std::unordered_map<IP, MAC> local_ip_to_mac;
+
 void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   if (attrs[NFQA_PACKET_HDR] == nullptr) {
     ERROR << "NFQA_PACKET_HDR is missing";
@@ -444,9 +447,24 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
         packet_modified = true;
       }
     }
+
+    if (packet_modified) {
+      auto it = local_ip_to_mac.find(ip.destination_ip);
+      if (it != local_ip_to_mac.end()) {
+        MAC &mac = it->second;
+        RecordTraffic(mac, ip.source_ip, 0, payload.size());
+      }
+    }
   } else if (from_lan && to_internet && ip.source_ip != lan_ip && has_ports) {
     // Packet coming from LAN into the Internet.
     // We have to modify the source (NAT mangling).
+
+    if (attrs[NFQA_HWADDR] != nullptr) {
+      nfqnl_msg_packet_hw &hw = attrs[NFQA_HWADDR]->As<nfqnl_msg_packet_hw>();
+      MAC &mac = *(MAC *)hw.hw_addr;
+      local_ip_to_mac[ip.source_ip] = mac;
+      RecordTraffic(mac, ip.destination_ip, payload.size(), 0);
+    }
 
     // Record the original source IP in the Full Cone NAT table.
     // New packets from unknown sources will be sent to this LAN IP.

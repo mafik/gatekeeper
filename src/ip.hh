@@ -52,3 +52,9 @@ struct Network {
 };
 
 } // namespace maf
+
+template <> struct std::hash<maf::IP> {
+  std::size_t operator()(const maf::IP &ip) const {
+    return std::hash<maf::U32>()(ip.addr);
+  }
+};

@@ -17,6 +17,7 @@
 #include "install.hh"
 #include "log.hh"
 #include "str.hh"
+#include "traffic_log.hh"
 #include "virtual_fs.hh"
 
 namespace webui {
@@ -487,6 +488,58 @@ struct LogsTable : Table {
 
 LogsTable logs_table;
 
+struct TrafficTable : Table {
+  TrafficTable()
+      : Table("traffic", "Traffic", {"Local MAC", "Remote IP", "Traffic"}) {}
+  int Size() const override { return 0; }
+  void Get(int row, int col, string &out) const override {}
+  std::string RowID(int row) const override { return ""; }
+
+  void RenderTBODY(std::string &html, RenderOptions &) override {
+    using namespace gatekeeper;
+
+    html += "<tbody>";
+    QueryTraffic([&](const TrafficLog &log) {
+      Str id = log.local_host.to_string() + "-" + log.remote_ip.to_string();
+      ReplaceAll(id, ":", ".");
+      html += "<tr id=";
+      html += id;
+      html += " style=view-transition-name:";
+      html += id;
+      html += ">";
+      html += "<td>";
+      html += log.local_host.to_string();
+      html += "</td>";
+      html += "<td>";
+      html += log.remote_ip.to_string();
+      html += "</td>";
+      html += "<td><script type=application/json class=graph>[";
+      bool first = true;
+      for (auto &[time, bytes] : log.entries) {
+        if (first) {
+          first = false;
+        } else {
+          html += ",";
+        }
+        html += "[";
+        html += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                              time.time_since_epoch())
+                              .count());
+        html += ",";
+        html += to_string(bytes.up);
+        html += ",";
+        html += to_string(bytes.down);
+        html += "]";
+      }
+      html += "]</script></td>";
+      html += "</tr>";
+    });
+    html += "</tbody>";
+  }
+};
+
+TrafficTable traffic_table;
+
 Table::RenderOptions Table::RenderOptions::FromQuery(Request &request) {
   Table::RenderOptions opts;
   if (request.query.contains("sort")) {
@@ -594,6 +647,7 @@ void RenderMainPage(Response &response, Request &request) {
   Table::RenderOptions log_opts = opts;
   log_opts.row_offset = std::max<int>(0, messages.size() - opts.row_limit);
   logs_table.RenderTABLE(html, log_opts);
+  traffic_table.RenderTABLE(html, opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
   html += "</main></body></html>";
