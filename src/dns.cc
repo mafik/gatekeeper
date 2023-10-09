@@ -21,7 +21,7 @@ namespace dns {
 
 static constexpr uint16_t kServerPort = 53;
 static constexpr steady_clock::duration kAuthoritativeTTL = 60s;
-static constexpr steady_clock::duration kPendingTTL = 20s;
+static constexpr steady_clock::duration kPendingTTL = 30s;
 
 string TypeToString(Type t) {
   switch (t) {
