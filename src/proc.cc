@@ -71,6 +71,10 @@ void ScanOpenedFiles(U32 pid, Fn<void(U32 fd, StrView path, Status &)> callback,
       char link[PATH_MAX + 1];
       SSize readlink_ret = readlinkat(proc.fd, ent->d_name, link, sizeof(link));
       if (readlink_ret == -1) {
+        if (errno == ENOENT) {
+          // The file was deleted. Ignore it.
+          continue;
+        }
         status() += "Couldn't read link at " + dir + "/" + ent->d_name;
         return;
       }
