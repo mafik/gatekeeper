@@ -17,7 +17,7 @@ struct TrafficBytes {
 struct TrafficLog {
   MAC local_host;
   maf::IP remote_ip;
-  mutable std::map<std::chrono::steady_clock::time_point, TrafficBytes> entries;
+  mutable std::map<std::chrono::system_clock::time_point, TrafficBytes> entries;
 };
 
 void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,

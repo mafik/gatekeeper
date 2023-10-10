@@ -38,7 +38,7 @@ struct OrderByHosts {
 struct OrderByOldestEntry {
   using is_transparent = std::true_type;
 
-  bool operator()(const chrono::steady_clock::time_point a,
+  bool operator()(const chrono::system_clock::time_point a,
                   const TrafficLog *b) const {
     return a < b->entries.begin()->first;
   }
@@ -52,9 +52,9 @@ multiset<TrafficLog *, OrderByOldestEntry> traffic_log_expiration_queue;
 
 void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,
                    maf::U32 down) {
-  auto now = chrono::steady_clock::now();
+  auto now = chrono::system_clock::now();
   // Limit resolution of traffic logs to 0.1 second
-  now -= chrono::duration_cast<chrono::steady_clock::duration>(
+  now -= chrono::duration_cast<chrono::system_clock::duration>(
              now.time_since_epoch()) %
          100ms;
   auto it = traffic_logs.find<TrafficEndpoints>({local_host, remote_ip});
