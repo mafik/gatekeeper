@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <fcntl.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_queue.h>
 #include <set>
@@ -16,6 +17,7 @@
 #include <utility>
 
 #include "config.hh"
+#include "epoll.hh"
 #include "format.hh"
 #include "log.hh"
 #include "netfilter.hh"
@@ -377,6 +379,69 @@ std::unordered_set<SymmetricNAT *, SymmetricNAT::HashByRemote,
 
 std::unordered_map<IP, MAC> local_ip_to_mac;
 
+// Using pipes for inter-thread communication is rather inefficient but at the
+// time this was written, the epoll namespace didn't had any purely-userspace
+// mechanism to do it.
+//
+// If this ever becomes a performance bottleneck, then one solution might be to
+// switch the main thread to wait on a task queue instead of epoll. A secondary
+// thread would wait for the epoll events and push them to the task queue.
+struct RecordTrafficPipe : epoll::Listener {
+  FD write_fd;
+
+  void Setup(Status &status) {
+    int pipe_fds[2];
+    if (pipe(pipe_fds) == -1) {
+      AppendErrorMessage(status) +=
+          "Couldn't create pipes for the firewall loop";
+      return;
+    }
+    fd = pipe_fds[0];
+    write_fd = pipe_fds[1];
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+    epoll::Add(this, status);
+  }
+
+  struct RecordTrafficMessage {
+    MAC local_host;
+    IP remote_ip;
+    uint32_t up;
+    uint32_t down;
+  };
+
+  void NotifyRead(Status &status) override {
+    while (true) {
+      RecordTrafficMessage msg;
+      SSize read_bytes = read(fd, &msg, sizeof(msg));
+      if (read_bytes == 0) { // EOF
+        epoll::Del(this, status);
+        break;
+      } else if (read_bytes == -1) { // Nothing to read / Error
+        if (errno == EWOULDBLOCK) {
+          break;
+        }
+        AppendErrorMessage(status) += "read()";
+        epoll::Del(this, status);
+        break;
+      } else if (read_bytes < sizeof(RecordTrafficMessage)) { // Not enough data
+        break;
+      } else { // Got a full entry
+        RecordTraffic(msg.local_host, msg.remote_ip, msg.up, msg.down);
+      }
+    }
+  }
+
+  // This method should be called from the Firewall thread only.
+  void FirewallRecordTraffic(MAC local_mac, IP remote_ip, U32 up, U32 down) {
+    RecordTrafficMessage msg{local_mac, remote_ip, up, down};
+    write(write_fd, &msg, sizeof(msg));
+  }
+
+  const char *Name() const override { return "firewall::RecordTrafficPipe"; }
+};
+
+RecordTrafficPipe pipe;
+
 void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
   if (attrs[NFQA_PACKET_HDR] == nullptr) {
     ERROR << "NFQA_PACKET_HDR is missing";
@@ -452,7 +517,7 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
       auto it = local_ip_to_mac.find(ip.destination_ip);
       if (it != local_ip_to_mac.end()) {
         MAC &mac = it->second;
-        RecordTraffic(mac, ip.source_ip, 0, payload.size());
+        pipe.FirewallRecordTraffic(mac, ip.source_ip, 0, payload.size());
       }
     }
   } else if (from_lan && to_internet && ip.source_ip != lan_ip && has_ports) {
@@ -463,7 +528,7 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
       nfqnl_msg_packet_hw &hw = attrs[NFQA_HWADDR]->As<nfqnl_msg_packet_hw>();
       MAC &mac = *(MAC *)hw.hw_addr;
       local_ip_to_mac[ip.source_ip] = mac;
-      RecordTraffic(mac, ip.destination_ip, payload.size(), 0);
+      pipe.FirewallRecordTraffic(mac, ip.destination_ip, payload.size(), 0);
     }
 
     // Record the original source IP in the Full Cone NAT table.
@@ -526,6 +591,12 @@ void Loop() {
 }
 
 void Start(Status &status) {
+  pipe.Setup(status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't setup pipe for recording traffic";
+    return;
+  }
+
   hook.emplace(status);
   if (!status.Ok()) {
     hook.reset();
@@ -567,6 +638,8 @@ void Stop() {
   loop.join();
   queue.reset();
   hook.reset();
+  Status status_ignore;
+  epoll::Del(&pipe, status_ignore);
 }
 
 } // namespace gatekeeper::firewall

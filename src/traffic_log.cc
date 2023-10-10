@@ -47,14 +47,11 @@ struct OrderByOldestEntry {
   }
 };
 
-mutex traffic_logs_mutex;
-
 set<TrafficLog *, OrderByHosts> traffic_logs;
 multiset<TrafficLog *, OrderByOldestEntry> traffic_log_expiration_queue;
 
 void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,
                    maf::U32 down) {
-  lock_guard lock(traffic_logs_mutex);
   auto now = chrono::steady_clock::now();
   // Limit resolution of traffic logs to 0.1 second
   now -= chrono::duration_cast<chrono::steady_clock::duration>(
@@ -96,7 +93,6 @@ void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,
 }
 
 void QueryTraffic(maf::Fn<void(const TrafficLog &)> callback) {
-  lock_guard lock(traffic_logs_mutex);
   for (const auto &log : traffic_logs) {
     callback(*log);
   }
