@@ -36,7 +36,7 @@ struct Table {
   // Functions for rendering the table HTML.
   void RenderTABLE(std::string &html, RenderOptions &);
   void RenderTHEAD(std::string &html, RenderOptions &);
-  virtual void RenderTBODY(std::string &html, RenderOptions &);
+  void RenderTBODY(std::string &html, RenderOptions &);
   void RenderTR(std::string &html, int row);
   void RenderTFOOT(std::string &html, RenderOptions &);
 

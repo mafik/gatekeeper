@@ -15,7 +15,9 @@
 #include "format.hh"
 #include "http.hh"
 #include "install.hh"
+#include "ip.hh"
 #include "log.hh"
+#include "optional.hh"
 #include "str.hh"
 #include "traffic_log.hh"
 #include "virtual_fs.hh"
@@ -488,57 +490,67 @@ struct LogsTable : Table {
 
 LogsTable logs_table;
 
-struct TrafficTable : Table {
-  TrafficTable()
-      : Table("traffic", "Traffic", {"Local MAC", "Remote IP", "Traffic"}) {}
-  int Size() const override { return 0; }
-  void Get(int row, int col, string &out) const override {}
-  std::string RowID(int row) const override { return ""; }
+struct TrafficGraph {
+  TrafficGraph() {}
 
-  void RenderTBODY(std::string &html, RenderOptions &) override {
+  struct RenderOptions {
+    Optional<MAC> local_mac;
+    Optional<IP> remote_ip;
+  };
+
+  void RenderCANVAS(std::string &html, const RenderOptions &opts) {
     using namespace gatekeeper;
 
-    html += "<tbody>";
+    // Str id = "traffic";
+    // if (opts.local_mac.has_value()) {
+    //   id += "-" + opts.local_mac->to_string();
+    // }
+    // if (opts.remote_ip.has_value()) {
+    //   id += "-" + opts.remote_ip->to_string();
+    // }
+
+    using Entries = decltype(TrafficLog::entries);
+    Entries aggregated;
+    // Performance note: we could exploit the fact that the traffic logs are
+    // sorted to avoid linear scan here.
     QueryTraffic([&](const TrafficLog &log) {
-      Str id = log.local_host.to_string() + "-" + log.remote_ip.to_string();
-      ReplaceAll(id, ":", ".");
-      html += "<tr id=";
-      html += id;
-      html += " style=view-transition-name:";
-      html += id;
-      html += ">";
-      html += "<td>";
-      html += log.local_host.to_string();
-      html += "</td>";
-      html += "<td>";
-      html += log.remote_ip.to_string();
-      html += "</td>";
-      html += "<td><script type=application/json class=graph>[";
-      bool first = true;
-      for (auto &[time, bytes] : log.entries) {
-        if (first) {
-          first = false;
-        } else {
-          html += ",";
-        }
-        html += "[";
-        html += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
-                              time.time_since_epoch())
-                              .count());
-        html += ",";
-        html += to_string(bytes.up);
-        html += ",";
-        html += to_string(bytes.down);
-        html += "]";
+      if (opts.local_mac.has_value() && log.local_host != *opts.local_mac) {
+        return;
       }
-      html += "]</script></td>";
-      html += "</tr>";
+      if (opts.remote_ip.has_value() && log.remote_ip != *opts.remote_ip) {
+        return;
+      }
+      // Performance note: we could use iterators here for O(n) merge instead of
+      // O(n*log(n)).
+      for (auto &[time, bytes] : log.entries) {
+        aggregated[time].up += bytes.up;
+        aggregated[time].down += bytes.down;
+      }
     });
-    html += "</tbody>";
+
+    html += "<canvas class=traffic width=600 height=300>[";
+    bool first = true;
+    for (auto &[time, bytes] : aggregated) {
+      if (first) {
+        first = false;
+      } else {
+        html += ",";
+      }
+      html += "[";
+      html += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                            time.time_since_epoch())
+                            .count());
+      html += ",";
+      html += to_string(bytes.up);
+      html += ",";
+      html += to_string(bytes.down);
+      html += "]";
+    }
+    html += "]</canvas>";
   }
 };
 
-TrafficTable traffic_table;
+TrafficGraph traffic_graph;
 
 Table::RenderOptions Table::RenderOptions::FromQuery(Request &request) {
   Table::RenderOptions opts;
@@ -647,7 +659,8 @@ void RenderMainPage(Response &response, Request &request) {
   Table::RenderOptions log_opts = opts;
   log_opts.row_offset = std::max<int>(0, messages.size() - opts.row_limit);
   logs_table.RenderTABLE(html, log_opts);
-  traffic_table.RenderTABLE(html, opts);
+  TrafficGraph::RenderOptions traffic_opts;
+  traffic_graph.RenderCANVAS(html, traffic_opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
   html += "</main></body></html>";
