@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
-#include <cstring>
 
 struct MAC {
   uint8_t bytes[6];
@@ -16,14 +16,11 @@ struct MAC {
   static MAC FromInterface(std::string_view interface_name);
   std::string to_string() const;
   uint8_t &operator[](int i) { return bytes[i]; }
-  bool TryParse(const char* cp) {
-    return sscanf(cp, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-                  &bytes[0], &bytes[1], &bytes[2],
-                  &bytes[3], &bytes[4], &bytes[5]) == 6;
+  bool TryParse(const char *cp) {
+    return sscanf(cp, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &bytes[0], &bytes[1],
+                  &bytes[2], &bytes[3], &bytes[4], &bytes[5]) == 6;
   }
-  auto operator<=>(const MAC &other) const {
-    return memcmp(bytes, other.bytes, 6);
-  }
+  auto operator<=>(const MAC &other) const = default;
   enum CastType { CAST_MULTICAST, CAST_UNICAST };
   CastType cast_type() const {
     if (bytes[0] & 0x01) {
@@ -32,7 +29,5 @@ struct MAC {
       return CAST_UNICAST;
     }
   }
-  bool IsGloballyUnique() const {
-    return (bytes[0] & 0x02) == 0;
-  }
+  bool IsGloballyUnique() const { return (bytes[0] & 0x02) == 0; }
 };
