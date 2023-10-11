@@ -519,9 +519,15 @@ struct TrafficGraph {
       ws_url += v;
     }
 
-    html += "<canvas class=traffic width=600 height=348 data-ws=";
+    html += "<table id=traffic "
+            "style=view-transition-name:traffic><caption>Traffic</"
+            "caption><tr class=round-top><td><canvas class=traffic width=600 "
+            "height=348 data-ws=";
     html += ws_url;
-    html += "></canvas>";
+    html += "></canvas></td></tr><tfoot class=round-bottom><tr><td><a "
+            "href=/traffic.html?local=all>Breakdown by host</a> <a "
+            "href=/traffic.csv>CSV</a> <a "
+            "href=/traffic.json>JSON</a></td></tr></tfoot></table>";
   }
 };
 
