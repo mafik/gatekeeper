@@ -31,3 +31,12 @@ struct MAC {
   }
   bool IsGloballyUnique() const { return (bytes[0] & 0x02) == 0; }
 };
+
+template <> struct std::hash<MAC> {
+  std::size_t operator()(const MAC &mac) const {
+    return std::hash<uint64_t>()((uint64_t)mac.bytes[5] << 40 |
+                                 (uint64_t)mac.bytes[4] << 32 |
+                                 mac.bytes[3] << 24 | mac.bytes[2] << 16 |
+                                 mac.bytes[1] << 8 | mac.bytes[0]);
+  }
+};
