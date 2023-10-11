@@ -11,7 +11,9 @@ function ToPrecision(n, precision) {
 }
 
 function FormatBytes(n) {
-  if (n >= 1024 * 1024) {
+  if (n >= 1024 * 1024 * 1024) {
+    return ToPrecision(n / 1024 / 1024 / 1024, 2) + ' MB';
+  } else if (n >= 1024 * 1024) {
     return ToPrecision(n / 1024 / 1024, 2) + ' MB';
   } else if (n > 1024) {
     return ToPrecision(n / 1024, 2) + ' kB';
@@ -79,8 +81,8 @@ function RenderGraph(canvas) {
       ctx.textAlign = 'left';
       ctx.fillText(this.symbol, LineWidth, offset_y + LineWidth);
       ctx.textAlign = 'right';
-      ctx.fillText(FormatBytes(this.max / this.milliseconds_per_pixel * 1000), LineWidth + 70, offset_y + LineWidth);
-      ctx.fillText(FormatBytes(this.avg / this.milliseconds_per_pixel * 1000), LineWidth + 130, offset_y + LineWidth);
+      ctx.fillText(FormatBytes(this.max / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 70, offset_y + LineWidth);
+      ctx.fillText(FormatBytes(this.avg / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 130, offset_y + LineWidth);
       ctx.fillText(FormatBytes(this.sum), LineWidth + 190, offset_y + LineWidth);
     }
   }
@@ -186,7 +188,7 @@ function Throttle(func, delay) {
 }
 
 function InitGraph(canvas) {
-  canvas.datapoints = JSON.parse(canvas.innerHTML);
+  canvas.datapoints = [];
   RenderGraph(canvas);
   if (canvas.dataset.ws) {
     let ws = new WebSocket(canvas.dataset.ws, "traffic");

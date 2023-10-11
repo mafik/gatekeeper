@@ -354,16 +354,23 @@ static void AppendWebSocketFrame(Connection &c, uint8_t opcode,
   }
   c.response_buffer.append(header, header_size);
   c.response_buffer.append(payload);
-  TryWriting(c);
 }
 
-void Connection::Send(std::string_view payload) {
+void Connection::Send(std::string_view payload, bool flush) {
   AppendWebSocketFrame(*this, 2, payload);
+  if (flush) {
+    TryWriting(*this);
+  }
 }
 
-void Connection::SendText(std::string_view payload) {
+void Connection::SendText(std::string_view payload, bool flush) {
   AppendWebSocketFrame(*this, 1, payload);
+  if (flush) {
+    TryWriting(*this);
+  }
 }
+
+void Connection::Flush() { TryWriting(*this); }
 
 void Connection::Close(uint16_t code, std::string_view reason) {
   if (mode == MODE_WEBSOCKET) {
@@ -373,6 +380,7 @@ void Connection::Close(uint16_t code, std::string_view reason) {
     closing = true;
     AppendWebSocketFrame(*this, 8,
                          std::string_view(payload, reason.size() + 2));
+    TryWriting(*this);
   } else if (response_buffer.empty()) {
     CloseTCP();
   } else {

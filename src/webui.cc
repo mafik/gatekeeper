@@ -500,8 +500,6 @@ struct TrafficGraph {
   };
 
   void RenderCANVAS(std::string &html, const RenderOptions &opts) {
-    using namespace gatekeeper;
-
     vector<pair<Str, Str>> ws_params;
     if (opts.local_mac.has_value()) {
       ws_params.push_back(make_pair("local", opts.local_mac->to_string()));
@@ -521,46 +519,9 @@ struct TrafficGraph {
       ws_url += v;
     }
 
-    using Entries = decltype(TrafficLog::entries);
-    Entries aggregated;
-    // Performance note: we could exploit the fact that the traffic logs are
-    // sorted to avoid linear scan here.
-    QueryTraffic([&](const TrafficLog &log) {
-      if (opts.local_mac.has_value() && log.local_host != *opts.local_mac) {
-        return;
-      }
-      if (opts.remote_ip.has_value() && log.remote_ip != *opts.remote_ip) {
-        return;
-      }
-      // Performance note: we could use iterators here for O(n) merge instead of
-      // O(n*log(n)).
-      for (auto &[time, bytes] : log.entries) {
-        aggregated[time].up += bytes.up;
-        aggregated[time].down += bytes.down;
-      }
-    });
-
     html += "<canvas class=traffic width=600 height=348 data-ws=";
     html += ws_url;
-    html += ">[";
-    bool first_entry = true;
-    for (auto &[time, bytes] : aggregated) {
-      if (first_entry) {
-        first_entry = false;
-      } else {
-        html += ",";
-      }
-      html += "[";
-      html += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
-                            time.time_since_epoch())
-                            .count());
-      html += ",";
-      html += to_string(bytes.up);
-      html += ",";
-      html += to_string(bytes.down);
-      html += "]";
-    }
-    html += "]</canvas>";
+    html += "></canvas>";
   }
 };
 
@@ -726,6 +687,42 @@ void OnWebsocketOpen(Connection &c, Request &req) {
       }
     }
     traffic_websockets.emplace(key, &c);
+
+    using namespace gatekeeper;
+    using Entries = decltype(TrafficLog::entries);
+    Entries aggregated;
+    // Performance note: we could exploit the fact that the traffic logs are
+    // sorted to avoid linear scan here.
+    QueryTraffic([&](const TrafficLog &log) {
+      if (key.first.has_value() && log.local_host != *key.first) {
+        return;
+      }
+      if (key.second.has_value() && log.remote_ip != *key.second) {
+        return;
+      }
+      // Performance note: we could use iterators here for O(n) merge instead of
+      // O(n*log(n)).
+      for (auto &[time, bytes] : log.entries) {
+        aggregated[time].up += bytes.up;
+        aggregated[time].down += bytes.down;
+      }
+    });
+
+    Str msg = "";
+    for (auto &[time, bytes] : aggregated) {
+      msg.clear();
+      msg += "[";
+      msg += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                           time.time_since_epoch())
+                           .count());
+      msg += ",";
+      msg += to_string(bytes.up);
+      msg += ",";
+      msg += to_string(bytes.down);
+      msg += "]";
+      c.SendText(msg, false);
+    }
+    c.Flush();
   } else {
     c.Close(1002, "No such websocket");
   }
