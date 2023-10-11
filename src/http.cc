@@ -361,6 +361,10 @@ void Connection::Send(std::string_view payload) {
   AppendWebSocketFrame(*this, 2, payload);
 }
 
+void Connection::SendText(std::string_view payload) {
+  AppendWebSocketFrame(*this, 1, payload);
+}
+
 void Connection::Close(uint16_t code, std::string_view reason) {
   if (mode == MODE_WEBSOCKET) {
     char payload[reason.size() + 2];

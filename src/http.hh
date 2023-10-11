@@ -126,8 +126,11 @@ struct Connection : maf::epoll::Listener {
   // data in each Connection.
   void *user_data;
 
-  // Send the given payload as a WebSocket message.
+  // Send the given payload as a binary WebSocket message.
   void Send(std::string_view payload);
+
+  // Send the given payload as a text WebSocket message.
+  void SendText(std::string_view payload);
 
   // Close this WebSocket connection with an optional code & message.
   void Close(uint16_t code, std::string_view reason);
