@@ -1,11 +1,12 @@
 #include "webui.hh"
 
 #include <chrono>
+#include <deque>
 #include <fcntl.h>
+#include <map>
+#include <optional>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#include <deque>
 
 #include "chrono.hh"
 #include "config.hh"
@@ -501,13 +502,24 @@ struct TrafficGraph {
   void RenderCANVAS(std::string &html, const RenderOptions &opts) {
     using namespace gatekeeper;
 
-    // Str id = "traffic";
-    // if (opts.local_mac.has_value()) {
-    //   id += "-" + opts.local_mac->to_string();
-    // }
-    // if (opts.remote_ip.has_value()) {
-    //   id += "-" + opts.remote_ip->to_string();
-    // }
+    vector<pair<Str, Str>> ws_params;
+    if (opts.local_mac.has_value()) {
+      ws_params.push_back(make_pair("local", opts.local_mac->to_string()));
+    }
+    if (opts.remote_ip.has_value()) {
+      ws_params.push_back(make_pair("remote", opts.remote_ip->to_string()));
+    }
+    Str ws_url = "ws://";
+    ws_url += lan_ip.to_string();
+    ws_url += ":1337/traffic";
+    bool first_param = true;
+    for (auto &[k, v] : ws_params) {
+      ws_url += first_param ? '?' : '&';
+      first_param = false;
+      ws_url += k;
+      ws_url += '=';
+      ws_url += v;
+    }
 
     using Entries = decltype(TrafficLog::entries);
     Entries aggregated;
@@ -528,11 +540,13 @@ struct TrafficGraph {
       }
     });
 
-    html += "<canvas class=traffic width=600 height=300>[";
-    bool first = true;
+    html += "<canvas class=traffic width=600 height=348 data-ws=";
+    html += ws_url;
+    html += ">[";
+    bool first_entry = true;
     for (auto &[time, bytes] : aggregated) {
-      if (first) {
-        first = false;
+      if (first_entry) {
+        first_entry = false;
       } else {
         html += ",";
       }
@@ -665,6 +679,66 @@ void RenderMainPage(Response &response, Request &request) {
   dns::table.RenderTABLE(html, opts);
   html += "</main></body></html>";
   response.Write(html);
+}
+
+multimap<pair<Optional<MAC>, Optional<IP>>, Connection *> traffic_websockets;
+
+void RecordTraffic(chrono::system_clock::time_point time, MAC local_host,
+                   IP remote_ip, U32 up, U32 down) {
+  auto NotifyWebsockets = [&](auto iters) {
+    auto [begin, end] = iters;
+    for (auto it = begin; it != end; ++it) {
+      auto &c = *it->second;
+      string msg = "[";
+      msg += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                           time.time_since_epoch())
+                           .count());
+      msg += ",";
+      msg += to_string(up);
+      msg += ",";
+      msg += to_string(down);
+      msg += "]";
+      c.SendText(msg);
+    }
+  };
+  NotifyWebsockets(traffic_websockets.equal_range({local_host, remote_ip}));
+  NotifyWebsockets(traffic_websockets.equal_range({local_host, nullopt}));
+  NotifyWebsockets(traffic_websockets.equal_range({nullopt, nullopt}));
+}
+
+void OnWebsocketOpen(Connection &c, Request &req) {
+  if (req.path == "/traffic") {
+    pair<Optional<MAC>, Optional<IP>> key{};
+    if (auto it = req.query.find("local"); it != req.query.end()) {
+      key.first = MAC();
+      bool parsed_ok = key.first->TryParse(it->second.data());
+      if (!parsed_ok) {
+        c.Close(1002, "Invalid 'local' parameter");
+        return;
+      }
+    }
+    if (auto it = req.query.find("remote"); it != req.query.end()) {
+      key.second = IP();
+      bool parsed_ok = key.second->TryParse(it->second.data());
+      if (!parsed_ok) {
+        c.Close(1002, "Invalid 'remote' parameter");
+        return;
+      }
+    }
+    traffic_websockets.emplace(key, &c);
+  } else {
+    c.Close(1002, "No such websocket");
+  }
+}
+
+void OnWebsocketClose(Connection &c) {
+  for (auto it = traffic_websockets.begin(); it != traffic_websockets.end();
+       ++it) {
+    if (it->second == &c) {
+      it = traffic_websockets.erase(it);
+      return;
+    }
+  }
 }
 
 void Handler(Response &response, Request &request) {
@@ -810,6 +884,8 @@ void SetupLogging() {
 
 void Start(Status &status) {
   server.handler = Handler;
+  server.on_open = OnWebsocketOpen;
+  server.on_close = OnWebsocketClose;
   server.Listen(
       http::Server::Config{.ip = lan_ip, .port = kPort, .interface = lan.name},
       status);

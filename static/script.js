@@ -51,8 +51,7 @@ function RenderGraph(canvas) {
   let ctx = canvas.getContext('2d', { alpha: false });
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  let datapoints_json = canvas.innerHTML;
-  let datapoints = JSON.parse(datapoints_json);
+  let datapoints = canvas.datapoints;
   let now = Date.now();
 
   class Series {
@@ -165,11 +164,48 @@ function RenderGraph(canvas) {
   ctx.globalCompositeOperation = 'source-over';
 }
 
-function RenderGraphs() {
-  document.querySelectorAll('canvas.traffic').forEach(RenderGraph);
+function Throttle(func, delay) {
+
+  // Previously called time of the function
+  let prev = 0;
+  return (...args) => {
+    // Current called time of the function
+    let now = new Date().getTime();
+
+    // If difference is greater than delay call
+    // the function again.
+    if (now - prev > delay) {
+      prev = now;
+
+      // "..." is the spread operator here 
+      // returning the function with the 
+      // array of arguments
+      return func(...args);
+    }
+  }
 }
 
-document.addEventListener("DOMContentLoaded", RenderGraphs);
+function InitGraph(canvas) {
+  canvas.datapoints = JSON.parse(canvas.innerHTML);
+  RenderGraph(canvas);
+  if (canvas.dataset.ws) {
+    let ws = new WebSocket(canvas.dataset.ws, "traffic");
+    canvas.prev = 0;
+    const Delay = 100;
+    ws.onmessage = function (event) {
+      canvas.datapoints.push(JSON.parse(event.data));
+    };
+    setInterval(() => {
+      RenderGraph(canvas);
+    }, 100);
+  }
+}
+
+function InitGraphs() {
+  document.querySelectorAll('canvas.traffic').forEach(InitGraph);
+}
+
+document.addEventListener("DOMContentLoaded", InitGraphs);
 
 // Note: Gatekeeper uses `morphdom` becasue the most recent version of htmx (1.9.2)
 // does not include the built-in `idiomorph` yet. This is planned for htmx-2.

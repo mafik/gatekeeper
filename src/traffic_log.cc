@@ -3,6 +3,8 @@
 #include <chrono>
 #include <set>
 
+#include "webui.hh"
+
 using namespace maf;
 using namespace std;
 
@@ -57,6 +59,7 @@ void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,
   now -= chrono::duration_cast<chrono::system_clock::duration>(
              now.time_since_epoch()) %
          100ms;
+  webui::RecordTraffic(now, local_host, remote_ip, up, down);
   auto it = traffic_logs.find<TrafficEndpoints>({local_host, remote_ip});
   if (it == traffic_logs.end()) {
     auto *log = new TrafficLog{local_host, remote_ip, {{now, {up, down}}}};

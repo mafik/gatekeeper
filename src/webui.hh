@@ -1,10 +1,12 @@
 #pragma once
 
+#include <chrono>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "http.hh"
+#include "mac.hh"
 
 namespace webui {
 
@@ -53,5 +55,11 @@ void StopListening();
 
 // Nicely terminates all existing connections (sending any buffered data).
 void FlushAndClose();
+
+// Pushes a traffic notification to all connected websockets.
+//
+// This allows the web UI to update in real time.
+void RecordTraffic(std::chrono::system_clock::time_point time, MAC local_host,
+                   maf::IP remote_ip, maf::U32 up, maf::U32 down);
 
 } // namespace webui
