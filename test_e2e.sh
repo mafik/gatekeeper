@@ -59,9 +59,9 @@ ip netns exec $NS dhclient -1 -cf ./test-dhclient.conf $DEV_B
 GATEKEEPER_IP=$(ip addr show dev $DEV_A | grep -oP '(?<=inet )([0-9.]*)')
 CLIENT_IP=$(ip netns exec $NS hostname -I | xargs)
 TEST_DOMAIN="www.google.com"
-CURL_1337=$(ip netns exec $NS curl -s http://$GATEKEEPER_IP:1337)
 CURL_EXAMPLE=$(ip netns exec $NS curl -v --no-progress-meter --connect-timeout 5 --max-time 10 $TEST_DOMAIN)
 CURL_EXAMPLE_STATUS=$?
+CURL_1337=$(ip netns exec $NS curl -s http://$GATEKEEPER_IP:1337)
 NFT_RULES=$(nft list ruleset)
 
 # Stop dhclient
