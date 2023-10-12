@@ -164,47 +164,50 @@ function RenderGraph(canvas) {
     }
   }
   ctx.globalCompositeOperation = 'source-over';
-}
 
-function Throttle(func, delay) {
-
-  // Previously called time of the function
-  let prev = 0;
-  return (...args) => {
-    // Current called time of the function
-    let now = new Date().getTime();
-
-    // If difference is greater than delay call
-    // the function again.
-    if (now - prev > delay) {
-      prev = now;
-
-      // "..." is the spread operator here 
-      // returning the function with the 
-      // array of arguments
-      return func(...args);
-    }
+  if (typeof canvas.closed != 'undefined') {
+    ctx.fillStyle = 'red';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 24px Texturina';
+    ctx.fillText('WebSocket closed with code ' + canvas.closed, canvas.width / 2, canvas.height / 2);
   }
 }
 
 function InitGraph(canvas) {
+  if (canvas.interval_id) {
+    return;
+  }
   canvas.datapoints = [];
   RenderGraph(canvas);
   if (canvas.dataset.ws) {
     let ws = new WebSocket(canvas.dataset.ws, "traffic");
-    canvas.prev = 0;
-    const Delay = 100;
     ws.onmessage = function (event) {
       canvas.datapoints.push(JSON.parse(event.data));
     };
-    setInterval(() => {
+    ws.onclose = function (event) {
+      console.log("WebSocket closed", event);
+      canvas.closed = event.code;
+    };
+    ws.onerror = function (event) {
+      console.log("WebSocket error", event);
+    };
+    canvas.interval_id = setInterval(() => {
       RenderGraph(canvas);
+      if (canvas.closed) {
+        clearInterval(canvas.interval_id);
+        canvas.interval_id = null;
+      }
     }, 100);
   }
 }
 
 function InitGraphs() {
-  document.querySelectorAll('canvas.traffic').forEach(InitGraph);
+  document.body.addEventListener('htmx:load', function (evt) {
+    // This event should happen when htmx adds new content to the DOM but it also seems to happen on page load.
+    // The `elt` field contains the element that is loaded.
+    let element = evt.detail.elt;
+    element.querySelectorAll('canvas.traffic').forEach(InitGraph);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", InitGraphs);
