@@ -18,6 +18,7 @@
 #include "install.hh"
 #include "ip.hh"
 #include "log.hh"
+#include "mac.hh"
 #include "optional.hh"
 #include "str.hh"
 #include "traffic_log.hh"
@@ -492,46 +493,86 @@ struct LogsTable : Table {
 LogsTable logs_table;
 
 struct TrafficGraph {
-  TrafficGraph() {}
-
   struct RenderOptions {
     Optional<MAC> local_mac;
     Optional<IP> remote_ip;
   };
 
-  void RenderCANVAS(std::string &html, const RenderOptions &opts) {
+  static void RenderCANVAS(std::string &html, const RenderOptions &opts) {
+    Str id = "traffic";
     vector<pair<Str, Str>> ws_params;
     if (opts.local_mac.has_value()) {
       ws_params.push_back(make_pair("local", opts.local_mac->to_string()));
+      id += "-";
+      id += opts.local_mac->to_string();
     }
     if (opts.remote_ip.has_value()) {
       ws_params.push_back(make_pair("remote", opts.remote_ip->to_string()));
+      id += "-";
+      id += opts.remote_ip->to_string();
     }
+    Str params = "";
+    bool first_param = true;
+    for (auto &[k, v] : ws_params) {
+      params += first_param ? '?' : '&';
+      first_param = false;
+      params += k;
+      params += '=';
+      params += v;
+    }
+
     Str ws_url = "ws://";
     ws_url += lan_ip.to_string();
     ws_url += ":1337/traffic";
-    bool first_param = true;
-    for (auto &[k, v] : ws_params) {
-      ws_url += first_param ? '?' : '&';
-      first_param = false;
-      ws_url += k;
-      ws_url += '=';
-      ws_url += v;
-    }
+    ws_url += params;
 
-    html += "<table id=traffic "
-            "style=view-transition-name:traffic><caption>Traffic</"
-            "caption><tr class=round-top><td><canvas class=traffic width=600 "
+    html += "<table id=";
+    html += id;
+    html += " style=view-transition-name:";
+    html += id;
+    html += "><caption>";
+    if (opts.local_mac.has_value() && opts.remote_ip.has_value()) {
+      html += "Traffic between ";
+      html += opts.local_mac->to_string();
+      html += " and ";
+      html += opts.remote_ip->to_string();
+    } else if (opts.local_mac.has_value()) {
+      html += "Traffic of ";
+      html += opts.local_mac->to_string();
+    } else if (opts.remote_ip.has_value()) {
+      html += "Traffic to ";
+      html += opts.remote_ip->to_string();
+    } else {
+      html += "Traffic";
+    }
+    html += "</caption><tr class=round-top><td><canvas class=traffic width=600 "
             "height=348 data-ws=";
     html += ws_url;
-    html += "></canvas></td></tr><tfoot class=round-bottom><tr><td><a "
-            "href=/traffic.html?local=all>Breakdown by host</a> <a "
-            "href=/traffic.csv>CSV</a> <a "
-            "href=/traffic.json>JSON</a></td></tr></tfoot></table>";
+    html += "></canvas></td></tr><tfoot><tr class=round-bottom><td>View as <a "
+            "href=/traffic.html";
+    html += params;
+    html += ">HTML</a> <a href=/traffic.csv";
+    html += params;
+    html += ">CSV</a> <a href=/traffic.json";
+    html += params;
+    html += ">JSON</a>.";
+    if (!opts.local_mac.has_value() || !opts.remote_ip.has_value()) {
+      html += " Group by";
+      if (!opts.local_mac.has_value()) {
+        html += " <a href=/traffic.html";
+        html += params.empty() ? "?" : params + "&";
+        html += "local=all>LAN client</a>";
+      }
+      if (!opts.remote_ip.has_value()) {
+        html += " <a href=/traffic.html";
+        html += params.empty() ? "?" : params + "&";
+        html += "remote=all>remote host</a>";
+      }
+      html += ".";
+    }
+    html += "</td></tr></tfoot></table>";
   }
 };
-
-TrafficGraph traffic_graph;
 
 Table::RenderOptions Table::RenderOptions::FromQuery(Request &request) {
   Table::RenderOptions opts;
@@ -641,9 +682,129 @@ void RenderMainPage(Response &response, Request &request) {
   log_opts.row_offset = std::max<int>(0, messages.size() - opts.row_limit);
   logs_table.RenderTABLE(html, log_opts);
   TrafficGraph::RenderOptions traffic_opts;
-  traffic_graph.RenderCANVAS(html, traffic_opts);
+  TrafficGraph::RenderCANVAS(html, traffic_opts);
   dhcp::table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
+  html += "</main></body></html>";
+  response.Write(html);
+}
+
+void RenderTrafficHTML(Response &response, Request &request) {
+
+  Str title = "Traffic";
+  if (request.query.contains("local") && request.query.contains("remote")) {
+    if (request.query["local"] == "all" && request.query["remote"] == "all") {
+      title = "Traffic between every LAN client & remote host";
+    } else if (request.query["local"] == "all") {
+      title = "Traffic between every LAN client & ";
+      title += request.query["remote"];
+    } else if (request.query["remote"] == "all") {
+      title = "Traffic between ";
+      title += request.query["local"];
+      title += " & every remote host";
+    } else {
+      title = "Traffic between ";
+      title += request.query["local"];
+      title += " & ";
+      title += request.query["remote"];
+    }
+  } else if (request.query.contains("local")) {
+    if (request.query["local"] == "all") {
+      title = "Traffic by LAN client";
+    } else {
+      title = "Traffic of ";
+      title += request.query["local"];
+    }
+  } else if (request.query.contains("remote")) {
+    if (request.query["remote"] == "all") {
+      title = "Traffic to remote hosts";
+    } else {
+      title = "Traffic to ";
+      title += request.query["remote"];
+    }
+  } else {
+    title = "Traffic Summary";
+  }
+
+  string html;
+  html += "<!doctype html>";
+  html += "<html><head><title>";
+  html += title;
+  html += " - Gatekeeper</title>";
+  RenderHeadTags(html);
+  html += "</head><body>";
+  RenderHEADER(html);
+  html += "<main>";
+
+  TrafficGraph::RenderOptions opts;
+  using namespace gatekeeper;
+
+  auto local_it = request.query.find("local");
+  bool all_locals = false;
+  if (local_it == request.query.end()) {
+    // Aggregate all local hosts
+    opts.local_mac = nullopt;
+  } else if (local_it->second == "all") {
+    all_locals = true;
+  } else {
+    // Select traffic for specific local host
+    opts.local_mac = MAC();
+    opts.local_mac->TryParse(local_it->second.data());
+  }
+
+  auto remote_it = request.query.find("remote");
+  bool all_remotes = false;
+  if (remote_it == request.query.end()) {
+    // Aggregate all remote hosts
+    opts.remote_ip = nullopt;
+  } else if (remote_it->second == "all") {
+    all_remotes = true;
+  } else {
+    // Select traffic for specific remote host
+    opts.remote_ip = IP();
+    opts.remote_ip->TryParse(remote_it->second.data());
+  }
+
+  if (all_locals && all_remotes) {
+    // Draw separate graphs for each local & remote host.
+    // This is a lot!
+    gatekeeper::QueryTraffic([&](const TrafficLog &traffic_log) {
+      opts.local_mac = traffic_log.local_host;
+      opts.remote_ip = traffic_log.remote_ip;
+      TrafficGraph::RenderCANVAS(html, opts);
+    });
+  } else if (all_locals) {
+    // Draw separate graphs for each local host
+    set<MAC> local_hosts;
+    gatekeeper::QueryTraffic([&](const TrafficLog &traffic_log) {
+      if (opts.remote_ip.has_value() &&
+          opts.remote_ip != traffic_log.remote_ip) {
+        return;
+      }
+      local_hosts.insert(traffic_log.local_host);
+    });
+    for (auto &local_host : local_hosts) {
+      opts.local_mac = local_host;
+      TrafficGraph::RenderCANVAS(html, opts);
+    }
+  } else if (all_remotes) {
+    // Draw separate graphs for each remote host
+    set<IP> remote_hosts;
+    gatekeeper::QueryTraffic([&](const TrafficLog &traffic_log) {
+      if (opts.local_mac.has_value() &&
+          opts.local_mac != traffic_log.local_host) {
+        return;
+      }
+      remote_hosts.insert(traffic_log.remote_ip);
+    });
+    for (auto &remote_host : remote_hosts) {
+      opts.remote_ip = remote_host;
+      TrafficGraph::RenderCANVAS(html, opts);
+    }
+  } else {
+    TrafficGraph::RenderCANVAS(html, opts);
+  }
+
   html += "</main></body></html>";
   response.Write(html);
 }
@@ -747,14 +908,18 @@ void OnWebsocketClose(Connection &c) {
 void Handler(Response &response, Request &request) {
   string path(request.path);
   if (WriteStaticFile(response, request)) {
+    // If a static file with the given path exists - just serve it.
     return;
   } else if (path.starts_with("/") && path.ends_with(".html")) {
+    // Detail page.
     string id(path.substr(1, path.size() - 6));
-    if (auto it = Tables().find(id); it != Tables().end()) {
+    if (id == "traffic") {
+      RenderTrafficHTML(response, request);
+    } else if (auto it = Tables().find(id); it != Tables().end()) {
       RenderTableHTML(response, request, *it->second);
     } else {
       response.WriteStatus("404 Not Found");
-      response.Write("Table not found");
+      response.Write("Page not found");
     }
   } else if (path.starts_with("/") && path.ends_with(".csv")) {
     string id(path.substr(1, path.size() - 5));
@@ -762,7 +927,7 @@ void Handler(Response &response, Request &request) {
       RenderTableCSV(response, request, *it->second);
     } else {
       response.WriteStatus("404 Not Found");
-      response.Write("Table not found");
+      response.Write("Page not found");
     }
   } else if (path.starts_with("/") && path.ends_with(".json")) {
     string id(path.substr(1, path.size() - 6));
@@ -770,7 +935,7 @@ void Handler(Response &response, Request &request) {
       RenderTableJSON(response, request, *it->second);
     } else {
       response.WriteStatus("404 Not Found");
-      response.Write("Table not found");
+      response.Write("Page not found");
     }
   } else if (gatekeeper::install::CanInstall() && path == "/install") {
     Status status;
