@@ -116,7 +116,7 @@ table {
   border: 1px outset var(--bg-bright);
   background: var(--bg-dark);
   background: linear-gradient(to bottom, var(--bg-dark), var(--bg-bright));
-  margin: .5em;
+  margin: .3em;
   border-radius: 9px;
 }
 
