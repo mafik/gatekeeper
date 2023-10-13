@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <map>
 #include <optional>
+#include <ranges>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -898,7 +899,9 @@ void OnWebsocketOpen(Connection &c, Request &req) {
     auto aggregated = opts.Aggregate();
 
     Str msg = "";
-    for (auto &[time, bytes] : aggregated) {
+    // Send data points in reverse so that the most recent points can be drawn
+    // quicker.
+    for (auto &[time, bytes] : aggregated | views::reverse) {
       msg.clear();
       msg += "[";
       msg += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
