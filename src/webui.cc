@@ -616,6 +616,7 @@ static const void RenderHEADER(std::string &html) {
 }
 
 static const void RenderHeadTags(std::string &html) {
+  html += "<meta charset=utf-8>";
   html += "<link rel=stylesheet href=/style.css>";
   html += "<link rel=icon type=image/x-icon href=/favicon.ico>";
   html += "<meta name=view-transition content=same-origin />";
