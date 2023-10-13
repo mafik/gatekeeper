@@ -707,6 +707,28 @@ void RenderTrafficCSV(Response &response, Request &request) {
   response.Write(csv);
 }
 
+void RenderTrafficJSON(Response &response, Request &request) {
+  auto opts = TrafficGraph::RenderOptions::FromQuery(request);
+  auto aggregated = opts.Aggregate();
+  Str json = "[";
+  for (auto &[time, bytes] : aggregated) {
+    if (json.ends_with("]")) {
+      json += ",\n";
+    }
+    json += "[";
+    json += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                          time.time_since_epoch())
+                          .count());
+    json += ",";
+    json += to_string(bytes.up);
+    json += ",";
+    json += to_string(bytes.down);
+    json += "]";
+  }
+  json += "]";
+  response.Write(json);
+}
+
 void RenderTableJSON(Response &response, Request &request, Table &t) {
   auto opts = Table::RenderOptions::FromQuery(request);
   t.Update(opts);
@@ -958,7 +980,9 @@ void Handler(Response &response, Request &request) {
     }
   } else if (path.starts_with("/") && path.ends_with(".json")) {
     string id(path.substr(1, path.size() - 6));
-    if (auto it = Tables().find(id); it != Tables().end()) {
+    if (id == "traffic") {
+      RenderTrafficJSON(response, request);
+    } else if (auto it = Tables().find(id); it != Tables().end()) {
       RenderTableJSON(response, request, *it->second);
     } else {
       response.WriteStatus("404 Not Found");
