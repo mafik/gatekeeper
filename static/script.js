@@ -12,7 +12,7 @@ function ToPrecision(n, precision) {
 
 function FormatBytes(n) {
   if (n >= 1024 * 1024 * 1024) {
-    return ToPrecision(n / 1024 / 1024 / 1024, 2) + ' MB';
+    return ToPrecision(n / 1024 / 1024 / 1024, 2) + ' GB';
   } else if (n >= 1024 * 1024) {
     return ToPrecision(n / 1024 / 1024, 2) + ' MB';
   } else if (n > 1024) {
@@ -22,13 +22,18 @@ function FormatBytes(n) {
   }
 }
 
-function FormatTime(ms) {
+function FormatTime(ms, max_components = 2) {
   let ret = '';
+  let components = 0;
   function AppendUnit(milliseconds_per_unit, unit_name_singular, unit_name_plural) {
+    if (components >= max_components) {
+      return;
+    }
     let whole_units = Math.floor(ms / milliseconds_per_unit);
     if (whole_units) {
       ms -= whole_units * milliseconds_per_unit;
       ret += ' ' + whole_units + ' ' + (whole_units == 1 ? unit_name_singular : unit_name_plural);
+      components += 1;
     }
   }
   AppendUnit(24 * 60 * 60 * 1000, 'day', 'days');
@@ -39,20 +44,80 @@ function FormatTime(ms) {
   return ret.trim();
 }
 
+function FormatTimeAgo(ms) {
+  if (ms <= 0) {
+    return 'now';
+  } else {
+    return FormatTime(ms) + ' ago';
+  }
+}
+
+const N = 600;
+const BarHeight = 100
+const BarSpacing = 16;
+
+// Global configuration shared by all graphs on the page.
+let DayBarConfig = {
+  color: '#b6b0c8',
+  offset_y: BarHeight * 2 + BarSpacing * 2,
+  milliseconds_length: 24 * 60 * 60 * 1000,
+  focus_time: 0
+};
+
+let HourBarConfig = {
+  color: '#c8b0b5',
+  offset_y: BarHeight + BarSpacing,
+  milliseconds_length: 60 * 60 * 1000,
+  focus_time: 0,
+  parent: DayBarConfig,
+};
+
+let MinuteBarConfig = {
+  color: '#c8c7b0',
+  offset_y: 0,
+  milliseconds_length: 60 * 1000,
+  parent: HourBarConfig,
+};
+
+DayBarConfig.child = HourBarConfig;
+HourBarConfig.child = MinuteBarConfig;
+
+MinuteBarConfig.EndTime = function (now) {
+  if (HourBarConfig.focus_time) {
+    return HourBarConfig.focus_time;
+  } else {
+    return now;
+  }
+};
+
+HourBarConfig.EndTime = function (now) {
+  if (DayBarConfig.focus_time) {
+    return DayBarConfig.focus_time;
+  } else {
+    return now;
+  }
+};
+
+DayBarConfig.EndTime = function (now) {
+  return now;
+};
+
 function RenderGraph(canvas) {
-  const N = 600;
-  const BarHeight = 100
-  const BarSpacing = 16;
   const DownColor = 'rgb(52, 202, 56)';
   const UpColor = 'rgb(255, 186, 0)';
   const FontSize = 14;
   const LineWidth = 1;
 
-  canvas.width = N;
-  canvas.height = 3 * BarHeight + 3 * BarSpacing;
+  let dpr = window.devicePixelRatio || 1;
+  let H = 3 * BarHeight + 3 * BarSpacing;
+  canvas.width = N * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = N + 'px';
+  canvas.style.height = H + 'px';
   let ctx = canvas.getContext('2d', { alpha: false });
+  ctx.scale(dpr, dpr);
   ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, N, H);
   let datapoints = canvas.datapoints;
   let now = Date.now();
 
@@ -88,17 +153,25 @@ function RenderGraph(canvas) {
   }
 
   class Bar {
-    constructor(color, offset_y, milliseconds_length) {
-      this.color = color;
-      this.offset_y = offset_y;
-      this.milliseconds_length = milliseconds_length;
-      this.up = new Series('⬆', UpColor, milliseconds_length);
-      this.down = new Series('⬇', DownColor, milliseconds_length);
-      this.milliseconds_per_pixel = milliseconds_length / N;
+    constructor(config) {
+      this.config = config;
+      this.color = config.color;
+      this.offset_y = config.offset_y;
+      this.milliseconds_length = config.milliseconds_length;
+      this.up = new Series('⬆', UpColor, this.milliseconds_length);
+      this.down = new Series('⬇', DownColor, this.milliseconds_length);
+      this.milliseconds_per_pixel = this.milliseconds_length / N;
     }
     addTraffic(time_up_down_arr) {
-      let i = Math.floor((now - time_up_down_arr[0]) / this.milliseconds_per_pixel);
-      if (i >= N) return;
+      let end = now;
+      if (this.config.parent) {
+        end = this.config.parent.focus_time;
+        if (end == 0) {
+          end = now;
+        }
+      }
+      let i = Math.floor((end - time_up_down_arr[0]) / this.milliseconds_per_pixel);
+      if (i < 0 || i >= N) return;
       this.up.data[i] += time_up_down_arr[1];
       this.down.data[i] += time_up_down_arr[2];
     }
@@ -113,24 +186,100 @@ function RenderGraph(canvas) {
     }
     drawFrame(ctx) {
       ctx.lineWidth = LineWidth;
-      ctx.font = FontSize + 'px Texturina';
       ctx.strokeStyle = this.color;
-      ctx.strokeRect(LineWidth / 2, this.offset_y + LineWidth / 2, canvas.width - LineWidth, BarHeight - LineWidth);
-      ctx.fillStyle = 'black';
+      ctx.fillStyle = this.color;
+      ctx.strokeRect(LineWidth / 2, this.offset_y + LineWidth / 2, N - LineWidth, BarHeight - LineWidth);
+      let end_time = this.config.EndTime(now);
+      let start_time = end_time - this.milliseconds_length;
+
+      let tick = new Date(end_time);
+      let step = 1;
+      let labelChecker = tick.getMilliseconds;
+      let labelMod = 100;
+      let labelFunc = function () {
+        return tick.toLocaleTimeString();
+      }
+      if (this.milliseconds_length >= 100) {
+        step *= 1000;
+        tick.setMilliseconds(0);
+        labelChecker = tick.getSeconds;
+        labelMod = 30;
+      }
+      if (this.milliseconds_length >= 100 * 1000) {
+        step *= 60;
+        tick.setSeconds(0);
+        labelChecker = tick.getMinutes;
+        labelMod = 30;
+        labelFunc = function () {
+          return tick.toLocaleString([], { hour: 'numeric', minute: 'numeric' });
+        };
+      }
+      if (this.milliseconds_length >= 100 * 1000 * 60) {
+        step *= 60;
+        tick.setMinutes(0);
+        labelChecker = tick.getHours;
+        labelMod = 6;
+        labelFunc = function () {
+          if (tick.getHours() == 0) {
+            return tick.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric' });
+          } else {
+            return tick.toLocaleString([], { hour: 'numeric', minute: 'numeric' });
+          }
+        };
+      }
+      if (this.milliseconds_length >= 100 * 1000 * 60 * 60) {
+        step *= 24;
+        tick.setHours(0);
+        labelChecker = tick.getDate;
+        labelMod = 7;
+      }
+      ctx.font = FontSize + 'px Texturina';
       ctx.textBaseline = 'top';
-      ctx.textAlign = 'left';
-      ctx.fillText(FormatTime(this.milliseconds_length) + ' ago', 0, this.offset_y + BarHeight);
       ctx.textAlign = 'center';
-      ctx.fillText('1 px = ' + FormatTime(this.milliseconds_per_pixel), canvas.width / 2, this.offset_y + BarHeight);
+      while (tick.getTime() > start_time) {
+        let x = Math.floor((end_time - tick.getTime()) / this.milliseconds_per_pixel);
+        if (x >= 0 && x < N) {
+          if ((labelChecker.call(tick) % labelMod) == 0) {
+            ctx.beginPath();
+            ctx.moveTo(N - 1 - x, this.offset_y);
+            ctx.lineTo(N - 1 - x, this.offset_y + 6);
+            ctx.stroke();
+            ctx.fillText(labelFunc(), N - 1 - x, this.offset_y + 6);
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(N - 1 - x, this.offset_y);
+            ctx.lineTo(N - 1 - x, this.offset_y + 3);
+            ctx.stroke();
+
+          }
+        }
+        tick.setTime(tick.getTime() - step);
+      }
+
+      if (this.config.parent) {
+        let right = N - (this.config.parent.EndTime(now) - end_time) / this.config.parent.milliseconds_length * N;
+        let left = right - this.config.milliseconds_length / this.config.parent.milliseconds_length * N;
+        let width = right - left;
+        ctx.globalAlpha = 0.5;
+        ctx.strokeRect(left + LineWidth / 2, this.config.parent.offset_y + LineWidth / 2, width - LineWidth, BarHeight - LineWidth);
+        ctx.globalAlpha = 0.3;
+        ctx.fillRect(left + LineWidth / 2, this.config.parent.offset_y + LineWidth / 2, width - LineWidth, BarHeight - LineWidth);
+        ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = 'black';
+      ctx.textAlign = 'left';
+      ctx.fillText(FormatTimeAgo(now - start_time), 0, this.offset_y + BarHeight);
+      ctx.textAlign = 'center';
+      ctx.fillText('1 px = ' + FormatTime(this.milliseconds_per_pixel), N / 2, this.offset_y + BarHeight);
       ctx.textAlign = 'right';
-      ctx.fillText('now', canvas.width - 1, this.offset_y + BarHeight);
+      ctx.fillText(FormatTimeAgo(now - end_time), N - 1, this.offset_y + BarHeight);
     }
   }
 
-  let minute = new Bar('#c8c7b0', 0, 60 * 1000);
-  let hour = new Bar('#c8b0b5', BarHeight + BarSpacing, 60 * 60 * 1000);
-  let day = new Bar('#b6b0c8', BarHeight * 2 + BarSpacing * 2, 24 * 60 * 60 * 1000);
-  let bars = [minute, hour, day];
+  let minute = new Bar(MinuteBarConfig);
+  let hour = new Bar(HourBarConfig);
+  let day = new Bar(DayBarConfig);
+  let bars = [day, hour, minute];
 
   for (let i = 0; i < datapoints.length; i++) {
     minute.addTraffic(datapoints[i]);
@@ -150,7 +299,7 @@ function RenderGraph(canvas) {
     for (let i = 0; i < N; i++) {
       if (bars[j].down.data[i] >= 0) {
         let h = bars[j].down.data[i] / bars[j].down.max * BarHeight;
-        ctx.fillRect(canvas.width - 1 - i, bars[j].offset_y + BarHeight - h, 1, h);
+        ctx.fillRect(N - 1 - i, bars[j].offset_y + BarHeight - h, 1, h);
       }
     }
   }
@@ -159,7 +308,7 @@ function RenderGraph(canvas) {
     for (let i = 0; i < N; i++) {
       if (bars[j].up.data[i] >= 0) {
         let h = bars[j].up.data[i] / bars[j].up.max * BarHeight;
-        ctx.fillRect(canvas.width - 1 - i, bars[j].offset_y + BarHeight - h, 1, h);
+        ctx.fillRect(N - 1 - i, bars[j].offset_y + BarHeight - h, 1, h);
       }
     }
   }
@@ -169,7 +318,7 @@ function RenderGraph(canvas) {
     ctx.fillStyle = 'red';
     ctx.textAlign = 'center';
     ctx.font = 'bold 24px Texturina';
-    ctx.fillText('WebSocket closed with code ' + canvas.closed, canvas.width / 2, canvas.height / 2);
+    ctx.fillText('WebSocket closed with code ' + canvas.closed, N / 2, H / 2);
   }
 }
 
@@ -198,6 +347,60 @@ function InitGraph(canvas) {
         canvas.interval_id = null;
       }
     }, 100);
+    let UpdateDayFocus = function (x) {
+      let now = Date.now();
+      let focus_time = now - DayBarConfig.milliseconds_length * (N - x - 0.5) / N + HourBarConfig.milliseconds_length / 2;
+      if (focus_time >= now) {
+        focus_time = 0;
+      }
+      DayBarConfig.focus_time = focus_time;
+      RenderGraph(canvas);
+    }
+    let UpdateHourFocus = function (x) {
+      let now = Date.now();
+      let focus_time = HourBarConfig.EndTime(now) - HourBarConfig.milliseconds_length * (N - x - 1) / N + MinuteBarConfig.milliseconds_length / 2;
+      if (focus_time >= now) {
+        focus_time = 0;
+      }
+      HourBarConfig.focus_time = focus_time;
+      RenderGraph(canvas);
+    };
+    // Change mouse cursor when over graph
+    canvas.addEventListener('mousemove', function (e) {
+      let rect = canvas.getBoundingClientRect();
+      let x = e.clientX - rect.left;
+      let y = e.clientY - rect.top;
+      let cursor = 'default';
+      if (y >= 0 && y < BarHeight) {
+        // cursor = 'grab';
+      } else if (y >= BarHeight + BarSpacing && y < BarHeight * 2 + BarSpacing) {
+        cursor = 'crosshair';
+        if (e.buttons == 1) {
+          UpdateHourFocus(x);
+        }
+      } else if (y >= BarHeight * 2 + BarSpacing * 2 && y < BarHeight * 3 + BarSpacing * 2) {
+        cursor = 'crosshair';
+        if (e.buttons == 1) {
+          UpdateDayFocus(x);
+        }
+      }
+      canvas.style.cursor = cursor;
+    });
+    canvas.addEventListener('mousedown', function (e) {
+      let rect = canvas.getBoundingClientRect();
+      let x = e.clientX - rect.left;
+      let y = e.clientY - rect.top;
+      if (y >= 0 && y < BarHeight) {
+      } else if (y >= BarHeight + BarSpacing && y < BarHeight * 2 + BarSpacing) {
+        if (e.button == 0) {
+          UpdateHourFocus(x);
+        }
+      } else if (y >= BarHeight * 2 + BarSpacing * 2 && y < BarHeight * 3 + BarSpacing * 2) {
+        if (e.button == 0) {
+          UpdateDayFocus(x);
+        }
+      }
+    });
   }
 }
 
