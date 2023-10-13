@@ -137,18 +137,18 @@ function RenderGraph(canvas) {
     static drawStatsLegend(offset_y, ctx) {
       ctx.fillStyle = 'black';
       ctx.textAlign = 'right';
-      ctx.fillText('Top', LineWidth + 70, offset_y + LineWidth);
-      ctx.fillText('Average', LineWidth + 130, offset_y + LineWidth);
-      ctx.fillText('Total', LineWidth + 190, offset_y + LineWidth);
+      ctx.fillText('Top', LineWidth + 80, offset_y + LineWidth);
+      ctx.fillText('Average', LineWidth + 150, offset_y + LineWidth);
+      ctx.fillText('Total', LineWidth + 210, offset_y + LineWidth);
     }
     drawStats(offset_y, ctx) {
       ctx.fillStyle = this.color;
       ctx.textAlign = 'left';
       ctx.fillText(this.symbol, LineWidth, offset_y + LineWidth);
       ctx.textAlign = 'right';
-      ctx.fillText(FormatBytes(this.max / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 70, offset_y + LineWidth);
-      ctx.fillText(FormatBytes(this.avg / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 130, offset_y + LineWidth);
-      ctx.fillText(FormatBytes(this.sum), LineWidth + 190, offset_y + LineWidth);
+      ctx.fillText(FormatBytes(this.max / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 80, offset_y + LineWidth);
+      ctx.fillText(FormatBytes(this.avg / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 150, offset_y + LineWidth);
+      ctx.fillText(FormatBytes(this.sum), LineWidth + 210, offset_y + LineWidth);
     }
   }
 
