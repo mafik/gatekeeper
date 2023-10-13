@@ -161,16 +161,10 @@ function RenderGraph(canvas) {
       this.up = new Series('⬆', UpColor, this.milliseconds_length);
       this.down = new Series('⬇', DownColor, this.milliseconds_length);
       this.milliseconds_per_pixel = this.milliseconds_length / N;
+      this.end = config.EndTime(now);
     }
     addTraffic(time_up_down_arr) {
-      let end = now;
-      if (this.config.parent) {
-        end = this.config.parent.focus_time;
-        if (end == 0) {
-          end = now;
-        }
-      }
-      let i = Math.floor((end - time_up_down_arr[0]) / this.milliseconds_per_pixel);
+      let i = Math.floor((this.end - time_up_down_arr[0]) / this.milliseconds_per_pixel);
       if (i < 0 || i >= N) return;
       this.up.data[i] += time_up_down_arr[1];
       this.down.data[i] += time_up_down_arr[2];
