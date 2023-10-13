@@ -29,6 +29,7 @@ namespace webui {
 using namespace maf;
 using namespace std;
 using namespace http;
+using namespace gatekeeper;
 using chrono::steady_clock;
 
 static constexpr int kPort = 1337;
@@ -496,6 +497,44 @@ struct TrafficGraph {
   struct RenderOptions {
     Optional<MAC> local_mac;
     Optional<IP> remote_ip;
+
+    static RenderOptions FromQuery(Request &request) {
+      RenderOptions opts{};
+      if (request.query.contains("local")) {
+        opts.local_mac = MAC();
+        opts.local_mac->TryParse(request.query["local"].data());
+      }
+      if (request.query.contains("remote")) {
+        opts.remote_ip = IP();
+        opts.remote_ip->TryParse(request.query["remote"].data());
+      }
+      return opts;
+    }
+
+    using Entries = decltype(TrafficLog::entries);
+
+    Entries Aggregate() const {
+      Entries aggregated;
+      // Performance note: we could exploit the fact that the traffic logs are
+      // sorted to avoid linear scan here.
+      QueryTraffic([&](const TrafficLog &log) {
+        if (local_mac.has_value() && log.local_host != *local_mac) {
+          return;
+        }
+        if (remote_ip.has_value() && log.remote_ip != *remote_ip) {
+          return;
+        }
+        // Performance note: we could use iterators here for O(n) merge instead
+        // of O(n*log(n)).
+        for (auto &[time, bytes] : log.entries) {
+          aggregated[time].up += bytes.up;
+          aggregated[time].down += bytes.down;
+        }
+      });
+      return aggregated;
+    }
+
+    auto operator<=>(const RenderOptions &) const = default;
   };
 
   static void RenderCANVAS(std::string &html, const RenderOptions &opts) {
@@ -650,6 +689,23 @@ void RenderTableCSV(Response &response, Request &request, Table &t) {
   response.Write(csv);
 }
 
+void RenderTrafficCSV(Response &response, Request &request) {
+  auto opts = TrafficGraph::RenderOptions::FromQuery(request);
+  auto aggregated = opts.Aggregate();
+  string csv = "Time,Bytes Sent,Bytes Downloaded\r\n";
+  for (auto &[time, bytes] : aggregated) {
+    csv += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                         time.time_since_epoch())
+                         .count());
+    csv += ",";
+    csv += to_string(bytes.up);
+    csv += ",";
+    csv += to_string(bytes.down);
+    csv += "\r\n";
+  }
+  response.Write(csv);
+}
+
 void RenderTableJSON(Response &response, Request &request, Table &t) {
   auto opts = Table::RenderOptions::FromQuery(request);
   t.Update(opts);
@@ -737,8 +793,7 @@ void RenderTrafficHTML(Response &response, Request &request) {
   RenderHEADER(html);
   html += "<main>";
 
-  TrafficGraph::RenderOptions opts;
-  using namespace gatekeeper;
+  auto opts = TrafficGraph::RenderOptions::FromQuery(request);
 
   auto local_it = request.query.find("local");
   bool all_locals = false;
@@ -810,7 +865,7 @@ void RenderTrafficHTML(Response &response, Request &request) {
   response.Write(html);
 }
 
-multimap<pair<Optional<MAC>, Optional<IP>>, Connection *> traffic_websockets;
+multimap<TrafficGraph::RenderOptions, Connection *> traffic_websockets;
 
 void RecordTraffic(chrono::system_clock::time_point time, MAC local_host,
                    IP remote_ip, U32 up, U32 down) {
@@ -837,44 +892,10 @@ void RecordTraffic(chrono::system_clock::time_point time, MAC local_host,
 
 void OnWebsocketOpen(Connection &c, Request &req) {
   if (req.path == "/traffic") {
-    pair<Optional<MAC>, Optional<IP>> key{};
-    if (auto it = req.query.find("local"); it != req.query.end()) {
-      key.first = MAC();
-      bool parsed_ok = key.first->TryParse(it->second.data());
-      if (!parsed_ok) {
-        c.Close(1002, "Invalid 'local' parameter");
-        return;
-      }
-    }
-    if (auto it = req.query.find("remote"); it != req.query.end()) {
-      key.second = IP();
-      bool parsed_ok = key.second->TryParse(it->second.data());
-      if (!parsed_ok) {
-        c.Close(1002, "Invalid 'remote' parameter");
-        return;
-      }
-    }
-    traffic_websockets.emplace(key, &c);
+    auto opts = TrafficGraph::RenderOptions::FromQuery(req);
+    traffic_websockets.emplace(opts, &c);
 
-    using namespace gatekeeper;
-    using Entries = decltype(TrafficLog::entries);
-    Entries aggregated;
-    // Performance note: we could exploit the fact that the traffic logs are
-    // sorted to avoid linear scan here.
-    QueryTraffic([&](const TrafficLog &log) {
-      if (key.first.has_value() && log.local_host != *key.first) {
-        return;
-      }
-      if (key.second.has_value() && log.remote_ip != *key.second) {
-        return;
-      }
-      // Performance note: we could use iterators here for O(n) merge instead of
-      // O(n*log(n)).
-      for (auto &[time, bytes] : log.entries) {
-        aggregated[time].up += bytes.up;
-        aggregated[time].down += bytes.down;
-      }
-    });
+    auto aggregated = opts.Aggregate();
 
     Str msg = "";
     for (auto &[time, bytes] : aggregated) {
@@ -924,7 +945,9 @@ void Handler(Response &response, Request &request) {
     }
   } else if (path.starts_with("/") && path.ends_with(".csv")) {
     string id(path.substr(1, path.size() - 5));
-    if (auto it = Tables().find(id); it != Tables().end()) {
+    if (id == "traffic") {
+      RenderTrafficCSV(response, request);
+    } else if (auto it = Tables().find(id); it != Tables().end()) {
       RenderTableCSV(response, request, *it->second);
     } else {
       response.WriteStatus("404 Not Found");
