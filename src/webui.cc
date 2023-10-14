@@ -591,7 +591,9 @@ struct TrafficGraph {
     html += "></canvas></td></tr><tfoot><tr class=round-bottom><td>View as <a "
             "href=/traffic.html";
     html += params;
-    html += ">HTML</a> <a href=/traffic.csv";
+    html += " hx-boost=true hx-target=main hx-select=main hx-ext=morphdom-swap"
+            " hx-swap=\"morphdom outerHTML transition:true\">HTML</a> <a "
+            "href=/traffic.csv";
     html += params;
     html += ">CSV</a> <a href=/traffic.json";
     html += params;
