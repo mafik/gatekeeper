@@ -20,6 +20,9 @@ using namespace maf;
 namespace dns {
 
 static constexpr uint16_t kServerPort = 53;
+
+// Use privileged port for DNS client - to reduce the chance of NAT collision.
+static constexpr uint16_t kClientPort = 338;
 static constexpr steady_clock::duration kAuthoritativeTTL = 60s;
 static constexpr steady_clock::duration kPendingTTL = 30s;
 
@@ -303,6 +306,20 @@ struct Client : UDPListener {
     }
 
     fd.SetNonBlocking(status);
+    if (!OK(status)) {
+      StopListening();
+      return;
+    }
+
+    int flag = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, (char *)&flag,
+                   sizeof(flag)) < 0) {
+      AppendErrorMessage(status) += "setsockopt: SO_REUSEADDR";
+      StopListening();
+      return;
+    }
+
+    fd.Bind(INADDR_ANY, kClientPort, status);
     if (!OK(status)) {
       StopListening();
       return;
