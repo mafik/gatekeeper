@@ -428,7 +428,7 @@ const char *Connection::Name() const { return "Connection"; }
 
 void Server::Listen(Config config, Status &status) {
   fd = socket(AF_INET, SOCK_STREAM, /*protocol*/ 0);
-  if (fd == 0) {
+  if (fd == -1) {
     AppendErrorMessage(status) += "socket() failed";
     return;
   }
