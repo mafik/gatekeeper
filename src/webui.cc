@@ -308,6 +308,65 @@ void Table::RenderJSON(std::string &json) {
   json += "]";
 }
 
+struct ClientAliases {
+  MAC mac;
+  Vec<Str> aliases;
+  Optional<IP> ip;
+
+  ClientAliases(MAC mac) : mac(mac) {
+    if (auto ethers_it = etc::ethers.find(mac);
+        ethers_it != etc::ethers.end()) {
+      ip = ethers_it->second;
+      if (auto hosts_it = etc::hosts.find(*ip); hosts_it != etc::hosts.end()) {
+        auto &hosts = hosts_it->second;
+        for (auto &host : hosts) {
+          aliases.push_back(host);
+        }
+      }
+    }
+    for (auto &[ip, entry] : dhcp::server.entries) {
+      if (entry.client_id != mac.to_string()) {
+        continue;
+      }
+      if (entry.hostname != "" && find(aliases.begin(), aliases.end(),
+                                       entry.hostname) == aliases.end()) {
+        aliases.push_back(entry.hostname);
+      }
+    }
+    if (aliases.empty()) {
+      if (ip.has_value()) {
+        aliases.push_back(ip->to_string());
+      } else {
+        aliases.push_back(mac.to_string());
+      }
+    }
+  }
+  ClientAliases(StrView mac_str) {
+    if (mac.TryParse(mac_str.data())) {
+      *this = ClientAliases(mac);
+    } else {
+      aliases.emplace_back(mac_str);
+    }
+  }
+
+  // Return a short text representation for the given MAC address.
+  Str GetTEXT() const { return aliases[0]; }
+
+  // Return a non-interactive HTML tag that represents the given MAC address.
+  Str GetSPAN() const {
+    Str span = "<span class=client title=\"MAC=";
+    span += mac.to_string();
+    if (ip.has_value()) {
+      span += " IP=";
+      span += ip->to_string();
+    }
+    span += "\">";
+    span += GetTEXT();
+    span += "</span>";
+    return span;
+  }
+};
+
 struct DevicesTable : Table {
   DevicesTable()
       : Table("devices", "Devices",
@@ -573,12 +632,12 @@ struct TrafficGraph {
     html += "><caption>";
     if (opts.local_mac.has_value() && opts.remote_ip.has_value()) {
       html += "Traffic between ";
-      html += opts.local_mac->to_string();
+      html += ClientAliases(*opts.local_mac).GetSPAN();
       html += " and ";
       html += opts.remote_ip->to_string();
     } else if (opts.local_mac.has_value()) {
       html += "Traffic of ";
-      html += opts.local_mac->to_string();
+      html += ClientAliases(*opts.local_mac).GetSPAN();
     } else if (opts.remote_ip.has_value()) {
       html += "Traffic to ";
       html += opts.remote_ip->to_string();
@@ -782,11 +841,11 @@ void RenderTrafficHTML(Response &response, Request &request) {
       title += request.query["remote"];
     } else if (request.query["remote"] == "all") {
       title = "Traffic between ";
-      title += request.query["local"];
+      title += ClientAliases(request.query["local"].data()).GetTEXT();
       title += " & every remote host";
     } else {
       title = "Traffic between ";
-      title += request.query["local"];
+      title += ClientAliases(request.query["local"].data()).GetTEXT();
       title += " & ";
       title += request.query["remote"];
     }
@@ -795,7 +854,7 @@ void RenderTrafficHTML(Response &response, Request &request) {
       title = "Traffic by LAN client";
     } else {
       title = "Traffic of ";
-      title += request.query["local"];
+      title += ClientAliases(request.query["local"].data()).GetTEXT();
     }
   } else if (request.query.contains("remote")) {
     if (request.query["remote"] == "all") {
