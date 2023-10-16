@@ -317,13 +317,12 @@ struct ClientAliases {
     if (auto *hosts = etc::GetHosts(mac); hosts != nullptr) {
       aliases.insert(aliases.end(), hosts->begin(), hosts->end());
     }
-    for (auto &[ip, entry] : dhcp::server.entries) {
-      if (entry.client_id != mac.to_string()) {
-        continue;
-      }
-      if (entry.hostname != "" && find(aliases.begin(), aliases.end(),
-                                       entry.hostname) == aliases.end()) {
-        aliases.push_back(entry.hostname);
+    if (auto entry_it = dhcp::server.entries_by_mac.find(mac);
+        entry_it != dhcp::server.entries_by_mac.end()) {
+      auto *entry = *entry_it;
+      if (entry->hostname != "" && find(aliases.begin(), aliases.end(),
+                                        entry->hostname) == aliases.end()) {
+        aliases.push_back(entry->hostname);
       }
     }
     if (aliases.empty()) {
@@ -398,16 +397,14 @@ struct DevicesTable : Table {
       Row &row = RowByIP(ip);
       row.mac = mac;
     }
-    for (auto &[ip, entry] : dhcp::server.entries) {
-      Row &row = RowByIP(ip);
-      if (MAC mac; mac.TryParse(entry.client_id.c_str())) {
-        row.mac = mac;
-      }
-      row.dhcp_hostname = entry.hostname;
+    for (auto *entry : dhcp::server.entries_by_ip) {
+      Row &row = RowByIP(entry->ip);
+      row.mac = entry->mac;
+      row.dhcp_hostname = entry->hostname;
       row.last_activity = FormatDuration(
-          entry.last_request.transform([&](auto x) { return x - now; }),
+          entry->last_request.transform([&](auto x) { return x - now; }),
           "never");
-      row.last_activity_time = entry.last_request;
+      row.last_activity_time = entry->last_request;
     }
     // Fill in the `hostnames` field.
     for (auto &r : rows) {

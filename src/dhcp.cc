@@ -662,11 +662,11 @@ struct __attribute__((__packed__)) PacketView : Header {
     }
     return options::MessageType::UNKNOWN;
   }
-  string client_id() const {
+  MAC effective_mac() const {
     if (auto *opt = FindOption<options::ClientIdentifier>()) {
-      return opt->hardware_address.to_string();
+      return opt->hardware_address;
     }
-    return client_mac_address.to_string();
+    return client_mac_address;
   }
 };
 
@@ -692,26 +692,22 @@ bool IsValidClientIP(IP requested_ip) {
 }
 
 IP ChooseIP(Server &server, const PacketView &request, string &error) {
-  string client_id = request.client_id();
+  MAC mac = request.effective_mac();
   // Try to find entry with matching client_id.
-  for (auto it : server.entries) {
-    const Server::Entry &entry = it.second;
-    if (entry.client_id == client_id) {
-      return it.first;
-    }
+  if (auto it = server.entries_by_mac.find(mac);
+      it != server.entries_by_mac.end()) {
+    return (*it)->ip;
   }
   // Take the requested IP if it is available.
   if (auto *opt = request.FindOption<options::RequestedIPAddress>()) {
     const IP requested_ip = opt->ip;
     bool ok = IsValidClientIP(requested_ip);
-    if (!ok) {
-      ok = false;
-    }
-    if (auto it = server.entries.find(requested_ip);
-        it != server.entries.end()) {
-      Server::Entry &entry = it->second;
-      if ((entry.client_id != client_id) &&
-          (entry.expiration ? entry.expiration > steady_clock::now() : true)) {
+    if (auto it = server.entries_by_ip.find(requested_ip);
+        it != server.entries_by_ip.end()) {
+      Server::Entry *entry = *it;
+      if ((entry->mac != mac) &&
+          (entry->expiration ? entry->expiration > steady_clock::now()
+                             : true)) {
         // Requested IP is taken by another client.
         ok = false;
       }
@@ -725,18 +721,18 @@ IP ChooseIP(Server &server, const PacketView &request, string &error) {
     if (ip == lan_ip) {
       continue;
     }
-    if (auto it = server.entries.find(ip); it == server.entries.end()) {
+
+    if (not server.entries_by_ip.contains(ip)) {
       return ip;
     }
   }
   // Try to find the most expired IP.
   IP oldest_ip(0, 0, 0, 0);
   steady_clock::time_point oldest_expiration = steady_clock::time_point::max();
-  for (auto it : server.entries) {
-    const Server::Entry &entry = it.second;
-    if (entry.expiration && *entry.expiration < oldest_expiration) {
-      oldest_ip = it.first;
-      oldest_expiration = *entry.expiration;
+  for (auto *entry : server.entries_by_ip) {
+    if (entry->expiration && *entry->expiration < oldest_expiration) {
+      oldest_ip = entry->ip;
+      oldest_expiration = *entry->expiration;
     }
   }
   if (oldest_expiration < steady_clock::now()) {
@@ -759,22 +755,25 @@ Server server;
 
 void Server::Init() {
   for (auto [mac, ip] : etc::ethers) {
-    auto &entry = entries[ip];
-    entry.client_id = mac.to_string();
-    entry.stable = true;
+    auto *entry = new Entry();
+    entry->ip = ip;
+    entry->mac = mac;
+    entry->stable = true;
     if (auto etc_hosts_it = etc::hosts.find(ip);
         etc_hosts_it != etc::hosts.end()) {
       auto &aliases = etc_hosts_it->second;
       if (!aliases.empty()) {
-        entry.hostname = aliases[0];
+        entry->hostname = aliases[0];
       }
     }
+    entries_by_ip.insert(entry);
+    entries_by_mac.insert(entry);
   }
 }
 int AvailableIPs(const Server &server) {
   int zeros = lan_network.Zeros();
   // 3 IPs are reserved: network, broadcast, and server.
-  return (1 << zeros) - server.entries.size() - 3;
+  return (1 << zeros) - server.entries_by_ip.size() - 3;
 }
 void Server::Listen(Status &status) {
   fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -877,9 +876,14 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     inform = true;
     break;
   case options::MessageType::RELEASE:
-    if (auto it = entries.find(packet.client_ip);
-        it != entries.end() && it->second.client_id == packet.client_id()) {
-      entries.erase(it);
+    if (auto it = entries_by_ip.find(packet.client_ip);
+        it != entries_by_ip.end()) {
+      auto *entry = *it;
+      if (entry->mac == packet.effective_mac()) {
+        entries_by_mac.erase(*it);
+        entries_by_ip.erase(it);
+        delete entry;
+      }
     }
     return;
   default:
@@ -954,13 +958,16 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   }
 
   if (!inform) {
-    auto &entry = entries[chosen_ip];
-    entry.client_id = packet.client_id();
-    entry.last_request = steady_clock::now();
-    entry.expiration = steady_clock::now() + lease_time;
+    auto *entry = new Entry();
+    entry->ip = chosen_ip;
+    entry->mac = packet.effective_mac();
+    entry->last_request = steady_clock::now();
+    entry->expiration = steady_clock::now() + lease_time;
     if (auto opt = packet.FindOption<options::HostName>()) {
-      entry.hostname = opt->hostname();
+      entry->hostname = opt->hostname();
     }
+    entries_by_ip.insert(entry);
+    entries_by_mac.insert(entry);
   }
 }
 const char *Server::Name() const { return "dhcp::Server"; }
@@ -973,7 +980,7 @@ int Table::Size() const { return 1; }
 void Table::Get(int row, int col, string &out) const {
   switch (col) {
   case 0:
-    out = f("%d", server.entries.size());
+    out = f("%d", server.entries_by_ip.size());
     break;
   case 1:
     out = f("%d", AvailableIPs(server));

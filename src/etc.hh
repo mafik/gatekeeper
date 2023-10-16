@@ -1,12 +1,9 @@
 #pragma once
 
 #include <map>
-#include <string>
-#include <vector>
 
 #include "ip.hh"
 #include "mac.hh"
-#include "optional.hh"
 #include "str.hh"
 #include "vec.hh"
 
