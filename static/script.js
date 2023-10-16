@@ -52,9 +52,14 @@ function FormatTimeAgo(ms) {
   }
 }
 
-const N = 600;
 const BarHeight = 100
 const BarSpacing = 16;
+const N = 600;
+const H = 3 * BarHeight + 3 * BarSpacing;
+const DownColor = 'rgb(52, 202, 56)';
+const UpColor = 'rgb(255, 186, 0)';
+const FontSize = 14;
+const LineWidth = 1;
 
 // Global configuration shared by all graphs on the page.
 let DayBarConfig = {
@@ -102,14 +107,158 @@ DayBarConfig.EndTime = function (now) {
   return now;
 };
 
+class Series {
+  constructor(symbol, color, milliseconds_length) {
+    this.symbol = symbol;
+    this.color = color;
+    this.data = new Uint32Array(N);
+    this.milliseconds_length = milliseconds_length;
+    this.milliseconds_per_pixel = milliseconds_length / N;
+  }
+  precomputeStats() {
+    this.max = this.data.reduce((a, b) => (b > a ? b : a), 0);
+    this.sum = this.data.reduce((a, b) => a + b, 0);
+    this.avg = this.sum / N;
+  }
+  static drawStatsLegend(offset_y, ctx) {
+    ctx.fillStyle = 'black';
+    ctx.textAlign = 'right';
+    ctx.fillText('Top', LineWidth + 80, offset_y + LineWidth);
+    ctx.fillText('Average', LineWidth + 150, offset_y + LineWidth);
+    ctx.fillText('Total', LineWidth + 210, offset_y + LineWidth);
+  }
+  drawStats(offset_y, ctx) {
+    ctx.fillStyle = this.color;
+    ctx.textAlign = 'left';
+    ctx.fillText(this.symbol, LineWidth, offset_y + LineWidth);
+    ctx.textAlign = 'right';
+    ctx.fillText(FormatBytes(this.max / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 80, offset_y + LineWidth);
+    ctx.fillText(FormatBytes(this.avg / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 150, offset_y + LineWidth);
+    ctx.fillText(FormatBytes(this.sum), LineWidth + 210, offset_y + LineWidth);
+  }
+}
+
+class Bar {
+  constructor(config) {
+    this.config = config;
+    this.color = config.color;
+    this.offset_y = config.offset_y;
+    this.milliseconds_length = config.milliseconds_length;
+    this.up = new Series('⬆', UpColor, this.milliseconds_length);
+    this.down = new Series('⬇', DownColor, this.milliseconds_length);
+    this.milliseconds_per_pixel = this.milliseconds_length / N;
+    this.now = Date.now();
+    this.end = config.EndTime(this.now);
+    this.start = this.end - this.milliseconds_length;
+  }
+  addTraffic(time_up_down_arr) {
+    let i = Math.floor((this.end - time_up_down_arr[0]) / this.milliseconds_per_pixel);
+    if (i < 0 || i >= N) return;
+    this.up.data[i] += time_up_down_arr[1];
+    this.down.data[i] += time_up_down_arr[2];
+  }
+  precomputeStats() {
+    this.up.precomputeStats();
+    this.down.precomputeStats();
+  }
+  drawStats(ctx) {
+    Series.drawStatsLegend(this.offset_y, ctx);
+    this.down.drawStats(this.offset_y + FontSize, ctx);
+    this.up.drawStats(this.offset_y + FontSize * 2, ctx);
+  }
+  drawFrame(ctx) {
+    ctx.lineWidth = LineWidth;
+    ctx.strokeStyle = this.color;
+    ctx.fillStyle = this.color;
+    ctx.strokeRect(LineWidth / 2, this.offset_y + LineWidth / 2, N - LineWidth, BarHeight - LineWidth);
+
+    let tick = new Date(this.end);
+    let step = 1;
+    let labelChecker = tick.getMilliseconds;
+    let labelMod = 100;
+    let labelFunc = function () {
+      return tick.toLocaleTimeString();
+    }
+    if (this.milliseconds_length >= 100) {
+      step *= 1000;
+      tick.setMilliseconds(0);
+      labelChecker = tick.getSeconds;
+      labelMod = 30;
+    }
+    if (this.milliseconds_length >= 100 * 1000) {
+      step *= 60;
+      tick.setSeconds(0);
+      labelChecker = tick.getMinutes;
+      labelMod = 30;
+      labelFunc = function () {
+        return tick.toLocaleString([], { hour: 'numeric', minute: 'numeric' });
+      };
+    }
+    if (this.milliseconds_length >= 100 * 1000 * 60) {
+      step *= 60;
+      tick.setMinutes(0);
+      labelChecker = tick.getHours;
+      labelMod = 6;
+      labelFunc = function () {
+        if (tick.getHours() == 0) {
+          return tick.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric' });
+        } else {
+          return tick.toLocaleString([], { hour: 'numeric', minute: 'numeric' });
+        }
+      };
+    }
+    if (this.milliseconds_length >= 100 * 1000 * 60 * 60) {
+      step *= 24;
+      tick.setHours(0);
+      labelChecker = tick.getDate;
+      labelMod = 7;
+    }
+    ctx.font = FontSize + 'px Texturina';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+    while (tick.getTime() > this.start) {
+      let x = Math.floor((this.end - tick.getTime()) / this.milliseconds_per_pixel);
+      if (x >= 0 && x < N) {
+        if ((labelChecker.call(tick) % labelMod) == 0) {
+          ctx.beginPath();
+          ctx.moveTo(N - 1 - x, this.offset_y);
+          ctx.lineTo(N - 1 - x, this.offset_y + 6);
+          ctx.stroke();
+          ctx.fillText(labelFunc(), N - 1 - x, this.offset_y + 6);
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(N - 1 - x, this.offset_y);
+          ctx.lineTo(N - 1 - x, this.offset_y + 3);
+          ctx.stroke();
+
+        }
+      }
+      tick.setTime(tick.getTime() - step);
+    }
+
+    if (this.config.parent) {
+      let right = N - (this.config.parent.EndTime(this.now) - this.end) / this.config.parent.milliseconds_length * N;
+      let left = right - this.config.milliseconds_length / this.config.parent.milliseconds_length * N;
+      let width = right - left;
+      ctx.globalAlpha = 0.5;
+      ctx.strokeRect(left + LineWidth / 2, this.config.parent.offset_y + LineWidth / 2, width - LineWidth, BarHeight - LineWidth);
+      ctx.globalAlpha = 0.3;
+      ctx.fillRect(left + LineWidth / 2, this.config.parent.offset_y + LineWidth / 2, width - LineWidth, BarHeight - LineWidth);
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = 'black';
+    ctx.textAlign = 'left';
+    ctx.fillText(FormatTimeAgo(this.now - this.start), 0, this.offset_y + BarHeight);
+    ctx.textAlign = 'center';
+    ctx.fillText('1 px = ' + FormatTime(this.milliseconds_per_pixel), N / 2, this.offset_y + BarHeight);
+    ctx.textAlign = 'right';
+    ctx.fillText(FormatTimeAgo(this.now - this.end), N - 1, this.offset_y + BarHeight);
+  }
+}
+
 function RenderGraph(canvas) {
-  const DownColor = 'rgb(52, 202, 56)';
-  const UpColor = 'rgb(255, 186, 0)';
-  const FontSize = 14;
-  const LineWidth = 1;
 
   let dpr = window.devicePixelRatio || 1;
-  let H = 3 * BarHeight + 3 * BarSpacing;
   canvas.width = N * dpr;
   canvas.height = H * dpr;
   canvas.style.width = N + 'px';
@@ -119,173 +268,23 @@ function RenderGraph(canvas) {
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, N, H);
   let datapoints = canvas.datapoints;
-  let now = Date.now();
-
-  class Series {
-    constructor(symbol, color, milliseconds_length) {
-      this.symbol = symbol;
-      this.color = color;
-      this.data = new Uint32Array(N);
-      this.milliseconds_length = milliseconds_length;
-      this.milliseconds_per_pixel = milliseconds_length / N;
-    }
-    precomputeStats() {
-      this.max = this.data.reduce((a, b) => (b > a ? b : a), 0);
-      this.sum = this.data.reduce((a, b) => a + b, 0);
-      this.avg = this.sum / N;
-    }
-    static drawStatsLegend(offset_y, ctx) {
-      ctx.fillStyle = 'black';
-      ctx.textAlign = 'right';
-      ctx.fillText('Top', LineWidth + 80, offset_y + LineWidth);
-      ctx.fillText('Average', LineWidth + 150, offset_y + LineWidth);
-      ctx.fillText('Total', LineWidth + 210, offset_y + LineWidth);
-    }
-    drawStats(offset_y, ctx) {
-      ctx.fillStyle = this.color;
-      ctx.textAlign = 'left';
-      ctx.fillText(this.symbol, LineWidth, offset_y + LineWidth);
-      ctx.textAlign = 'right';
-      ctx.fillText(FormatBytes(this.max / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 80, offset_y + LineWidth);
-      ctx.fillText(FormatBytes(this.avg / this.milliseconds_per_pixel * 1000) + '/s', LineWidth + 150, offset_y + LineWidth);
-      ctx.fillText(FormatBytes(this.sum), LineWidth + 210, offset_y + LineWidth);
-    }
-  }
-
-  class Bar {
-    constructor(config) {
-      this.config = config;
-      this.color = config.color;
-      this.offset_y = config.offset_y;
-      this.milliseconds_length = config.milliseconds_length;
-      this.up = new Series('⬆', UpColor, this.milliseconds_length);
-      this.down = new Series('⬇', DownColor, this.milliseconds_length);
-      this.milliseconds_per_pixel = this.milliseconds_length / N;
-      this.end = config.EndTime(now);
-    }
-    addTraffic(time_up_down_arr) {
-      let i = Math.floor((this.end - time_up_down_arr[0]) / this.milliseconds_per_pixel);
-      if (i < 0 || i >= N) return;
-      this.up.data[i] += time_up_down_arr[1];
-      this.down.data[i] += time_up_down_arr[2];
-    }
-    precomputeStats() {
-      this.up.precomputeStats();
-      this.down.precomputeStats();
-    }
-    drawStats(ctx) {
-      Series.drawStatsLegend(this.offset_y, ctx);
-      this.down.drawStats(this.offset_y + FontSize, ctx);
-      this.up.drawStats(this.offset_y + FontSize * 2, ctx);
-    }
-    drawFrame(ctx) {
-      ctx.lineWidth = LineWidth;
-      ctx.strokeStyle = this.color;
-      ctx.fillStyle = this.color;
-      ctx.strokeRect(LineWidth / 2, this.offset_y + LineWidth / 2, N - LineWidth, BarHeight - LineWidth);
-      let end_time = this.config.EndTime(now);
-      let start_time = end_time - this.milliseconds_length;
-
-      let tick = new Date(end_time);
-      let step = 1;
-      let labelChecker = tick.getMilliseconds;
-      let labelMod = 100;
-      let labelFunc = function () {
-        return tick.toLocaleTimeString();
-      }
-      if (this.milliseconds_length >= 100) {
-        step *= 1000;
-        tick.setMilliseconds(0);
-        labelChecker = tick.getSeconds;
-        labelMod = 30;
-      }
-      if (this.milliseconds_length >= 100 * 1000) {
-        step *= 60;
-        tick.setSeconds(0);
-        labelChecker = tick.getMinutes;
-        labelMod = 30;
-        labelFunc = function () {
-          return tick.toLocaleString([], { hour: 'numeric', minute: 'numeric' });
-        };
-      }
-      if (this.milliseconds_length >= 100 * 1000 * 60) {
-        step *= 60;
-        tick.setMinutes(0);
-        labelChecker = tick.getHours;
-        labelMod = 6;
-        labelFunc = function () {
-          if (tick.getHours() == 0) {
-            return tick.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric' });
-          } else {
-            return tick.toLocaleString([], { hour: 'numeric', minute: 'numeric' });
-          }
-        };
-      }
-      if (this.milliseconds_length >= 100 * 1000 * 60 * 60) {
-        step *= 24;
-        tick.setHours(0);
-        labelChecker = tick.getDate;
-        labelMod = 7;
-      }
-      ctx.font = FontSize + 'px Texturina';
-      ctx.textBaseline = 'top';
-      ctx.textAlign = 'center';
-      while (tick.getTime() > start_time) {
-        let x = Math.floor((end_time - tick.getTime()) / this.milliseconds_per_pixel);
-        if (x >= 0 && x < N) {
-          if ((labelChecker.call(tick) % labelMod) == 0) {
-            ctx.beginPath();
-            ctx.moveTo(N - 1 - x, this.offset_y);
-            ctx.lineTo(N - 1 - x, this.offset_y + 6);
-            ctx.stroke();
-            ctx.fillText(labelFunc(), N - 1 - x, this.offset_y + 6);
-          } else {
-            ctx.beginPath();
-            ctx.moveTo(N - 1 - x, this.offset_y);
-            ctx.lineTo(N - 1 - x, this.offset_y + 3);
-            ctx.stroke();
-
-          }
-        }
-        tick.setTime(tick.getTime() - step);
-      }
-
-      if (this.config.parent) {
-        let right = N - (this.config.parent.EndTime(now) - end_time) / this.config.parent.milliseconds_length * N;
-        let left = right - this.config.milliseconds_length / this.config.parent.milliseconds_length * N;
-        let width = right - left;
-        ctx.globalAlpha = 0.5;
-        ctx.strokeRect(left + LineWidth / 2, this.config.parent.offset_y + LineWidth / 2, width - LineWidth, BarHeight - LineWidth);
-        ctx.globalAlpha = 0.3;
-        ctx.fillRect(left + LineWidth / 2, this.config.parent.offset_y + LineWidth / 2, width - LineWidth, BarHeight - LineWidth);
-        ctx.globalAlpha = 1;
-      }
-      ctx.fillStyle = 'black';
-      ctx.textAlign = 'left';
-      ctx.fillText(FormatTimeAgo(now - start_time), 0, this.offset_y + BarHeight);
-      ctx.textAlign = 'center';
-      ctx.fillText('1 px = ' + FormatTime(this.milliseconds_per_pixel), N / 2, this.offset_y + BarHeight);
-      ctx.textAlign = 'right';
-      ctx.fillText(FormatTimeAgo(now - end_time), N - 1, this.offset_y + BarHeight);
-    }
-  }
 
   let minute = new Bar(MinuteBarConfig);
   let hour = new Bar(HourBarConfig);
   let day = new Bar(DayBarConfig);
   let bars = [day, hour, minute];
 
-  for (let i = 0; i < datapoints.length; i++) {
-    minute.addTraffic(datapoints[i]);
-    hour.addTraffic(datapoints[i]);
-    day.addTraffic(datapoints[i]);
+  for (const datapoint of datapoints) {
+    minute.addTraffic(datapoint);
+    hour.addTraffic(datapoint);
+    day.addTraffic(datapoint);
   }
 
-  bars.forEach((b) => b.precomputeStats());
+  for (const b of bars) b.precomputeStats();
 
-  bars.forEach((b) => b.drawFrame(ctx));
+  for (const b of bars) b.drawFrame(ctx);
 
-  bars.forEach((b) => b.drawStats(ctx));
+  for (const b of bars) b.drawStats(ctx);
 
   ctx.globalCompositeOperation = 'multiply';
   ctx.fillStyle = DownColor;
