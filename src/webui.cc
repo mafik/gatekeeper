@@ -314,15 +314,8 @@ struct ClientAliases {
   Optional<IP> ip;
 
   ClientAliases(MAC mac) : mac(mac) {
-    if (auto ethers_it = etc::ethers.find(mac);
-        ethers_it != etc::ethers.end()) {
-      ip = ethers_it->second;
-      if (auto hosts_it = etc::hosts.find(*ip); hosts_it != etc::hosts.end()) {
-        auto &hosts = hosts_it->second;
-        for (auto &host : hosts) {
-          aliases.push_back(host);
-        }
-      }
+    if (auto *hosts = etc::GetHosts(mac); hosts != nullptr) {
+      aliases.insert(aliases.end(), hosts->begin(), hosts->end());
     }
     for (auto &[ip, entry] : dhcp::server.entries) {
       if (entry.client_id != mac.to_string()) {

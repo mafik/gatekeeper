@@ -7,21 +7,31 @@ using namespace std;
 
 namespace etc {
 
-map<IP, vector<string>> hosts;
-std::map<MAC, IP> ethers;
-std::vector<IP> resolv = {IP(8, 8, 8, 8), IP(8, 8, 4, 4)};
-std::string hostname = "localhost";
+map<IP, Vec<Str>> hosts;
+map<MAC, IP> ethers;
+Vec<IP> resolv = {IP(8, 8, 8, 8), IP(8, 8, 4, 4)};
+Str hostname = "localhost";
 
-map<IP, vector<string>> ReadHosts() {
-  map<IP, vector<string>> etc_hosts;
-  std::ifstream hosts_stream("/etc/hosts");
-  std::string line;
-  while (std::getline(hosts_stream, line)) {
-    if (auto pos = line.find("#"); pos != string::npos) {
+Vec<Str> *GetHosts(MAC mac) {
+  if (auto ethers_it = ethers.find(mac); ethers_it != ethers.end()) {
+    if (auto hosts_it = hosts.find(ethers_it->second);
+        hosts_it != hosts.end()) {
+      return &hosts_it->second;
+    }
+  }
+  return nullptr;
+}
+
+map<IP, Vec<Str>> ReadHosts() {
+  map<IP, Vec<Str>> etc_hosts;
+  ifstream hosts_stream("/etc/hosts");
+  Str line;
+  while (getline(hosts_stream, line)) {
+    if (auto pos = line.find("#"); pos != Str::npos) {
       line.resize(pos);
     }
-    std::istringstream iss(line);
-    std::string ip_str;
+    istringstream iss(line);
+    Str ip_str;
     if (!(iss >> ip_str)) {
       continue;
     }
@@ -29,7 +39,7 @@ map<IP, vector<string>> ReadHosts() {
     if (!ip.TryParse(ip_str.c_str())) {
       continue;
     }
-    std::string hostname;
+    Str hostname;
     while (iss >> hostname) {
       etc_hosts[ip].push_back(hostname);
     }
@@ -37,17 +47,17 @@ map<IP, vector<string>> ReadHosts() {
   return etc_hosts;
 }
 
-map<MAC, IP> ReadEthers(const map<IP, vector<string>> &etc_hosts) {
+map<MAC, IP> ReadEthers(const map<IP, Vec<Str>> &etc_hosts) {
   map<MAC, IP> etc_ethers;
   ifstream ethers_stream("/etc/ethers");
-  string line;
+  Str line;
   while (getline(ethers_stream, line)) {
-    if (auto pos = line.find("#"); pos != string::npos) {
+    if (auto pos = line.find("#"); pos != Str::npos) {
       line.resize(pos);
     }
     istringstream iss(line);
-    string mac_str;
-    string addr_str;
+    Str mac_str;
+    Str addr_str;
     if (!(iss >> mac_str >> addr_str)) {
       continue;
     }
@@ -73,21 +83,21 @@ map<MAC, IP> ReadEthers(const map<IP, vector<string>> &etc_hosts) {
   return etc_ethers;
 }
 
-std::vector<IP> ReadResolv() {
-  vector<IP> resolv;
+Vec<IP> ReadResolv() {
+  Vec<IP> resolv;
   ifstream resolv_stream("/etc/resolv.conf");
-  string line;
+  Str line;
   while (getline(resolv_stream, line)) {
-    if (auto pos = line.find("#"); pos != string::npos) {
+    if (auto pos = line.find("#"); pos != Str::npos) {
       line.resize(pos);
     }
     istringstream iss(line);
-    string keyword;
+    Str keyword;
     if (!(iss >> keyword)) {
       continue;
     }
     if (keyword == "nameserver") {
-      string ip_str;
+      Str ip_str;
       if (iss >> ip_str) {
         IP ip;
         if (ip.TryParse(ip_str.c_str())) {
@@ -99,9 +109,9 @@ std::vector<IP> ReadResolv() {
   return resolv;
 }
 
-std::string ReadHostname() {
+Str ReadHostname() {
   ifstream hostname_stream("/etc/hostname");
-  string hostname;
+  Str hostname;
   getline(hostname_stream, hostname);
   return hostname;
 }
