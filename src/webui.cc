@@ -359,6 +359,14 @@ struct ClientAliases {
   }
 };
 
+Str RemoteAlias(IP ip) {
+  auto name = dns::LocalReverseLookup(ip);
+  if (name != nullptr) {
+    return *name; // copy
+  }
+  return ip.to_string();
+}
+
 struct DevicesTable : Table {
   DevicesTable()
       : Table("devices", "Devices",
@@ -624,13 +632,13 @@ struct TrafficGraph {
       html += "Traffic between ";
       html += ClientAliases(*opts.local_mac).GetSPAN();
       html += " and ";
-      html += opts.remote_ip->to_string();
+      html += RemoteAlias(*opts.remote_ip);
     } else if (opts.local_mac.has_value()) {
       html += "Traffic of ";
       html += ClientAliases(*opts.local_mac).GetSPAN();
     } else if (opts.remote_ip.has_value()) {
       html += "Traffic to ";
-      html += opts.remote_ip->to_string();
+      html += RemoteAlias(*opts.remote_ip);
     } else {
       html += "Traffic";
     }
@@ -822,51 +830,6 @@ void RenderMainPage(Response &response, Request &request) {
 
 void RenderTrafficHTML(Response &response, Request &request) {
 
-  Str title = "Traffic";
-  if (request.query.contains("local") && request.query.contains("remote")) {
-    if (request.query["local"] == "all" && request.query["remote"] == "all") {
-      title = "Traffic between every LAN client & remote host";
-    } else if (request.query["local"] == "all") {
-      title = "Traffic between every LAN client & ";
-      title += request.query["remote"];
-    } else if (request.query["remote"] == "all") {
-      title = "Traffic between ";
-      title += ClientAliases(request.query["local"].data()).GetTEXT();
-      title += " & every remote host";
-    } else {
-      title = "Traffic between ";
-      title += ClientAliases(request.query["local"].data()).GetTEXT();
-      title += " & ";
-      title += request.query["remote"];
-    }
-  } else if (request.query.contains("local")) {
-    if (request.query["local"] == "all") {
-      title = "Traffic by LAN client";
-    } else {
-      title = "Traffic of ";
-      title += ClientAliases(request.query["local"].data()).GetTEXT();
-    }
-  } else if (request.query.contains("remote")) {
-    if (request.query["remote"] == "all") {
-      title = "Traffic to remote hosts";
-    } else {
-      title = "Traffic to ";
-      title += request.query["remote"];
-    }
-  } else {
-    title = "Traffic Summary";
-  }
-
-  string html;
-  html += "<!doctype html>";
-  html += "<html><head><title>";
-  html += title;
-  html += " - Gatekeeper</title>";
-  RenderHeadTags(html);
-  html += "</head><body>";
-  RenderHEADER(html);
-  html += "<main>";
-
   auto opts = TrafficGraph::RenderOptions::FromQuery(request);
 
   auto local_it = request.query.find("local");
@@ -894,6 +857,51 @@ void RenderTrafficHTML(Response &response, Request &request) {
     opts.remote_ip = IP();
     opts.remote_ip->TryParse(remote_it->second.data());
   }
+
+  Str title = "Traffic";
+  if (request.query.contains("local") && request.query.contains("remote")) {
+    if (request.query["local"] == "all" && request.query["remote"] == "all") {
+      title = "Traffic between every LAN client & remote host";
+    } else if (request.query["local"] == "all") {
+      title = "Traffic between every LAN client & ";
+      title += RemoteAlias(*opts.remote_ip);
+    } else if (request.query["remote"] == "all") {
+      title = "Traffic between ";
+      title += ClientAliases(request.query["local"].data()).GetTEXT();
+      title += " & every remote host";
+    } else {
+      title = "Traffic between ";
+      title += ClientAliases(request.query["local"].data()).GetTEXT();
+      title += " & ";
+      title += RemoteAlias(*opts.remote_ip);
+    }
+  } else if (request.query.contains("local")) {
+    if (request.query["local"] == "all") {
+      title = "Traffic by LAN client";
+    } else {
+      title = "Traffic of ";
+      title += ClientAliases(request.query["local"].data()).GetTEXT();
+    }
+  } else if (request.query.contains("remote")) {
+    if (request.query["remote"] == "all") {
+      title = "Traffic to remote hosts";
+    } else {
+      title = "Traffic to ";
+      title += RemoteAlias(*opts.remote_ip);
+    }
+  } else {
+    title = "Traffic Summary";
+  }
+
+  string html;
+  html += "<!doctype html>";
+  html += "<html><head><title>";
+  html += title;
+  html += " - Gatekeeper</title>";
+  RenderHeadTags(html);
+  html += "</head><body>";
+  RenderHEADER(html);
+  html += "<main>";
 
   if (all_locals && all_remotes) {
     // Draw separate graphs for each local & remote host.

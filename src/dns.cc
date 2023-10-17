@@ -245,6 +245,28 @@ unordered_set<const Entry *, QuestionHash, QuestionEqual> cache;
 
 unordered_set<Entry, QuestionHash, QuestionEqual> static_cache;
 
+struct HashByData {
+  using is_transparent = std::true_type;
+  size_t operator()(const Record *r) const { return hash<StrView>()(r->data); }
+  // Allow querying using IP address (for A records).
+  size_t operator()(const IP &ip) const { return hash<StrView>()(ip); }
+};
+
+struct EqualData {
+  using is_transparent = std::true_type;
+  bool operator()(const Record *a, const Record *b) const {
+    return a->data == b->data;
+  }
+  bool operator()(const Record *a, const IP &b) const {
+    return StrView(a->data) == StrView(b);
+  }
+  bool operator()(const IP &a, const Record *b) const {
+    return StrView(a) == StrView(b->data);
+  }
+};
+
+unordered_multiset<const Record *, HashByData, EqualData> cache_reverse;
+
 multimap<steady_clock::time_point, const Entry *> expiration_queue;
 
 void Entry::UpdateExpiration(steady_clock::time_point new_expiration) const {
@@ -264,15 +286,22 @@ void Entry::UpdateExpiration(steady_clock::time_point new_expiration) const {
 void ExpireEntries() {
   auto now = steady_clock::now();
   while (!expiration_queue.empty() && expiration_queue.begin()->first < now) {
-    cache.erase(expiration_queue.begin()->second);
+    const Entry *e = expiration_queue.begin()->second;
+    cache.erase(e);
+    if (e->state.index() == 0) {
+      for (const auto &r : get<0>(e->state).answers) {
+        if (r.type == Type::A) {
+          cache_reverse.erase(&r);
+        }
+      }
+    }
     expiration_queue.erase(expiration_queue.begin());
   }
 }
 
 const Entry *GetCachedEntry(const Question &question) {
   if (question.domain_name.ends_with("." + kLocalDomain)) {
-    auto it = static_cache.find(question);
-    if (it != static_cache.end()) {
+    if (auto it = static_cache.find(question); it != static_cache.end()) {
       it->expiration = steady_clock::now() + 1h;
       return &*it;
     }
@@ -282,11 +311,10 @@ const Entry *GetCachedEntry(const Question &question) {
     name_not_found_entry.expiration = steady_clock::now() + 60s;
     return &name_not_found_entry;
   } else {
-    auto it = cache.find(question);
-    if (it == cache.end()) {
-      return nullptr;
+    if (auto it = cache.find(question); it != cache.end()) {
+      return *it;
     }
-    return *it;
+    return nullptr;
   }
 }
 
@@ -625,7 +653,7 @@ void AnswerRequest(const IncomingRequest &request, const Entry &e,
 
 void InjectAuthoritativeEntry(const string &domain, IP ip) {
   string encoded_domain = EncodeDomainName(domain);
-  static_cache.insert(Entry{
+  auto [it, added] = static_cache.insert(Entry{
       .question = Question{.domain_name = domain},
       .expiration = std::nullopt,
       .state = Entry::Ready{
@@ -633,6 +661,7 @@ void InjectAuthoritativeEntry(const string &domain, IP ip) {
           .answers = {Record{Question{.domain_name = domain}, kAuthoritativeTTL,
                              (uint16_t)sizeof(ip.addr),
                              string((char *)&ip.addr, sizeof(ip.addr))}}}});
+  it->AddToReverseCache();
 }
 
 void Start(Status &status) {
@@ -968,6 +997,17 @@ void Message::ForEachRecord(function<void(const Record &)> f) const {
     f(r);
   }
 }
+void Entry::AddToReverseCache() const {
+  auto *ready = get_if<Ready>(&state);
+  if (ready == nullptr) {
+    return;
+  }
+  for (auto &answer : ready->answers) {
+    if (answer.type == Type::A) {
+      cache_reverse.insert(&answer);
+    }
+  }
+}
 void Entry::HandleAnswer(const Message &msg, string &err) const {
   auto *pending = get_if<Pending>(&state);
   if (pending == nullptr) {
@@ -988,6 +1028,8 @@ void Entry::HandleAnswer(const Message &msg, string &err) const {
                              .answers = std::move(msg.answers),
                              .authority = std::move(msg.authority),
                              .additional = std::move(msg.additional)});
+
+  AddToReverseCache();
 
   steady_clock::time_point new_expiration =
       steady_clock::now() +
@@ -1074,5 +1116,12 @@ std::string Table::RowID(int row) const {
 }
 
 Table table;
+
+const Str *LocalReverseLookup(IP ip) {
+  if (auto it = cache_reverse.find(ip); it != cache_reverse.end()) {
+    return &(*it)->domain_name;
+  }
+  return nullptr;
+}
 
 } // namespace dns

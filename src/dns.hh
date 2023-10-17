@@ -7,11 +7,14 @@
 #include <vector>
 
 #include "ip.hh"
+#include "optional.hh"
+#include "str.hh"
 #include "variant.hh"
 #include "webui.hh"
 
 namespace dns {
 
+using namespace maf;
 using std::string;
 using std::variant;
 using std::vector;
@@ -132,13 +135,14 @@ struct Entry {
   };
 
   Question question;
-  mutable std::optional<steady_clock::time_point> expiration;
+  mutable Optional<steady_clock::time_point> expiration;
   mutable variant<Ready, Pending> state;
 
   void HandleIncomingRequest(const IncomingRequest &request) const;
   void HandleAnswer(const Message &msg, string &err) const;
   void UpdateExpiration(steady_clock::time_point new_expiration) const;
   bool operator==(const Question &other) const { return question == other; }
+  void AddToReverseCache() const;
 };
 
 void Start(maf::Status &);
@@ -160,5 +164,7 @@ struct Table : webui::Table {
 };
 
 extern Table table;
+
+const Str *LocalReverseLookup(IP ip);
 
 } // namespace dns

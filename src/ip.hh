@@ -36,6 +36,7 @@ union __attribute__((__packed__)) IP {
     addr = htonl(ntohl(addr) + 1);
     return *this;
   }
+  operator StrView() const { return StrView((char *)bytes, 4); }
   bool TryParse(const char *cp) {
     return sscanf(cp, "%hhu.%hhu.%hhu.%hhu", bytes, bytes + 1, bytes + 2,
                   bytes + 3) == 4;
