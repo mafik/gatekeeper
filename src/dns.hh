@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <functional>
-#include <optional>
 #include <string>
 #include <vector>
 
