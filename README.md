@@ -33,11 +33,11 @@ Gatekeeper deliberately exposes the unencrypted traffic that goes through the ro
 
 **Alice**, a journalist, used to be oblivious to the amount of private information that that she leaks to her ISP whenever she browses internet. **Eve**, who works for the ISP, had great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, got a bonus for tracking down Alice's whistleblowers.
 
-After installing Gatekeeper, Alice learned that her ISP & IXPs (internet exchange points) can monitor her traffic. She started using secure protocols & encryption for her online activity. As a result Eve no longer could snoop on Alice. Evan also couldn't track Alice's communication any more.
+After installing Gatekeeper, Alice learned that other LAN members, her ISP and IXPs (internet exchange points) can monitor her traffic. She started using secure protocols & encryption for her online activity. As a result Eve no longer could snoop on Alice. Evan also couldn't track Alice's communication any more.
 
 <hr>
 
-By exposing the LAN traffic Gatekeeper informs LAN clients about the data they are leaking to ISP & IXPs. It also helps in understanding the behavior of IoT devices.
+By exposing the LAN traffic Gatekeeper informs LAN clients about the data they may be leaking to [other LAN members](https://cylab.be/blog/73/man-in-the-middle-mitm-with-arpspoof), ISP & IXPs. It also helps in understanding the behavior of IoT devices that are present in the LAN.
 
 ## ![Running Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/gatekeeper-running.gif?raw=true) Running Gatekeeper
 
