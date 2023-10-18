@@ -13,11 +13,31 @@ There are other software projects that can manage a router but they're usually o
 
 Since it's meant for home use, it can offer features &amp; information that general-purpose routers can't. For example, by accessing its web interface it can tell you what devices are connected to your network or what domains are accessed by your IoT devices.
 
+### Screenshots
+
 [2023-06-12 Gatekeeper Screencast.webm](https://github.com/mafik/gatekeeper/assets/309914/76b61336-205b-4342-8715-d62d37a582c3)
 
 | Light mode                                                                                                                            | Dark mode                                                                                                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Light mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24.png) | ![Dark mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24-dark.png) |
+
+### Privacy
+
+Gatekeeper deliberately exposes the unencrypted traffic that goes through the router to all LAN members.
+
+<hr>
+
+<img title="Alice, Eve & Even before Alice installed Gatekeeper" src=https://github.com/mafik/gatekeeper/assets/309914/49fe04dc-4650-4e35-837c-8462dc87cf79 width=25% align=left>
+
+<img title="Alice, Eve & Even after Alice installed Gatekeeper" src=https://github.com/mafik/gatekeeper/assets/309914/8800314c-aa72-4187-a4be-dd2b67555c53 width=25% align=right>
+
+**Alice**, a journalist, used to be oblivious to the amount of private information that that she leaks to her ISP whenever she browses internet. **Eve**, who is works for the ISP, had great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, got a bonus for tracking down Alice's whistleblowers.
+
+After installing Gatekeeper, Alice learned that her ISP & IXPs (internet exchange points) can monitor her traffic. She started using secure protocols & encryption for her online activity. As a result Eve no longer could snoop on Alice. Evan also couldn't track Alice's communication any more.
+
+<hr>
+
+By exposing the LAN traffic Gatekeeper informs LAN clients about the data they are leaking to ISP & IXPs. It also helps in understanding the behavior of IoT devices.
 
 ## ![Running Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/gatekeeper-running.gif?raw=true) Running Gatekeeper
 
@@ -88,3 +108,6 @@ See [SECURITY.md](SECURITY.md).
 - Night theme from [brullov.itch.io](https://brullov.itch.io/2d-platformer-asset-pack-castle-of-despair) ([Twitter](https://twitter.com/brullov_art))
 - Header icons from [cainos.itch.io](https://cainos.itch.io/pixel-art-platformer-village-props) ([Twitter](https://twitter.com/cainos_chen))
 - Font from [github.com/Omnibus-Type/Texturina](https://github.com/Omnibus-Type/Texturina)
+- Cliparts
+  - Globe & people by callmetak on <a href="https://www.freepik.com/free-vector/global-network-system-vector-concept-illustration-with-satellites-around-globe_40343325.htm#query=internet&position=18&from_view=search&track=sph">Freepik</a>
+  - Laptop by macrovector on <a href="https://www.freepik.com/free-vector/retro-gadgets-2x2-isometric-design-concept-with-computer-evolution-3d-isolated_6845899.htm#query=old%20laptop&position=1&from_view=search&track=ais">Freepik</a>
