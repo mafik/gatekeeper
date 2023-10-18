@@ -100,7 +100,7 @@ That's it. The first part of the command will grab the latest Gatekeeper release
 
 During startup Gatekeeper will pick the first unconfigured network interface and manage it. It can be stopped at any time by pressing Ctrl+C in the terminal window.
 
-You can open the URL printed on the command line (usually  http://10.0.0.1:1337/) to see the web interface. It's also accessible from any computers in your LAN network.
+You can open the URL printed on the command line (usually  http://10.0.0.1:1337/) to see the web interface. It's also accessible from any computer in your LAN network.
 
 #### LAN interface selection
 
