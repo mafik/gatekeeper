@@ -76,6 +76,10 @@ sudo apt install -y valgrind inotify-tools
 sudo ./run gatekeeper
 ```
 
+## Reporting vulverabilities
+
+See [SECURITY.md](SECURITY.md).
+
 ## Credits
 
 - Logo from [aamatniekss.itch.io](https://aamatniekss.itch.io/fantasy-knight-free-pixelart-animated-character) ([Twitter](https://twitter.com/Namatnieks))
