@@ -31,13 +31,13 @@ Gatekeeper deliberately exposes the unencrypted traffic that goes through the ro
 
 <img title="Alice, Eve & Even after Alice installed Gatekeeper" src=https://github.com/mafik/gatekeeper/assets/309914/8800314c-aa72-4187-a4be-dd2b67555c53 width=25% align=right>
 
-**Alice**, a journalist, used to be oblivious to the amount of private information that that she leaks to her ISP whenever she browses internet. **Eve**, who works for the ISP, had great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, got a bonus for tracking down Alice's whistleblowers.
+**Alice**, a journalist, assumed that her VPN will keep her whistleblowers safe. **Eve**, who runs the VPN company has great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, recently got a bonus for tracking down Alice's whistleblowers from the IXP (internet exchange point) traffic.
 
-After installing Gatekeeper, Alice learned that other LAN members, her ISP and IXPs (internet exchange points) can monitor her traffic. She started using secure protocols & encryption for her online activity. As a result Eve no longer could snoop on Alice. Evan also couldn't track Alice's communication any more.
+After installing Gatekeeper, Alice learned what information she leaks online. Instead of dodgy VPNs she started using secure protocols & encryption for her online activity. As a result Eve no longer could snoop on Alice. Evan also couldn't track Alice's communication any more.
 
 <hr>
 
-By exposing the LAN traffic Gatekeeper informs LAN clients about the data they may be leaking to [other LAN members](https://cylab.be/blog/73/man-in-the-middle-mitm-with-arpspoof), ISP & IXPs. It also helps in understanding the behavior of IoT devices that are present in the LAN.
+By exposing the LAN traffic Gatekeeper informs LAN clients about the data they may be leaking to [other LAN members](https://cylab.be/blog/73/man-in-the-middle-mitm-with-arpspoof), ISPs & IXPs. It also helps in understanding the behavior of IoT devices that are present in the LAN.
 
 ## ![Running Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/gatekeeper-running.gif?raw=true) Running Gatekeeper
 
