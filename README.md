@@ -58,7 +58,7 @@ Generally speaking Gatekeeper needs to sit between your LAN network and the inte
 
 <img title="Ethernet cable & port" src=https://github.com/mafik/gatekeeper/assets/309914/49542abb-f572-4711-9ac4-036b3af26595 align=right width=15%>
 
-The machine that will run Gatekeeper will need at least two Ethernet ports. One for the Wide Area Network (WAN) side and one for Local Area Network (LAN) side. Probably more - depending on how many LAN clients you'd like to connect directly. If your machine has only one ethernet adapter you can always just buy an USB ethernet adapter. It may be helpful to buy an Ethernet Switch (new ones can be bought from Amazon for less than $20) since they're more cost-efficient than a bunch of USB ethernet adapters.
+The machine that will run Gatekeeper will need at least two Ethernet ports. One for the Wide Area Network (WAN) side and one for Local Area Network (LAN) side. Probably more - depending on how many LAN clients you'd like to connect directly. If your machine has only one ethernet port you can always just buy an USB ethernet adapter to add the second one. It may be a good idea to also buy an Ethernet Switch (new ones can be bought from Amazon for less than $20) since they're more cost-efficient than a bunch of USB ethernet adapters.
 
 There is also the question of Wireless connectivity. As of now Gatekeeper doesn't configure the Wireless LAN, but if you're more experienced with Linux you may use wpa_supplicant to set up a network. Once the wireless settings are in place, Gatekeeper will gladly manage it. You can also spend some cash on Wireless Access Point (make sure it's a "dumb" access point - not a "router") and turn any regular ethernet port into wireless one.
 
