@@ -100,7 +100,7 @@ That's it. The first part of the command will grab the latest Gatekeeper release
 
 During startup Gatekeeper will pick the first unconfigured network interface and manage it. It can be stopped at any time by pressing Ctrl+C in the terminal window.
 
-You can open the URL printed on the command line (usually  http://10.0.0.1:1337/) to see the web interface.
+You can open the URL printed on the command line (usually  http://10.0.0.1:1337/) to see the web interface. It's alsa accessible from any computers in your LAN network.
 
 #### LAN interface selection
 
@@ -125,9 +125,13 @@ To permanently install Gatekeeper, press the `Install` button in the web interfa
 
 After installation you can remove the downloaded binary with `rm gatekeeper`. It's no longer needed.
 
-To remove Gatekeeper, run `sudo systemctl disable --now gatekeeper` (this stops Gatekeeper and prevents it from starting again on next reboot). Also run `rm -rf /opt/gatekeeper` to remove any installed files.
+If you've seen a page with an installation log then it means that the process completed successfully. 🎉🎉 Congrats!
 
-### Limitations
+#### Uninstallation
+
+To remove Gatekeeper, run `sudo systemctl disable --now gatekeeper` (this stops Gatekeeper and prevents it from starting again on next reboot). Also run `sudo rm -rf /opt/gatekeeper` to remove any installed files.
+
+## Limitations
 
 Current feature set covers LAN interface configuration (including NAT) and most of the basic DHCP & DNS functionality. It should be usable for most home networks. In the future it may be extended with more "Home Gateway"-oriented features, such as WAN interface configuration, port forwarding, etc.
 
@@ -159,4 +163,3 @@ See [SECURITY.md](SECURITY.md).
 - Font from [github.com/Omnibus-Type/Texturina](https://github.com/Omnibus-Type/Texturina)
 - Cliparts
   - Globe & people by callmetak on <a href="https://www.freepik.com/free-vector/global-network-system-vector-concept-illustration-with-satellites-around-globe_40343325.htm#query=internet&position=18&from_view=search&track=sph">Freepik</a>
-  - Laptop by macrovector on <a href="https://www.freepik.com/free-vector/retro-gadgets-2x2-isometric-design-concept-with-computer-evolution-3d-isolated_6845899.htm#query=old%20laptop&position=1&from_view=search&track=ais">Freepik</a>
