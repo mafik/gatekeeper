@@ -31,7 +31,7 @@ Gatekeeper deliberately exposes the unencrypted traffic that goes through the ro
 
 <img title="Alice, Eve & Even after Alice installed Gatekeeper" src=https://github.com/mafik/gatekeeper/assets/309914/8800314c-aa72-4187-a4be-dd2b67555c53 width=25% align=right>
 
-**Alice**, a journalist, used to be oblivious to the amount of private information that that she leaks to her ISP whenever she browses internet. **Eve**, who is works for the ISP, had great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, got a bonus for tracking down Alice's whistleblowers.
+**Alice**, a journalist, used to be oblivious to the amount of private information that that she leaks to her ISP whenever she browses internet. **Eve**, who works for the ISP, had great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, got a bonus for tracking down Alice's whistleblowers.
 
 After installing Gatekeeper, Alice learned that her ISP & IXPs (internet exchange points) can monitor her traffic. She started using secure protocols & encryption for her online activity. As a result Eve no longer could snoop on Alice. Evan also couldn't track Alice's communication any more.
 
