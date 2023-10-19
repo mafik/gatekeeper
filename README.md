@@ -144,12 +144,67 @@ Gatekeeper only runs on x86_64 Linux. In the future I'd like to also port it to 
 
 If there are features you'd like to see, don't hesitate to dive into the code. Gatekeeper is written in readable, modern C++, making it easy to extend for anyone with C++ basics.
 
+## Helping out
+
+**The best way to help out is to spread the word!**
+
+* Write tutorials
+* Record videos
+* Post on social media
+
+Every bit of exposure increases the chances that somebody with C++ basics and a knack for networking will stumble upon Gatekeeper.
+
+If that *C++ basics and a knack for networking* person is you then feel free to fork this repo and use it as a launchpad for your ideas. I think Gatekeeper could be a great testing ground for new LAN (or WAN) services, custom protocols or even games. The list of ideas for new things is so long that I'm not even recording them as GitHub Issues any more. Here are a few:
+
+- Pokemon-style multiplayer game for LAN clients
+  - integrate it with the Firewall - so that network traffic can be seen in real time in the game
+- Quake-style FPS game for LAN clients
+- distributed alternative to DNS
+- LAN chat with file sharing using drag & drop
+- integrated email server that offers disposable wildcard emails on the ISP-provided domain (from the PTR record)
+- record all passing traffic (per LAN client) into a 5MB circular buffer and download it as Wireshark dump (retroactive packet capture!)
+- auto-configure WireGuard on startup, generate keys for clients & help them configure their devices for remote LAN access
+- new CSS themes - something neobrutalist, something retro-futuristic, something cyberpunk, something neumorphic, something glassmorphic
+- generate self-signed cert, help clients configure their devices to accept it, then MITM HTTPS connections & replace ads with inspirational images
+- show a live feed from the webcam
+
 ## Building from source
 
-```
+<details><summary><h3>Dependencies</h3></summary>
+
+Install most recent LLVM & development tools with:
+
+```bash
 sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 sudo apt install -y valgrind inotify-tools
-sudo ./run gatekeeper
+```
+</details>
+
+Gatekeeper can be built & tested with an included Python script. Here are a few common commands:
+
+Show help about available options:
+
+```bash
+./run -h
+```
+
+Run a local instance of Gatekeeper, recompiling & reloading whenever its sources are changed.
+```bash
+LAN=<interface> ./run gatekeeper --live
+```
+
+There are three build variants of Gatekeeper: `gatekeeper`, `debug_gatekeeper` & `release_gatekeeper`. Use the default one (`gatekeeper`) for regular development since it's the fastest to build. When you need to debug segmentation faults or memory leaks `debug_gatekeeper` will offer you more debug information. Lastly `release_gatekeeper` is an optimized build with almost no debug information - this one is used for GitHub releases.
+
+In [src/dev_commands.py](src/dev_commands.py) there are some special targets such as `./run gdb` or `./run valgrind`. There is a bunch of tests in functions that start with `test_` that you might find interesting. Some of the targets in that file (`dogfood`, `net_reset`) are specific to my setup but should be fairly clear and pliable to customization.
+
+Run an end-to-end test. It sets up a virtual LAN & checks whether its properly managed by Gatekeeper.
+```bash
+./run test_e2e
+```
+
+Same as above, but do everything from scratch (without reusing cached build results).
+```bash
+./run test_e2e --fresh
 ```
 
 ## Reporting vulverabilities
