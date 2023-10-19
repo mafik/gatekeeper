@@ -142,7 +142,7 @@ Gatekeeper doesn't configure the WAN interface. Most Linux distributions will do
 
 Gatekeeper only runs on x86_64 Linux. In the future I'd like to also port it to ARM (32 & 64-bit) & MIPS (for those dirt-cheap OpenWRT routers).
 
-If there are features you'd like to see, don't hesitate to dive into the code. Gatekeeper is written in a readable, modern C++, making it easy to extend for anyone with C++ basics.
+If there are features you'd like to see, don't hesitate to dive into the code. Gatekeeper is written in readable, modern C++, making it easy to extend for anyone with C++ basics.
 
 ## Building from source
 
