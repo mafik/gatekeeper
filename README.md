@@ -21,7 +21,8 @@ Since it's meant for home use, it can offer features &amp; information that gene
 | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Light mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24.png) | ![Dark mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24-dark.png) |
 
-### Privacy
+<details>
+<summary><h3>Privacy</h3></summary>
 
 Gatekeeper deliberately exposes the unencrypted traffic that goes through the router to all LAN members.
 
@@ -39,20 +40,18 @@ After installing Gatekeeper, Alice learned what information she leaks online. In
 
 By exposing the LAN traffic Gatekeeper informs LAN clients about the data they may be leaking to [other LAN members](https://cylab.be/blog/73/man-in-the-middle-mitm-with-arpspoof), ISPs & IXPs. It also helps in understanding the behavior of IoT devices that are present in the LAN.
 
-## ![Running Gatekeeper](https://github.com/mafik/gatekeeper/blob/main/gatekeeper-running.gif?raw=true) Running Gatekeeper
+</details>
+
+<img title="Running Gatekeeper" src="https://github.com/mafik/gatekeeper/blob/main/gatekeeper-running.gif?raw=true" width=30 align=left>
+
+## Running Gatekeeper 
 
 Running Gatekeeper is fairly easy. It may take longer if you're new to Linux but don't worry - this section will guide you through the process step by step. Once you're familiar with the process you'll be able to set up Gatekeeper in less than a minute!
 
 The setup process can be separated into roughly four steps:
 
-1. Obtain the hardware
-2. Prepare OS
-3. Run Gatekeeper
-4. Install Gatekeeper
-
-Let's get started by getting the hardware!
-
-### Hardware
+<details>
+<summary><h3>Choose router hardware</h3></summary>
 
 Generally speaking Gatekeeper needs to sit between your LAN network and the internet. It can either completely replace the router provided by ISP, or sit between the ISP router and your LAN network. Although replacing the ISP router allows you to reduce the number of computers and total power usage, it may be more complicated. Some ISPs perform MAC filtering to limit access to their network. Quite often it's possible to bypass it by cloning the MAC address of the ISP router but that would go a little beyond the scope of this guide. Feel free to try this out as an exercise though! Here we'll cover the case where Gatekeeper is used to "isolate" the ISP router from your LAN network.
 
@@ -71,8 +70,9 @@ The second option is to get a **single board x86 computer**. Single board comput
 Overall if you're a beginner I'd recommend trying out the laptop approach. SBCs doesn't have a screen or a keyboard which makes them a little more troublesome during setup. If anything goes wrong, investigation is much easier when you can just pop open a laptop vs carrying a monitor + laptop to see why SBC can't be reached over the network.
 
 Ok, so with the hardware in place, we can start setting up the OS!
+</details>
 
-### OS setup
+<details><summary><h3>Install Linux</h3></summary>
 
 Gatekeeper will happily run on any 64-bit Linux. Feel free to skip this section if your machine already has one installed.
 
@@ -84,7 +84,9 @@ This step may take quite a bit of time if you're new to Linux. Once you know the
 
 Once you're done with the installation, we can finish the process by testing & installing Gatekeeper!
 
-### Run Gatekeeper
+</details>
+
+<details open><summary><h3>Download & run Gatekeeper</h3></summary>
 
 Ok, we've wasted enough time already for all this setup so let's get this one out of the way quickly.
 
@@ -118,8 +120,9 @@ If Gatekeeper was already installed (you completed the next step), this can be e
 [Service]
 Environment="LAN=<interface>"
 ```
+</details>
 
-### Installation
+<details><summary><h3>Install as a system service</h3></summary>
 
 To permanently install Gatekeeper, press the `Install` button in the web interface. Gatekeeper will copy itself to `/opt/gatekeeper`, register as a systemd service and start (systemd is a program that manages background tasks on Linux).
 
@@ -131,15 +134,15 @@ If you've seen a page with an installation log then it means that the process co
 
 To remove Gatekeeper, run `sudo systemctl disable --now gatekeeper` (this stops Gatekeeper and prevents it from starting again on next reboot). Also run `sudo rm -rf /opt/gatekeeper` to remove any installed files.
 
-## Limitations
+</details>
 
-Current feature set covers LAN interface configuration (including NAT) and most of the basic DHCP & DNS functionality. It should be usable for most home networks. In the future it may be extended with more "Home Gateway"-oriented features, such as WAN interface configuration, port forwarding, etc.
+## Limitations
 
 Gatekeeper doesn't configure the WAN interface. Most Linux distributions will do this automatically through DHCP during startup, but it's not always the case. In the future Gatekeeper will take care of this.
 
 Gatekeeper only runs on x86_64 Linux. In the future I'd like to also port it to ARM (32 & 64-bit) & MIPS (for those dirt-cheap OpenWRT routers).
 
-If there are features you'd like to see, don't hesitate to modify its source code. Gatekeeper is written in a readable manner, making it easy for anyone with basic C++ knowledge to extend its functionality.
+If there are features you'd like to see, don't hesitate to dive into the code. Gatekeeper is written in a readable, modern C++, making it easy to extend for anyone with C++ basics.
 
 ## Building from source
 
