@@ -17,9 +17,10 @@ Since it's meant for home use, it's simpler, it has better defaults, it can auto
 
 [2023-06-12 Gatekeeper Screencast.webm](https://github.com/mafik/gatekeeper/assets/309914/76b61336-205b-4342-8715-d62d37a582c3)
 
-| Light mode                                                                                                                            | Dark mode                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| ![Light mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24.png) | ![Dark mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24-dark.png) |
+| Light mode                                                                                       | Dark mode                                                                                            |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| ![Light mode](https://github.com/mafik/gatekeeper/blob/main/screenshots/2023-10-21.png?raw=true) | ![Dark mode](https://github.com/mafik/gatekeeper/blob/main/screenshots/2023-10-21-dark.png?raw=true) |
+
 
 ### Features
 
