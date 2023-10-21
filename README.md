@@ -5,7 +5,7 @@ DHCP &amp; DNS server optimized for use in home networks.
 
 ## What is Gatekeeper?
 
-Between you and the Internet there is a router. It's a small computer that connects your home network to the Internet. It's responsible for assigning IP addresses to your devices, translating between your private network and the Internet, and more. It's a very important piece of your home network. Quite often they're provided by your Internet Service Provider (ISP) and you don't have much control over them.
+Between you and the Internet there is a router - a small computer that connects your home network to the Internet. It's responsible for assigning IP addresses to your devices, translating between your private network and the Internet, and more. Every packet that comes or leaves your home goes through the router. Quite often the routers are provided by your Internet Service Provider (ISP) and you don't have much control over them.
 
 **Gatekeeper is a piece of software that allows you to replace (or isolate) the router provided by your ISP. With Gatekeeper you can get more visibility & control over your home network.**
 
@@ -21,37 +21,40 @@ Since it's meant for home use, it can offer features &amp; information that gene
 | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Light mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24.png) | ![Dark mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24-dark.png) |
 
+### Privacy
+
+Gatekeeper deliberately exposes the traffic (currently DNS queries & traffic stats) that goes through the router to all LAN members. While this may seem creepy, the same data may also be intercepted by:
+
+* Malicious IoT devices, smartphone apps & [PCs](https://cylab.be/blog/73/man-in-the-middle-mitm-with-arpspoof) that are connected to your home network
+* [ISPs](https://notes.valdikss.org.ru/jabber.ru-mitm/)
+* IXPs (Internet Exchange Points)
+* VPNs
+* TOR exit nodes
+
+This is a systemic issue and it's severity grows with lack of public awareness. Gatekeeper aims to fix that. It's empowering regular users to do the same thing that is currently done secretly by public institutions & dodgy businesses.
+
 <details>
-<summary><h3>Privacy</h3></summary>
-
-Gatekeeper deliberately exposes the unencrypted traffic that goes through the router to all LAN members.
-
-<hr>
+<summary>Example</summary>
 
 <img title="Alice, Eve & Even before Alice installed Gatekeeper" src=https://github.com/mafik/gatekeeper/assets/309914/49fe04dc-4650-4e35-837c-8462dc87cf79 width=25% align=left>
 
 <img title="Alice, Eve & Even after Alice installed Gatekeeper" src=https://github.com/mafik/gatekeeper/assets/309914/8800314c-aa72-4187-a4be-dd2b67555c53 width=25% align=right>
 
-**Alice**, a journalist, assumed that her VPN will keep her whistleblowers safe. **Eve**, who runs the VPN company has great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, recently got a bonus for tracking down Alice's whistleblowers from the IXP (internet exchange point) traffic.
+**Alice**, a journalist, assumed that her VPN will keep her whistleblowers safe. **Eve**, who runs the VPN company has great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, recently got a bonus for tracking down Alice's whistleblowers from the IXP traffic.
 
-After installing Gatekeeper, Alice learned what information she leaks online. Instead of dodgy VPNs she started using secure protocols & encryption for her online activity. As a result Eve no longer could snoop on Alice. Evan also couldn't track Alice's communication any more.
-
-<hr>
-
-By exposing the LAN traffic Gatekeeper informs LAN clients about the data they may be leaking to [other LAN members](https://cylab.be/blog/73/man-in-the-middle-mitm-with-arpspoof), ISPs & IXPs. It also helps in understanding the behavior of IoT devices that are present in the LAN.
-
+After installing Gatekeeper, Alice learned what information she leaks online. Instead of dodgy VPNs she switched to end-to-end encryption for her online activity. As a result neither Eve nor Evan could snoop on Alice's communication any more.
 </details>
 
 <img title="Running Gatekeeper" src="https://github.com/mafik/gatekeeper/blob/main/gatekeeper-running.gif?raw=true" width=30 align=left>
 
 ## Running Gatekeeper 
 
-Running Gatekeeper is fairly easy. It may take longer if you're new to Linux but don't worry - this section will guide you through the process step by step. Once you're familiar with the process you'll be able to set up Gatekeeper in less than a minute!
+Running Gatekeeper is fairly easy. It may take longer if you're new to Linux but don't worry - this section will guide you through the process step by step. Once you're familiar with the process and have the right hardware you'll be able to set up Gatekeeper with a single command!
 
 The setup process can be separated into roughly four steps:
 
 <details>
-<summary><h3>Choose router hardware</h3></summary>
+<summary>Choose router hardware</summary>
 
 Generally speaking Gatekeeper needs to sit between your LAN network and the internet. It can either completely replace the router provided by ISP, or sit between the ISP router and your LAN network. Although replacing the ISP router allows you to reduce the number of computers and total power usage, it may be more complicated. Some ISPs perform MAC filtering to limit access to their network. Quite often it's possible to bypass it by cloning the MAC address of the ISP router but that would go a little beyond the scope of this guide. Feel free to try this out as an exercise though! Here we'll cover the case where Gatekeeper is used to "isolate" the ISP router from your LAN network.
 
@@ -72,7 +75,7 @@ Overall if you're a beginner I'd recommend trying out the laptop approach. SBCs 
 Ok, so with the hardware in place, we can start setting up the OS!
 </details>
 
-<details><summary><h3>Install Linux</h3></summary>
+<details><summary>Install Linux</summary>
 
 Gatekeeper will happily run on any 64-bit Linux. Feel free to skip this section if your machine already has one installed.
 
@@ -86,7 +89,7 @@ Once you're done with the installation, we can finish the process by testing & i
 
 </details>
 
-<details open><summary><h3>Download & run Gatekeeper</h3></summary>
+<details open><summary>Download & run Gatekeeper</summary>
 
 Ok, we've wasted enough time already for all this setup so let's get this one out of the way quickly.
 
@@ -122,11 +125,13 @@ Environment="LAN=<interface>"
 ```
 </details>
 
-<details><summary><h3>Install as a system service</h3></summary>
+<details><summary>Autostart Gatekeeper</summary>
 
-To permanently install Gatekeeper, press the `Install` button in the web interface. Gatekeeper will copy itself to `/opt/gatekeeper`, register as a systemd service and start (systemd is a program that manages background tasks on Linux).
+To permanently install Gatekeeper, press the `Install` button in the web interface.
 
-After installation you can remove the downloaded binary with `rm gatekeeper`. It's no longer needed.
+To understand what's going under the hood you should be aware of a software called **systemd**. It's a program that manages background tasks on modern Linux machines. During installation Gatekeeper will copy itself to `/opt/gatekeeper/`, and register itself as a systemd service. Thanks to systemd Gatekeeper will not only autostart on every boot, but also restart itself in case of a crash or a hangup.
+
+After installation you may remove the downloaded binary with `rm gatekeeper`. Gatekeeper copied itself over to `/opt/gatekeeper/` so it's no longer needed.
 
 If you've seen a page with an installation log then it means that the process completed successfully. 🎉🎉 Congrats!
 
@@ -168,9 +173,13 @@ If that *C++ basics and a knack for networking* person is you then feel free to 
 - generate self-signed cert, help clients configure their devices to accept it, then MITM HTTPS connections & replace ads with inspirational images
 - show a live feed from the webcam
 
+Lastly, if you don't have the energy to promote or the time to help out (maybe because of your day job) then consider sponsoring me through GitHub Sponsors. I'm not in dire need of money myself but the sponsorship would allow me to mentor new CS students and grow the open-source community.
+
+[![GitHub Sponsor](https://img.shields.io/github/sponsors/mafik?label=Sponsor&logo=GitHub)](https://github.com/sponsors/mafik)
+
 ## Building from source
 
-<details><summary><h3>Dependencies</h3></summary>
+<details><summary>Prerequisites</summary>
 
 Install most recent LLVM & development tools with:
 
@@ -180,12 +189,10 @@ sudo apt install -y valgrind inotify-tools
 ```
 </details>
 
-Gatekeeper can be built & tested with an included Python script. Here are a few common commands:
-
-Show help about available options:
+Gatekeeper can be built & tested with an included Python script:
 
 ```bash
-./run -h
+./run -h  # show help about available options
 ```
 
 Run a local instance of Gatekeeper, recompiling & reloading whenever its sources are changed.
@@ -193,7 +200,7 @@ Run a local instance of Gatekeeper, recompiling & reloading whenever its sources
 LAN=<interface> ./run gatekeeper --live
 ```
 
-There are three build variants of Gatekeeper: `gatekeeper`, `debug_gatekeeper` & `release_gatekeeper`. Use the default one (`gatekeeper`) for regular development since it's the fastest to build. When you need to debug segmentation faults or memory leaks `debug_gatekeeper` will offer you more debug information. Lastly `release_gatekeeper` is an optimized build with almost no debug information - this one is used for GitHub releases.
+There are three build variants of Gatekeeper: `gatekeeper`, `debug_gatekeeper` & `release_gatekeeper`. Use the default one (`gatekeeper`) for regular development since it's the fastest to build. When you need to debug crashes or memory leaks, `debug_gatekeeper` will offer you more debug information. Lastly `release_gatekeeper` is an optimized build with almost no debug information - this one is used for GitHub releases.
 
 In [src/dev_commands.py](src/dev_commands.py) there are some special targets such as `./run gdb` or `./run valgrind`. There is a bunch of tests in functions that start with `test_` that you might find interesting. Some of the targets in that file (`dogfood`, `net_reset`) are specific to my setup but should be fairly clear and pliable to customization.
 
