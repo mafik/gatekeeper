@@ -15,7 +15,9 @@ Since it's meant for home use, it's simpler, it has better defaults, it can auto
 
 ### Screenshots
 
-[2023-06-12 Gatekeeper Screencast.webm](https://github.com/mafik/gatekeeper/assets/309914/76b61336-205b-4342-8715-d62d37a582c3)
+
+
+[2023-10-21 Gatekeeper Screencast.webm](https://github.com/mafik/gatekeeper/assets/309914/52696ba2-1d2e-4846-b2db-c3e2e8f8d657)
 
 | Light mode                                                                                       | Dark mode                                                                                            |
 | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
@@ -23,6 +25,7 @@ Since it's meant for home use, it's simpler, it has better defaults, it can auto
 
 
 ### Features
+
 
 Expand each section below to see more details:
 
