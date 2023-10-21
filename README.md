@@ -9,9 +9,9 @@ Between you and the Internet there is a router - a small computer that connects 
 
 **Gatekeeper is a piece of software that allows you to replace (or isolate) the router provided by your ISP. With Gatekeeper you can get more visibility & control over your home network.**
 
-There are other software projects that can manage a router but they're usually optimized for professional use & maximum flexibility. This makes them fairly complex. Gatekeeper, unlike others, is designed specifically for home networks. It is a single executable file that configures itself automatically, updates itself every week & automatically restarts itself in case of a hangup or a crash. Once installed it should never require any interaction.
+There are other software projects that can manage a router but they're usually optimized for professional use & maximum flexibility. This makes them fairly complex. Gatekeeper, unlike others, is designed specifically for home networks.
 
-Since it's meant for home use, it can offer features &amp; information that general-purpose routers can't. For example, by accessing its web interface it can tell you what devices are connected to your network or what domains are accessed by your IoT devices.
+Since it's meant for home use, it's simpler, it has better defaults, it can auto-configure itself and it can tell you things about your IoT devices that regular (commercial) routers can't.
 
 ### Screenshots
 
@@ -21,9 +21,15 @@ Since it's meant for home use, it can offer features &amp; information that gene
 | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Light mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24.png) | ![Dark mode](https://raw.githubusercontent.com/mafik/gatekeeper/f6204d11fd968177254feaa4e16e45360c07f4b5/screenshots/2023-06-24-dark.png) |
 
+### Features
+
+Expand each section below to see more details:
+
+<details><summary>Privacy</summary>
+
 ### Privacy
 
-Gatekeeper deliberately exposes the traffic (currently DNS queries & traffic stats) that goes through the router to all LAN members. While this may seem creepy, the same data may also be intercepted by:
+Gatekeeper deliberately exposes the traffic (DNS queries & live traffic stats) that goes through the router to all LAN members. While this may seem creepy, the same data may also be intercepted by:
 
 * Malicious IoT devices, smartphone apps & [PCs](https://cylab.be/blog/73/man-in-the-middle-mitm-with-arpspoof) that are connected to your home network
 * [ISPs](https://notes.valdikss.org.ru/jabber.ru-mitm/)
@@ -40,9 +46,43 @@ This is a systemic issue and it's severity grows with lack of public awareness. 
 
 <img title="Alice, Eve & Even after Alice installed Gatekeeper" src=https://github.com/mafik/gatekeeper/assets/309914/8800314c-aa72-4187-a4be-dd2b67555c53 width=25% align=right>
 
-**Alice**, a journalist, assumed that her VPN will keep her whistleblowers safe. **Eve**, who runs the VPN company has great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, recently got a bonus for tracking down Alice's whistleblowers from the IXP traffic.
+> **Alice**, a journalist, assumed that her VPN will keep her whistleblowers safe. **Eve**, who runs the VPN company has great fun snooping on what Alice has been up to. **Evan** who works as an analyst in the police cybercrime department, recently got a bonus for tracking down Alice's whistleblowers from the IXP traffic.
 
-After installing Gatekeeper, Alice learned what information she leaks online. Instead of dodgy VPNs she switched to end-to-end encryption for her online activity. As a result neither Eve nor Evan could snoop on Alice's communication any more.
+> After installing Gatekeeper, Alice learned what information she leaks online. Instead of dodgy VPNs she switched to end-to-end encryption for her online activity. As a result neither Eve nor Evan could snoop on Alice's communication any more.
+</details>
+
+<hr>
+
+</details>
+<details><summary>Visibility</summary>
+
+### Visibility
+
+The original intent for Gatekeeper was to get a picture of what IoT devices are connected to the network & what they're doing. Gatekeeper gives you an overview of all devices connected to your network & their real-time network activity:
+
+- What devices are even present in the network? (MAC, IP, hostname)
+- What are they doing? (DNS queries, traffic summary & live traffic graphs for each domain)
+
+</details>
+<details><summary>Simplicity</summary>
+
+### Simplicity
+
+Gatekeeper is a single executable file that configures itself automatically, updates itself every week & automatically restarts itself in case of a hangup or a crash. Once installed it should never require any interaction.
+
+Because Gatekeeper can assume that it's being used as a home gateway it can avoid any sort of manual configuration.
+
+Gatekeeper is also *stateless* - meaning that it doesn't store any data on disk. If anything goes wrong, a simple restart (which is also fully automated) will always fix it.
+
+</details>
+<details><summary>Full Cone NAT (Network Address Translation)</summary>
+
+### Full Cone NAT (Network Address Translation)
+
+Gatekeeper provides best-in-class connectivity for LAN clients thanks to its ability to perform Full Cone NAT. It means that your PCs will have an easy time establishing direct connections with other PCs on the Internet. This is extremely useful for peer-to-peer applications such as video calls, file sharing or gaming.
+
+Some may say that it exposes your devices to the Internet but that's actually not true - only the specific ports that your devices use for outgoing connections will be redirected back to them. Listening ports will remain closed.
+
 </details>
 
 <img title="Running Gatekeeper" src="https://github.com/mafik/gatekeeper/blob/main/gatekeeper-running.gif?raw=true" width=30 align=left>
