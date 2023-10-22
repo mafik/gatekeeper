@@ -194,7 +194,7 @@ Gatekeeper only runs on x86_64 Linux. In the future I'd like to also port it to 
 If there are features you'd like to see, don't hesitate to dive into the code. Gatekeeper is written in readable, modern C++, making it easy to extend for anyone with C++ basics.
 
 
-<img title="Fighting Gatekeeper" src="https://github.com/mafik/gatekeeper/blob/main/gatekeeper-fighting.gif?raw=true" width=30 align=left>
+<img title="Fighting Gatekeeper" src="https://github.com/mafik/gatekeeper/blob/main/gatekeeper-fighting.gif?raw=true" width=88 align=left>
 
 ## Helping out
 
