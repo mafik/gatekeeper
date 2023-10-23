@@ -257,6 +257,18 @@ void KillConflictingProcesses(Status &status) {
   if (!OK(status)) {
     return;
   }
+  U32 my_pid = getpid();
+  if (pids.contains(my_pid)) {
+    // Current Gatekeeper process is already listening on the vital ports.
+    //
+    // This might have happened as a result of a bug present in v1.6.0 which
+    // didn't use SO_CLOEXEC.
+    //
+    // We deliberately allow the current process to proceed & crash while
+    // binding DNS & DHCP ports because it leads to cleaner error messages &
+    // systemd will restart us anyway.
+    pids.erase(my_pid);
+  }
   for (U32 pid : pids) {
     Status status_ignored;
     LOG << "Killing conflicting process \""
