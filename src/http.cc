@@ -427,22 +427,10 @@ void Connection::NotifyWrite(Status &epoll_status) {
 const char *Connection::Name() const { return "Connection"; }
 
 void Server::Listen(Config config, Status &status) {
-  fd = socket(AF_INET, SOCK_STREAM, /*protocol*/ 0);
+  fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
+              /*protocol*/ 0);
   if (fd == -1) {
     AppendErrorMessage(status) += "socket() failed";
-    return;
-  }
-
-  int flags = fcntl(fd, F_GETFL);
-  if (flags < 0) {
-    AppendErrorMessage(status) += "fcntl(F_GETFL) failed";
-    StopListening();
-    return;
-  }
-
-  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-    AppendErrorMessage(status) += "fcntl(F_SETFL) failed";
-    StopListening();
     return;
   }
 

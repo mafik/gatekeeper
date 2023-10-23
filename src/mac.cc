@@ -2,6 +2,7 @@
 
 #include <net/if.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "format.hh"
@@ -10,7 +11,7 @@ using namespace maf;
 
 MAC MAC::FromInterface(std::string_view interface_name) {
   ifreq ifr = {};
-  int sock = socket(AF_INET, SOCK_DGRAM, 0);
+  int sock = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   ifr.ifr_addr.sa_family = AF_INET;
   strncpy(ifr.ifr_name, interface_name.data(), IFNAMSIZ - 1);
   ioctl(sock, SIOCGIFHWADDR, &ifr);

@@ -1,6 +1,7 @@
 #include "dns.hh"
 
 #include <map>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <unordered_set>
 
@@ -327,15 +328,9 @@ struct Client : UDPListener {
   }
 
   void Listen(Status &status) {
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (fd == -1) {
       AppendErrorMessage(status) += "socket";
-      return;
-    }
-
-    fd.SetNonBlocking(status);
-    if (!OK(status)) {
-      StopListening();
       return;
     }
 
@@ -466,15 +461,9 @@ struct Server : UDPListener {
   // To actually accept new connections, make sure to Poll the `epoll`
   // instance after listening.
   void Listen(Status &status) {
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (fd == -1) {
       AppendErrorMessage(status) += "socket";
-      return;
-    }
-
-    fd.SetNonBlocking(status);
-    if (!OK(status)) {
-      StopListening();
       return;
     }
 

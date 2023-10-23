@@ -10,7 +10,7 @@
 using namespace maf;
 
 bool Interface::IsLoopback() {
-  int fd = socket(PF_INET, SOCK_DGRAM, 0);
+  int fd = socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   ifreq ifr = {};
   strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
   if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) {
@@ -22,7 +22,7 @@ bool Interface::IsLoopback() {
 }
 
 bool Interface::IsWireless() {
-  int fd = socket(PF_INET, SOCK_DGRAM, 0);
+  int fd = socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   iwreq iw = {};
   strncpy(iw.ifr_name, name.c_str(), IFNAMSIZ - 1);
   if (ioctl(fd, SIOCGIWNAME, &iw) < 0) {
@@ -46,7 +46,7 @@ Network Interface::Network(Status &status) {
 }
 
 void Interface::Configure(::IP ip, ::Network network, Status &status) {
-  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   ifreq ifr = {};
   strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
   sockaddr_in *addr = (sockaddr_in *)&ifr.ifr_addr;
@@ -98,7 +98,7 @@ void Interface::Configure(::IP ip, ::Network network, Status &status) {
 }
 
 void Interface::Deconfigure(Status &status) {
-  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   ifreq ifr = {};
   strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
   sockaddr_in *addr = (sockaddr_in *)&ifr.ifr_addr;

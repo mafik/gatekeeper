@@ -1,6 +1,7 @@
 #include "dhcp.hh"
 
 #include <cstring>
+#include <sys/socket.h>
 
 #include "arp.hh"
 #include "config.hh"
@@ -776,15 +777,9 @@ int AvailableIPs(const Server &server) {
   return (1 << zeros) - server.entries_by_ip.size() - 3;
 }
 void Server::Listen(Status &status) {
-  fd = socket(AF_INET, SOCK_DGRAM, 0);
+  fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
   if (fd == -1) {
     AppendErrorMessage(status) += "socket";
-    return;
-  }
-
-  fd.SetNonBlocking(status);
-  if (!OK(status)) {
-    StopListening();
     return;
   }
 
