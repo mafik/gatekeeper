@@ -99,7 +99,7 @@ UniquePtr<Stream> MakeRequest(RequestBase &request_base, Str url) {
     kHttps,
   } scheme = kHttp;
 
-  size_t host_begin;
+  size_t host_begin = 0;
   if (url.starts_with("http://")) {
     host_begin = 7;
     scheme = kHttp;
