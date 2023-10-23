@@ -364,52 +364,6 @@ PendingEntry::PendingEntry(Question question, U16 id, LookupBase *lookup)
   client.fd.SendTo(upstream_ip, kServerPort, buffer, err);
 }
 
-/*
-void Entry::HandleIncomingRequest(const IncomingRequest &request) const {
-  visit(overloaded{
-            [&](Ready &r) {
-              string err;
-              AnswerRequest(request, *this, err);
-              if (!err.empty()) {
-                ERROR << err;
-              }
-            },
-            [&](Pending &p) {
-              for (auto &r : p.incoming_requests) {
-                if (r.client_ip == request.client_ip &&
-                    r.client_port == request.client_port &&
-                    r.header.id == request.header.id) {
-                  // Ignore duplicate request
-                  return;
-                }
-              }
-              UpdateExpiration(steady_clock::now() + kPendingTTL);
-              p.incoming_requests.push_back(request);
-            },
-        },
-        state);
-}
-
-const Entry *GetCachedEntry(const Question &question) {
-  if (question.domain_name.ends_with("." + kLocalDomain)) {
-    if (auto it = static_cache.find(question); it != static_cache.end()) {
-      it->expiration = steady_clock::now() + 1h;
-      return &*it;
-    }
-    static Entry name_not_found_entry =
-        Entry{.state = Entry::Ready{ResponseCode::NAME_ERROR, {}}};
-    name_not_found_entry.question = question;
-    name_not_found_entry.expiration = steady_clock::now() + 60s;
-    return &name_not_found_entry;
-  } else {
-    if (auto it = cache.find(question); it != cache.end()) {
-      return *it;
-    }
-    return nullptr;
-  }
-}
-*/
-
 void InjectAuthoritativeEntry(const Str &domain, IP ip) {
   Str encoded_domain = EncodeDomainName(domain);
   Message dummy_msg = {
