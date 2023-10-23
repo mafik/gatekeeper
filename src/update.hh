@@ -2,7 +2,6 @@
 
 #include "ed25519.hh"
 #include "fn.hh"
-#include "optional.hh"
 #include "status.hh"
 #include "str.hh"
 

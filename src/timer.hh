@@ -1,8 +1,8 @@
 #pragma once
 
-#include "epoll.hh"
 #include <functional>
-#include <string>
+
+#include "epoll.hh"
 
 struct Timer : maf::epoll::Listener {
   maf::Status status;
@@ -11,6 +11,7 @@ struct Timer : maf::epoll::Listener {
   Timer();
   ~Timer();
 
+  // Setting `initial_s` to zero disarms the timer.
   void Arm(double initial_s, double interval_s = 0);
   void Disarm();
 

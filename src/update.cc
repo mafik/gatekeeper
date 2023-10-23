@@ -9,6 +9,7 @@
 #include "elf.hh"
 #include "http_client.hh"
 #include "log.hh"
+#include "optional.hh"
 #include "path.hh"
 #include "status.hh"
 #include "timer.hh"
@@ -106,14 +107,17 @@ static void OnCheckFinished() {
   }
 
   ParsedVersion my_version(kVersionNote.desc);
-  ParsedVersion update_version(StrViewOf(version_note.Desc()));
+  auto update_version_view = StrViewOf(version_note.Desc());
+  if (update_version_view.ends_with('\0')) {
+    update_version_view.remove_suffix(1);
+  }
+  ParsedVersion update_version(update_version_view);
 
   if (!IsUpdate(my_version, update_version)) {
     return;
   }
 
-  LOG << "Found update " << kVersionNote.desc << " => "
-      << StrViewOf(version_note.Desc());
+  LOG << "Found update " << kVersionNote.desc << " => " << update_version_view;
 
   // Step 2: check signature
 
