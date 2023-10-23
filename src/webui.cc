@@ -12,7 +12,7 @@
 #include "chrono.hh"
 #include "config.hh"
 #include "dhcp.hh"
-#include "dns.hh"
+#include "dns_client.hh"
 #include "etc.hh"
 #include "format.hh"
 #include "http.hh"

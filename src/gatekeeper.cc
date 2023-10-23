@@ -15,7 +15,8 @@
 #include "atexit.hh"
 #include "config.hh"
 #include "dhcp.hh"
-#include "dns.hh"
+#include "dns_client.hh"
+#include "dns_server.hh"
 #include "epoll.hh"
 #include "etc.hh"
 #include "firewall.hh"
@@ -48,7 +49,8 @@ std::optional<SignalHandler> sigint;  // Ctrl+C
 void StopSignal(const char *signal) {
   LOG << "Received " << signal << ". Stopping Gatekeeper.";
   webui::Stop();
-  dns::Stop();
+  dns::StopServer();
+  dns::StopClient();
   dhcp::server.StopListening();
   systemd::Stop();
   update::Stop();
@@ -387,7 +389,13 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  dns::Start(status);
+  dns::StartClient(status);
+  if (!OK(status)) {
+    ERROR << status;
+    return 1;
+  }
+
+  dns::StartServer(status);
   if (!OK(status)) {
     ERROR << status;
     return 1;

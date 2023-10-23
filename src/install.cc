@@ -4,7 +4,8 @@
 
 #include "config.hh"
 #include "dhcp.hh"
-#include "dns.hh"
+#include "dns_client.hh"
+#include "dns_server.hh"
 #include "firewall.hh"
 #include "gatekeeper.hh"
 #include "status.hh"
@@ -66,7 +67,8 @@ void Install(Status &status) {
 
   // Close all the ports so that new instance can bind them.
   webui::StopListening();
-  dns::Stop();
+  dns::StopServer();
+  dns::StopClient();
   dhcp::server.StopListening();
   // Also stop other epoll users - so that the current process can shut down.
   update::Stop();
@@ -95,8 +97,11 @@ void Install(Status &status) {
     Status dhcp_status;
     dhcp::server.Listen(dhcp_status);
 
-    Status dns_status;
-    dns::Start(dns_status);
+    Status dns_client_status;
+    dns::StartClient(dns_client_status);
+
+    Status dns_server_status;
+    dns::StartServer(dns_server_status);
 
     Status firewall_status;
     firewall::Start(firewall_status);
