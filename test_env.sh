@@ -4,8 +4,8 @@
 
 set -e
 
-mkdir -p /etc/netns/$NS
-touch /etc/netns/$NS/resolv.conf
+mkdir -p /etc/netns/ns0
+touch /etc/netns/ns0/resolv.conf
 
 ip addr flush dev veth0a
 ip netns exec ns0 ip addr flush dev veth0b
