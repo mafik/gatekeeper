@@ -48,8 +48,9 @@ def hook_srcs(srcs: dict[str, src.File], recipe: make.Recipe):
 
     fs_utils.generated_dir.mkdir(exist_ok=True)
 
-    recipe.add_step(gen, [hh_path, cc_path],
-                    ['.git/HEAD', 'src/version.x', 'src/version.py'],
+    recipe.add_step(gen, [hh_path, cc_path], [
+        '.git/HEAD', '.git/refs/heads/main', 'src/version.x', 'src/version.py'
+    ],
                     desc='Generating version file',
                     shortcut='version')
     recipe.generated.add(hh_path)
