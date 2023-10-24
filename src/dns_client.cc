@@ -177,6 +177,7 @@ static void CancelLookup(LookupBase *lookup) {
   if (not lookup->in_progress) {
     return;
   }
+  lookup->in_progress = false;
   // Remove this from the pending lookups.
   for (Entry *e : Entry::cache) {
     PendingEntry *pending = dynamic_cast<PendingEntry *>(e);
