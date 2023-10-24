@@ -410,9 +410,9 @@ struct DevicesTable : Table {
       row.mac = entry->mac;
       row.dhcp_hostname = entry->hostname;
       row.last_activity = FormatDuration(
-          entry->last_request.transform([&](auto x) { return x - now; }),
+          entry->last_activity.transform([&](auto x) { return x - now; }),
           "never");
-      row.last_activity_time = entry->last_request;
+      row.last_activity_time = entry->last_activity;
     }
     // Fill in the `hostnames` field.
     for (auto &r : rows) {

@@ -4,6 +4,7 @@
 #include <unordered_set>
 
 #include "epoll_udp.hh"
+#include "expirable.hh"
 #include "optional.hh"
 #include "str.hh"
 #include "webui.hh"
@@ -15,13 +16,24 @@ using namespace std;
 
 struct Server : UDPListener {
 
-  struct Entry {
+  struct Entry : Expirable {
     IP ip;
     MAC mac;
     Str hostname;
-    Optional<chrono::steady_clock::time_point> expiration;
-    bool stable = false;
-    Optional<chrono::steady_clock::time_point> last_request;
+    Optional<chrono::steady_clock::time_point> last_activity;
+
+    // Create a non-expiring entry.
+    //
+    // Entry will be recorded in the lookup tables of the DHCP server.
+    Entry(Server &, IP, MAC, Str hostname);
+
+    // Create an expiring entry.
+    //
+    // Entry will be recorded in the lookup tables of the DHCP server.
+    Entry(Server &, IP, MAC, Str hostname, chrono::steady_clock::duration ttl);
+
+    // Automatically removes `this` from the lookup tables of the DHCP server.
+    ~Entry();
   };
 
   struct HashByIP {

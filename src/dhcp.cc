@@ -1,11 +1,13 @@
 #include "dhcp.hh"
 
+#include <chrono>
 #include <cstring>
 #include <sys/socket.h>
 
 #include "arp.hh"
 #include "config.hh"
 #include "etc.hh"
+#include "expirable.hh"
 #include "format.hh"
 #include "hex.hh"
 #include "log.hh"
@@ -754,21 +756,41 @@ IP ChooseInformIP(const PacketView &request, string &error) {
 
 Server server;
 
+Server::Entry::Entry(Server &server, IP ip, MAC mac, Str hostname)
+    : Expirable(), ip(ip), mac(mac), hostname(hostname) {
+  server.entries_by_ip.insert(this);
+  server.entries_by_mac.insert(this);
+}
+
+Server::Entry::Entry(Server &server, IP ip, MAC mac, Str hostname,
+                     chrono::steady_clock::duration ttl)
+    : Expirable(ttl), ip(ip), mac(mac), hostname(hostname) {
+  server.entries_by_ip.insert(this);
+  server.entries_by_mac.insert(this);
+}
+
+Server::Entry::~Entry() {
+  server.entries_by_ip.erase(this);
+  server.entries_by_mac.erase(this);
+}
+
 void Server::Init() {
+  static bool initialized = false;
+  if (initialized) {
+    return;
+  }
+  initialized = true;
   for (auto [mac, ip] : etc::ethers) {
-    auto *entry = new Entry();
-    entry->ip = ip;
-    entry->mac = mac;
-    entry->stable = true;
+    Str hostname = "";
     if (auto etc_hosts_it = etc::hosts.find(ip);
         etc_hosts_it != etc::hosts.end()) {
       auto &aliases = etc_hosts_it->second;
       if (!aliases.empty()) {
-        entry->hostname = aliases[0];
+        hostname = aliases[0];
       }
     }
-    entries_by_ip.insert(entry);
-    entries_by_mac.insert(entry);
+    // Static entries never expire. No need to track them.
+    new Entry(*this, ip, mac, hostname);
   }
 }
 int AvailableIPs(const Server &server) {
@@ -850,6 +872,12 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     return;
   }
 
+  if (auto it = entries_by_mac.find(packet.effective_mac());
+      it != entries_by_mac.end()) {
+    auto *entry = *it;
+    entry->last_activity = steady_clock::now();
+  }
+
   int request_lease_time_seconds = 60;
   switch (packet.MessageType()) {
   case options::MessageType::DISCOVER:
@@ -875,8 +903,6 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
         it != entries_by_ip.end()) {
       auto *entry = *it;
       if (entry->mac == packet.effective_mac()) {
-        entries_by_mac.erase(*it);
-        entries_by_ip.erase(it);
         delete entry;
       }
     }
@@ -953,16 +979,13 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   }
 
   if (!inform) {
-    auto *entry = new Entry();
-    entry->ip = chosen_ip;
-    entry->mac = packet.effective_mac();
-    entry->last_request = steady_clock::now();
-    entry->expiration = steady_clock::now() + lease_time;
+    Str hostname = "";
     if (auto opt = packet.FindOption<options::HostName>()) {
-      entry->hostname = opt->hostname();
+      hostname = opt->hostname();
     }
-    entries_by_ip.insert(entry);
-    entries_by_mac.insert(entry);
+    auto *entry =
+        new Entry(*this, chosen_ip, packet.effective_mac(), hostname, 24h);
+    entry->last_activity = steady_clock::now();
   }
 }
 const char *Server::Name() const { return "dhcp::Server"; }
