@@ -833,13 +833,13 @@ void RenderMainPage(Response &response, Request &request) {
   RenderHEADER(html);
   html += "<main>";
   config_table.RenderTABLE(html, opts);
-  devices_table.RenderTABLE(html, opts);
+  dhcp::table.RenderTABLE(html, opts);
   Table::RenderOptions log_opts = opts;
   log_opts.row_offset = std::max<int>(0, messages.size() - opts.row_limit);
   logs_table.RenderTABLE(html, log_opts);
   TrafficGraph::RenderOptions traffic_opts;
   TrafficGraph::RenderCANVAS(html, traffic_opts);
-  dhcp::table.RenderTABLE(html, opts);
+  devices_table.RenderTABLE(html, opts);
   dns::table.RenderTABLE(html, opts);
   html += "</main></body></html>";
   response.Write(html);
