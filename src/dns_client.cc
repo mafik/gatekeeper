@@ -86,10 +86,11 @@ unordered_multiset<const Record *, HashByData, EqualData> cache_reverse;
 
 struct PendingEntry : Expirable, Entry {
   U16 id;
-  Vec<LookupBase *> waiting_lookups;
+  Vec<LookupBase *> in_progress;
   PendingEntry(Question question, U16 id, LookupBase *lookup);
   ~PendingEntry() override {
-    for (auto *lookup : waiting_lookups) {
+    for (auto *lookup : in_progress) {
+      lookup->in_progress = false;
       lookup->OnExpired();
     }
   }
@@ -170,21 +171,48 @@ struct CachedEntry : Expirable, Entry {
   }
 };
 
-void LookupBase::ConstructionComplete(Str domain, U16 type) {
+LookupBase::LookupBase() : in_progress(false) {}
+
+static void CancelLookup(LookupBase *lookup) {
+  if (not lookup->in_progress) {
+    return;
+  }
+  // Remove this from the pending lookups.
+  for (Entry *e : Entry::cache) {
+    PendingEntry *pending = dynamic_cast<PendingEntry *>(e);
+    if (pending == nullptr) {
+      continue;
+    }
+    for (int i = 0; i < pending->in_progress.size(); i++) {
+      if (pending->in_progress[i] == lookup) {
+        pending->in_progress.erase(pending->in_progress.begin() + i);
+        return;
+      }
+    }
+  }
+}
+
+LookupBase::~LookupBase() { CancelLookup(this); }
+
+void LookupBase::Start(Str domain, U16 type) {
+  CancelLookup(this);
   Question question{.domain_name = domain, .type = (Type)type};
   auto entry_it = Entry::cache.find(question);
   if (entry_it == Entry::cache.end()) {
     // We don't have anything in the cache.
     // Send a new request to the upstream DNS server.
+    in_progress = true;
     U16 id = AllocateRequestId();
     new PendingEntry(question, id, this);
   } else if (PendingEntry *pending = dynamic_cast<PendingEntry *>(*entry_it)) {
     // We already have a pending request for this domain.
     // Add this to the waitlist.
-    pending->waiting_lookups.push_back(this);
+    in_progress = true;
+    pending->in_progress.push_back(this);
   } else if (CachedEntry *cached = dynamic_cast<CachedEntry *>(*entry_it)) {
     // We already have a cached entry for this domain.
     // Call OnAnswer immediately.
+    in_progress = false;
     Message msg = {.header =
                        {
                            .id = 0,
@@ -208,11 +236,7 @@ void LookupBase::ConstructionComplete(Str domain, U16 type) {
   }
 }
 
-LookupIPv4::LookupIPv4(Str domain, Fn<void(IP ip)> on_success,
-                       Fn<void()> on_error)
-    : on_success(on_success), on_error(on_error) {
-  ConstructionComplete(domain, (U16)Type::A);
-}
+void LookupIPv4::Start(Str domain) { LookupBase::Start(domain, (U16)Type::A); }
 
 void LookupIPv4::OnAnswer(const Message &msg) {
   for (auto &answer : msg.answers) {
@@ -331,10 +355,11 @@ struct Client : UDPListener {
             " (expected: " + f("0x%04hx", pending->id) + ")";
       return;
     }
-    for (auto *lookup : pending->waiting_lookups) {
+    for (auto *lookup : pending->in_progress) {
+      lookup->in_progress = false;
       lookup->OnAnswer(msg);
     }
-    pending->waiting_lookups.clear();
+    pending->in_progress.clear();
     // Destructors remove the entry from the caches & expiration queue.
     delete pending;
     // Constructors add the entry to the caches & expiration queue.
@@ -352,8 +377,7 @@ struct Client : UDPListener {
 Client client;
 
 PendingEntry::PendingEntry(Question question, U16 id, LookupBase *lookup)
-    : Expirable(kPendingTTL), Entry(question), id(id),
-      waiting_lookups({lookup}) {
+    : Expirable(kPendingTTL), Entry(question), id(id), in_progress({lookup}) {
   string buffer;
   Header{.id = id, .recursion_desired = true, .question_count = htons(1)}
       .write_to(buffer);

@@ -14,7 +14,7 @@
 namespace maf::http {
 
 // Note for future: this could be a really nice place to use coroutines.
-void ResponseReceived(RequestBase &get) {
+static void ResponseReceived(RequestBase &get) {
   if (not OK(get.status)) {
     return;
   }
@@ -93,57 +93,41 @@ void ResponseReceived(RequestBase &get) {
   }
 }
 
-UniquePtr<Stream> MakeRequest(RequestBase &request_base, Str url) {
-  enum {
-    kHttp,
-    kHttps,
-  } scheme = kHttp;
-
-  size_t host_begin = 0;
+static void SetUrl(RequestBase &request_base, Str url) {
+  request_base.url = url;
+  Size host_begin;
   if (url.starts_with("http://")) {
     host_begin = 7;
-    scheme = kHttp;
+    request_base.protocol = Protocol::kHttp;
   } else if (url.starts_with("https://")) {
     host_begin = 8;
-    scheme = kHttps;
+    request_base.protocol = Protocol::kHttps;
+  } else {
+    host_begin = 0;
+    request_base.protocol = Protocol::kHttp;
   }
 
-  size_t host_end = url.find_first_of("/:", host_begin);
-  Str host;
-  Str path;
-  U16 port = scheme == kHttp ? 80 : 443;
+  Size host_end = url.find_first_of("/:", host_begin);
+  request_base.port = request_base.protocol == Protocol::kHttp ? 80 : 443;
   if (host_end == Str::npos) {
-    host = url.substr(host_begin);
-    path = "/";
+    request_base.host = url.substr(host_begin);
+    request_base.path = "/";
   } else {
-    host = url.substr(host_begin, host_end - host_begin);
+    request_base.host = url.substr(host_begin, host_end - host_begin);
     if (url[host_end] == ':') {
-      port = stoi(url.substr(host_end + 1));
+      request_base.port = stoi(url.substr(host_end + 1));
     }
     size_t path_begin = url.find_first_of("/", host_end);
     if (path_begin == Str::npos) {
-      path = "/";
+      request_base.path = "/";
     } else {
-      path = url.substr(path_begin);
+      request_base.path = url.substr(path_begin);
     }
   }
+}
 
-  addrinfo hints = {
-      .ai_family = AF_INET,
-  };
-  addrinfo *result;
-  if (int ret = getaddrinfo(host.c_str(), nullptr, &hints, &result)) {
-    AppendErrorMessage(request_base) +=
-        "Couldn't get IP of host \"" + host + "\"";
-    return nullptr;
-  }
-
-  IP ip(((sockaddr_in *)result->ai_addr)->sin_addr.s_addr);
-
-  freeaddrinfo(result);
-
-  UniquePtr<Stream> stream;
-  if (scheme == kHttp) {
+static void OpenStream(RequestBase &req) {
+  if (req.protocol == Protocol::kHttp) {
     struct HttpStream : tcp::Connection {
       RequestBase &get;
       HttpStream(RequestBase &get, IP ip, U16 port) : get(get) {
@@ -159,8 +143,8 @@ UniquePtr<Stream> MakeRequest(RequestBase &request_base, Str url) {
         }
       }
     };
-    stream = std::make_unique<HttpStream>(request_base, ip, port);
-  } else if (scheme == kHttps) {
+    req.stream = std::make_unique<HttpStream>(req, req.resolved_ip, req.port);
+  } else if (req.protocol == Protocol::kHttps) {
     struct HttpsStream : tls::Connection {
       RequestBase &get;
       HttpsStream(RequestBase &get, IP ip, U16 port, Str host) : get(get) {
@@ -177,26 +161,37 @@ UniquePtr<Stream> MakeRequest(RequestBase &request_base, Str url) {
         }
       }
     };
-    stream = std::make_unique<HttpsStream>(request_base, ip, port, host);
+    req.stream =
+        std::make_unique<HttpsStream>(req, req.resolved_ip, req.port, req.host);
   }
 
   auto Append = [&](StrView str) {
-    stream->outbox.insert(stream->outbox.end(), str.begin(), str.end());
+    req.stream->outbox.insert(req.stream->outbox.end(), str.begin(), str.end());
   };
   Append("GET ");
-  Append(path);
+  Append(req.path);
   Append(" HTTP/1.1\r\n");
   Append("Host: ");
-  Append(host);
+  Append(req.host);
   Append("\r\n");
   Append("Connection: close\r\n");
   Append("\r\n");
-  stream->Send();
-  return stream;
+  req.stream->Send();
+  req.inbox_pos = 0;
+  req.parsing_state = RequestBase::ParsingState::Status;
 }
 
-RequestBase::RequestBase(Str url_arg)
-    : url(url_arg), stream(MakeRequest(*this, url)) {}
+RequestBase::RequestBase(Str url_arg) {
+  SetUrl(*this, url_arg);
+  dns_lookup.on_success = [this](IP ip) {
+    this->resolved_ip = ip;
+    OpenStream(*this);
+  };
+  dns_lookup.on_error = [this]() {
+    AppendErrorMessage(*this) += "Couldn't resolve host \"" + host + "\"";
+  };
+  dns_lookup.Start(host);
+}
 
 RequestBase::~RequestBase() {}
 
@@ -220,10 +215,8 @@ void Get::OnHeader(StrView name, StrView value) {
   if (name == "Location") {
     old_stream = std::move(stream);
     old_stream->Close();
-    url = value;
-    stream = MakeRequest(*this, url);
-    inbox_pos = 0;
-    parsing_state = ParsingState::Status;
+    SetUrl(*this, Str(value));
+    OpenStream(*this);
   }
 }
 

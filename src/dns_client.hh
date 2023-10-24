@@ -14,11 +14,13 @@ struct Message;
 
 // Abstract base class for DNS lookups.
 struct LookupBase {
-  virtual ~LookupBase() {}
+  bool in_progress;
+  LookupBase();
+  virtual ~LookupBase();
 
   // Call this at the end of the constructor. This will start the lookup.
   // Eventually either `OnAnswer` or `OnExpired` will be called.
-  void ConstructionComplete(Str domain, U16 type);
+  void Start(Str domain, U16 type);
 
   // Called when we receive a DNS response. Receives the full DNS response.
   virtual void OnAnswer(const Message &) = 0;
@@ -27,11 +29,12 @@ struct LookupBase {
   virtual void OnExpired() = 0;
 };
 
-struct LookupIPv4 final : LookupBase {
+// Main class for performing DNS lookups.
+struct LookupIPv4 : LookupBase {
   Fn<void(IP ip)> on_success;
   Fn<void()> on_error;
 
-  LookupIPv4(Str domain, Fn<void(IP ip)> on_success, Fn<void()> on_error);
+  void Start(Str domain);
 
   void OnAnswer(const Message &) override;
   void OnExpired() override;

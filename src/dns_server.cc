@@ -22,8 +22,7 @@ struct ProxyLookup : LookupBase {
   Header header;
   ProxyLookup(IP client_ip, U16 client_port, Message &msg)
       : client_ip(client_ip), client_port(client_port), header(msg.header) {
-    ConstructionComplete(msg.questions.front().domain_name,
-                         (U16)msg.questions.front().type);
+    Start(msg.questions.front().domain_name, (U16)msg.questions.front().type);
   }
 
   void OnAnswer(const Message &msg) override;

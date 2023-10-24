@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include "dns_client.hh"
 #include "status.hh"
 #include "str.hh"
 #include "stream.hh"
@@ -9,11 +10,22 @@
 
 namespace maf::http {
 
+enum class Protocol : U8 {
+  kHttp,
+  kHttps,
+};
+
 // Base class for HTTP requests.
 //
 // Accumulates the HTTP response in the `inbox` buffer.
 struct RequestBase {
   Str url;
+  Protocol protocol;
+  Str host;
+  U16 port;
+  Str path;
+  IP resolved_ip;
+  dns::LookupIPv4 dns_lookup;
   UniquePtr<Stream> stream;
 
   enum class ParsingState {
@@ -21,7 +33,7 @@ struct RequestBase {
     Headers,
     Data,
   } parsing_state = ParsingState::Status;
-  size_t inbox_pos = 0;
+  Size inbox_pos = 0;
 
   RequestBase(Str url);
   virtual ~RequestBase();
@@ -43,7 +55,7 @@ struct RequestBase {
 struct Get : RequestBase {
   using Callback = std::function<void()>;
   StrView response;
-  size_t data_begin = 0;
+  Size data_begin = 0;
   Callback callback;
 
   UniquePtr<Stream> old_stream;
