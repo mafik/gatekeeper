@@ -1,7 +1,5 @@
 #include "hex.hh"
 
-#include "format.hh"
-
 namespace maf {
 
 void HexToBytesUnchecked(StrView hex, char *bytes) {
