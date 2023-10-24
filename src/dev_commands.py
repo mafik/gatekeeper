@@ -23,7 +23,7 @@ def debug():
 
 
 def gdb():
-    return run('gdb build/debug_gatekeeper -g -ex run')
+    return run('gdb build/debug_gatekeeper -q -ex run')
 
 
 def valgrind():
