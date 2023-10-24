@@ -443,13 +443,30 @@ struct DevicesTable : Table {
       sort(rows.begin(), rows.end(), [&](const Row &a, const Row &b) {
         bool result = true;
         if (opts.sort_column == 0) {
-          result = a.ip.addr < b.ip.addr;
+          result = a.ip < b.ip;
         } else if (opts.sort_column == 1) {
-          result = a.mac < b.mac;
+          if (a.mac.has_value() && b.mac.has_value()) {
+            result = a.mac < b.mac;
+          } else if (a.mac.has_value()) {
+            result = true;
+          } else if (b.mac.has_value()) {
+            result = false;
+          } else {
+            result = a.ip < b.ip;
+          }
         } else if (opts.sort_column == 2) {
           result = a.hostnames < b.hostnames;
         } else if (opts.sort_column == 3) {
-          result = a.last_activity_time < b.last_activity_time;
+          if (a.last_activity_time.has_value() &&
+              b.last_activity_time.has_value()) {
+            result = a.last_activity_time < b.last_activity_time;
+          } else if (a.last_activity_time.has_value()) {
+            result = true;
+          } else if (b.last_activity_time.has_value()) {
+            result = false;
+          } else {
+            result = a.hostnames < b.hostnames;
+          }
         }
         return opts.sort_descending ? !result : result;
       });
