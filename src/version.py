@@ -18,8 +18,8 @@ cc_path = hh_path.with_suffix('.cc')
 
 
 def gen():
-    version = subprocess.check_output(
-        ['git', 'describe', '--tags']).decode().strip()
+    version = subprocess.check_output(['git', 'describe',
+                                       '--tags']).decode().strip()
     with hh_path.open('w') as hh:
         print(f'''#pragma once
 
@@ -34,20 +34,24 @@ struct VersionNote {{
 }};
 
 extern const VersionNote kVersionNote;
-}}''', file=hh)
+}}''',
+              file=hh)
 
     with cc_path.open('w') as cc:
         print(f'''#include "version.hh"
 
-__attribute__((section(".note.maf.version"))) __attribute__((used)) const maf::VersionNote maf::kVersionNote = {{}};''', file=cc)
+__attribute__((section(".note.maf.version"))) __attribute__((used)) const maf::VersionNote maf::kVersionNote = {{}};''',
+              file=cc)
 
 
 def hook_srcs(srcs: dict[str, src.File], recipe: make.Recipe):
 
     fs_utils.generated_dir.mkdir(exist_ok=True)
 
-    recipe.add_step(gen, [hh_path, cc_path], ['src/version.py', 'src/version.x'],
-                    desc='Generating version file', shortcut='version')
+    recipe.add_step(gen, [hh_path, cc_path],
+                    ['.git/HEAD', 'src/version.x', 'src/version.py'],
+                    desc='Generating version file',
+                    shortcut='version')
     recipe.generated.add(hh_path)
     recipe.generated.add(cc_path)
 
