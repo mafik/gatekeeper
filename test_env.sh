@@ -4,6 +4,9 @@
 
 set -e
 
+mkdir -p /etc/netns/$NS
+touch /etc/netns/$NS/resolv.conf
+
 ip addr flush dev veth0a
 ip netns exec ns0 ip addr flush dev veth0b
 ip netns exec ns0 ip link set veth0b up
