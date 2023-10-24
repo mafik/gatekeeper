@@ -32,4 +32,12 @@ template <size_t N> Arr<char, (N - 1) / 2> HexArr(const char (&str)[N]) {
   return arr;
 }
 
+// Print the given bytes as a hex dump.
+//
+// Each printed live covers 16 bytes.
+// Left side has hex offsets, then 16-column hex string with spaces between
+// every 4 bytes and on the right side - ASCII (or '.').
+Str HexDump(StrView bytes);
+Str HexDump(Span<> bytes);
+
 } // namespace maf
