@@ -769,6 +769,12 @@ Server::Entry::Entry(Server &server, IP ip, MAC mac, Str hostname,
   server.entries_by_mac.insert(this);
 }
 
+void Server::Entry::UpdateMAC(MAC new_mac) {
+  server.entries_by_mac.erase(this);
+  mac = new_mac;
+  server.entries_by_mac.insert(this);
+}
+
 Server::Entry::~Entry() {
   server.entries_by_ip.erase(this);
   server.entries_by_mac.erase(this);
@@ -791,6 +797,12 @@ void Server::Init() {
     }
     // Static entries never expire. No need to track them.
     new Entry(*this, ip, mac, hostname);
+  }
+  if (auto it = entries_by_ip.find(lan_ip); it != entries_by_ip.end()) {
+    MAC lan_mac = MAC::FromInterface(lan.name);
+    (*it)->UpdateMAC(lan_mac);
+  } else {
+    new Entry(*this, lan_ip, MAC::FromInterface(lan.name), etc::hostname);
   }
 }
 int AvailableIPs(const Server &server) {

@@ -32,6 +32,8 @@ struct Server : UDPListener {
     // Entry will be recorded in the lookup tables of the DHCP server.
     Entry(Server &, IP, MAC, Str hostname, chrono::steady_clock::duration ttl);
 
+    void UpdateMAC(MAC new_mac);
+
     // Automatically removes `this` from the lookup tables of the DHCP server.
     ~Entry();
   };
