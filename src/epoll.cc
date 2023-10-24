@@ -112,6 +112,13 @@ void Loop(Status &status) {
 #endif
           return;
         }
+#ifdef DEBUG_EPOLL
+        if (errno) {
+          ERROR << l->Name()
+                << " didn't clean errno after NotifyRead: " << strerror(errno);
+          errno = 0;
+        }
+#endif
       }
       if (events[i].data.ptr == nullptr)
         continue;
@@ -123,6 +130,13 @@ void Loop(Status &status) {
 #endif
           return;
         }
+#ifdef DEBUG_EPOLL
+        if (errno) {
+          ERROR << l->Name()
+                << " didn't clean errno after NotifyWrite: " << strerror(errno);
+          errno = 0;
+        }
+#endif
       }
     }
     events_count = 0;

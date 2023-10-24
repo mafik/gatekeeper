@@ -12,6 +12,7 @@ void UDPListener::NotifyRead(Status &status) {
                            (struct sockaddr *)&clientaddr, &clilen);
     if (len < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        errno = 0;
         break;
       } else {
         AppendErrorMessage(status) += "UDPListener recvfrom";

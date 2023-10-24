@@ -418,6 +418,7 @@ struct RecordTrafficPipe : epoll::Listener {
         break;
       } else if (read_bytes == -1) { // Nothing to read / Error
         if (errno == EWOULDBLOCK) {
+          errno = 0;
           break;
         }
         AppendErrorMessage(status) += "read()";

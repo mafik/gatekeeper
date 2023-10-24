@@ -245,6 +245,7 @@ static void TryWriting(Connection &c) {
 #endif
   if (count == -1) {
     if (errno == EWOULDBLOCK || errno == EAGAIN) {
+      errno = 0;
       // We must wait for the data to be sent before writing more.
       c.write_buffer_full = true;
 #ifdef DEBUG_HTTP
@@ -301,6 +302,7 @@ static void TryReading(Connection &c) {
   }
   if (count == -1) {
     if (errno == EWOULDBLOCK) {
+      errno = 0;
       // We must wait for more data to arrive to process this request.
 #ifdef DEBUG_HTTP
       LOG << " -> waiting for more data (EWOULDBLOCK)";
@@ -424,7 +426,7 @@ void Connection::NotifyWrite(Status &epoll_status) {
   }
 }
 
-const char *Connection::Name() const { return "Connection"; }
+const char *Connection::Name() const { return "http::Connection"; }
 
 void Server::Listen(Config config, Status &status) {
   fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
@@ -489,6 +491,7 @@ void Server::NotifyRead(Status &status) {
     if (conn_fd == -1) {
       if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
         // We have processed all incoming connections.
+        errno = 0;
         break;
       }
       AppendErrorMessage(status) += "accept() failed";
@@ -514,7 +517,7 @@ void Server::NotifyRead(Status &status) {
   }
 }
 
-const char *Server::Name() const { return "Server"; }
+const char *Server::Name() const { return "http::Server"; }
 
 } // namespace http
 

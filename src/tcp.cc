@@ -68,6 +68,7 @@ void Server::NotifyRead(Status &epoll_status) {
     if (conn_fd == -1) {
       if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
         // We have processed all incoming connections.
+        errno = 0;
         break;
       }
       status() += "accept4()";
@@ -159,6 +160,7 @@ void Connection::Send() {
   if (count == -1) {
     if (errno == EWOULDBLOCK || errno == EAGAIN) {
       // We must wait for the data to be sent before writing more.
+      errno = 0;
       write_buffer_full = true;
       UpdateEpoll(*this);
       return;
@@ -204,6 +206,7 @@ void Connection::NotifyRead(Status &epoll_status) {
   if (count == -1) {
     if (errno == EWOULDBLOCK) {
       // We must wait for more data to arrive to process this request.
+      errno = 0;
       return;
     }
     // Connection is broken. Discard it.
