@@ -462,7 +462,15 @@ void Table::Update(RenderOptions &opts) {
     sort(rows.begin(), rows.end(), [&](const Row &a, const Row &b) {
       bool result = true;
       if (opts.sort_column == 0) {
-        result = a.expiration_time < b.expiration_time;
+        if (a.expiration_time.has_value() && b.expiration_time.has_value()) {
+          result = *a.expiration_time < *b.expiration_time;
+        } else if (a.expiration_time.has_value()) {
+          result = true;
+        } else if (b.expiration_time.has_value()) {
+          result = false;
+        } else {
+          result = a.domain < b.domain;
+        }
       } else if (opts.sort_column == 1) {
         result = a.question < b.question;
       }
