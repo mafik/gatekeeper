@@ -115,9 +115,6 @@ class Step:
         ]
         return changed_inputs
 
-    def is_dirty(self):
-        return len(self.dirty_inputs()) > 0
-
     def build_if_needed(self):
         if len(self.inputs) == 0 and any(not Path(out).exists()
                                          for out in self.outputs):
@@ -153,10 +150,6 @@ class Recipe:
                 else:
                     print(f'  > rmtree {p}')
                     shutil.rmtree(p)
-
-    def is_dirty(self):
-        '''Returns True if the recipe needs to be built.'''
-        return any(s.is_dirty() for s in self.steps)
 
     def add_step(self, *args, **kwargs):
         self.steps.append(Step(*args, id=len(self.steps), **kwargs))
