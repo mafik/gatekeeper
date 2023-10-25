@@ -103,7 +103,7 @@ struct CachedEntry : Expirable, Entry {
         additional(msg.additional) {
 
     Optional<chrono::steady_clock::time_point> new_expiration = nullopt;
-    if (msg.header.response_code == ResponseCode::NAME_ERROR) {
+    if (msg.header.response_code != ResponseCode::NO_ERROR) {
       new_expiration = chrono::steady_clock::now() + 60s;
     } else {
       msg.ForEachRecord([&](const Record &r) {
