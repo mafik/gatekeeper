@@ -31,6 +31,7 @@
 #include "sig.hh" // IWYU pragma: keep
 #include "signal.hh"
 #include "sock_diag.hh"
+#include "split.hh"
 #include "status.hh"
 #include "systemd.hh"
 #include "update.hh"
@@ -39,12 +40,13 @@
 
 #pragma maf main
 
+using namespace std;
 using namespace gatekeeper;
 using namespace maf;
 
-std::optional<SignalHandler> sigabrt; // systemd watchdog
-std::optional<SignalHandler> sigterm; // systemctl stop & systemd timeout
-std::optional<SignalHandler> sigint;  // Ctrl+C
+Optional<SignalHandler> sigabrt; // systemd watchdog
+Optional<SignalHandler> sigterm; // systemctl stop & systemd timeout
+Optional<SignalHandler> sigint;  // Ctrl+C
 
 void StopSignal(const char *signal) {
   LOG << "Received " << signal << ". Stopping Gatekeeper.";
@@ -125,30 +127,59 @@ Interface PickWANInterface(Status &status) {
 }
 
 Interface PickLANInterface(Status &status) {
-  if (auto env_LAN = getenv("LAN")) {
-    Interface if_LAN = {.name = env_LAN, .index = 0};
+  std::vector<Interface> candidates;
+  if (auto LAN_env = getenv("LAN")) {
+    // The user specified LAN interfaces through an environment variable.
+    // Let's put them in the `candidates` list.
+    Vec<StrView> LAN_vec = SplitOnChars(LAN_env, " :");
     ForEachInetrface([&](Interface &iface) {
-      if (iface.name == env_LAN) {
-        if_LAN = iface;
+      if (LAN_vec.Contains(iface.name)) {
+        candidates.push_back(iface);
+        LAN_vec.Erase(iface.name);
       }
     });
-    return if_LAN;
+    if (!LAN_vec.empty()) {
+      auto &msg = AppendErrorMessage(status);
+
+      msg += "The 'LAN' environment variable contains ";
+      if (LAN_vec.size() == 1) {
+        msg += "an interface";
+      } else {
+        msg += "interfaces";
+      }
+      msg += " that couldn't be found in the system:";
+      bool first = true;
+      for (auto &ifname : LAN_vec) {
+        if (not first) {
+          msg += ',';
+        } else {
+          first = false;
+        }
+        msg += " \"";
+        msg += ifname;
+        msg += '\"';
+      }
+      msg += '.';
+      return {};
+    }
+  } else {
+    // Try to guess which interfaces could be part of LAN.
+    ForEachInetrface([&](Interface &iface) {
+      if (iface.IsLoopback()) { // skip loopback
+        return;
+      }
+      if (iface.IsWireless()) { // skip wireless
+        return;
+      }
+      // TODO: try DHCP INFORM probe
+      Status ip_status;
+      iface.IP(ip_status);
+      if (ip_status.Ok()) { // skip interfaces with IPs
+        return;
+      }
+      candidates.push_back(iface);
+    });
   }
-  std::vector<Interface> candidates;
-  ForEachInetrface([&](Interface &iface) {
-    if (iface.IsLoopback()) { // skip loopback
-      return;
-    }
-    if (iface.IsWireless()) { // skip wireless
-      return;
-    }
-    Status ip_status;
-    iface.IP(ip_status);
-    if (ip_status.Ok()) { // skip interfaces with IPs
-      return;
-    }
-    candidates.push_back(iface);
-  });
 
   if (candidates.empty()) {
     status() += "Couldn't find any candidate interface";
