@@ -9,5 +9,7 @@ maf::IP lan_ip = {192, 168, 1, 1};
 maf::Network lan_network = {.ip = {192, 168, 1, 0},
                             .netmask = {255, 255, 255, 0}};
 
+maf::Vec<Interface> lan_bridge_slaves = {};
+
 Interface wan = {.name = "eth1", .index = 1};
 maf::IP wan_ip = {192, 168, 2, 1};

@@ -127,7 +127,7 @@ Interface PickWANInterface(Status &status) {
 }
 
 Interface PickLANInterface(Status &status) {
-  std::vector<Interface> candidates;
+  Vec<Interface> candidates;
   if (auto LAN_env = getenv("LAN")) {
     // The user specified LAN interfaces through an environment variable.
     // Let's put them in the `candidates` list.
@@ -182,7 +182,7 @@ Interface PickLANInterface(Status &status) {
       // TODO: try DHCP INFORM probe
       Status ip_status;
       iface.IP(ip_status);
-      if (ip_status.Ok()) { // skip interfaces with IPs
+      if (!OK(ip_status)) { // skip interfaces with IPs
         return;
       }
       candidates.push_back(iface);
@@ -192,19 +192,37 @@ Interface PickLANInterface(Status &status) {
   if (candidates.empty()) {
     status() += "Couldn't find any candidate interface";
     return {};
-  }
-
-  if (candidates.size() > 1) {
-    // TODO: handle this by setting up a bridge
-    std::string names;
+  } else if (candidates.size() > 1) {
+    Str names;
     for (auto &iface : candidates) {
       names += " " + iface.name;
     }
-    ERROR << "Found more than one candidate interface:" << names
-          << ". Picking the first one: " << candidates[0].name;
+    LOG << "LAN contains multiple interfaces:" << names << ".";
+    Interface bridge = BridgeInterfaces(candidates, "lan", status);
+    if (!OK(status)) {
+      return {};
+    }
+    AtExit([]() {
+      for (auto &slave : lan_bridge_slaves) {
+        Status status;
+        slave.Deconfigure(status);
+        if (!status.Ok()) {
+          ERROR << status;
+        }
+      }
+      lan_bridge_slaves.clear();
+      Status status;
+      DeleteBridge("lan", status);
+      if (!status.Ok()) {
+        ERROR << status;
+      }
+    });
+    lan_bridge_slaves = candidates;
+    LOG << "Created LAN bridge interface \"" << bridge.name << "\".";
+    return bridge;
+  } else {
+    return candidates.front();
   }
-
-  return candidates[0];
 }
 
 Network PickUnusedSubnet(Status &status) {
@@ -242,6 +260,7 @@ void Deconfigure() {
   lan.Deconfigure(status);
   if (!status.Ok()) {
     ERROR << status;
+    status.Reset();
   }
 }
 

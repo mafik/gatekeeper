@@ -4,6 +4,7 @@
 
 #include "interface.hh"
 #include "ip.hh"
+#include "vec.hh"
 
 extern const std::string kLocalDomain;
 
@@ -15,6 +16,8 @@ extern const std::string kLocalDomain;
 extern Interface lan;
 extern maf::IP lan_ip;
 extern maf::Network lan_network;
+
+extern maf::Vec<Interface> lan_bridge_slaves;
 
 extern Interface wan;
 extern maf::IP wan_ip;
