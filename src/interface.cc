@@ -1,4 +1,5 @@
 #include "interface.hh"
+#include "status.hh"
 #include "virtual_fs.hh"
 
 #include <cstring>
@@ -112,6 +113,28 @@ void Interface::Deconfigure(Status &status) {
     return;
   }
   close(fd);
+}
+
+void Interface::CheckName(StrView name, Status &status) {
+  if (name.empty()) {
+    AppendErrorMessage(status) += "Interface name cannot be empty";
+    return;
+  }
+  if (name.size() >= IFNAMSIZ) {
+    AppendErrorMessage(status) += "Interface name cannot be longer than " +
+                                  std::to_string(IFNAMSIZ - 1) + " characters";
+    return;
+  }
+  for (auto c : name) {
+    if (c == '/') {
+      AppendErrorMessage(status) += "Interface name cannot contain '/'";
+      return;
+    }
+    if (isspace(c)) {
+      AppendErrorMessage(status) += "Interface name cannot contain whitespace";
+      return;
+    }
+  }
 }
 
 // Inlined declarations from <net/if.h> which conflicts with <linux/if.h>

@@ -131,7 +131,15 @@ Interface PickLANInterface(Status &status) {
   if (auto LAN_env = getenv("LAN")) {
     // The user specified LAN interfaces through an environment variable.
     // Let's put them in the `candidates` list.
-    Vec<StrView> LAN_vec = SplitOnChars(LAN_env, " :");
+    Vec<StrView> LAN_vec = SplitOnChars(LAN_env, " ");
+    for (auto &ifname : LAN_vec) {
+      Interface::CheckName(ifname, status);
+      if (!OK(status)) {
+        AppendErrorMessage(status) += "An interface specified in the 'LAN' "
+                                      "environment variable has invalid name";
+        return {};
+      }
+    }
     ForEachInetrface([&](Interface &iface) {
       if (LAN_vec.Contains(iface.name)) {
         candidates.push_back(iface);

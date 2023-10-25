@@ -18,6 +18,7 @@ struct Interface {
   maf::Network Network(maf::Status &status);
   void Configure(maf::IP ip, maf::Network network, maf::Status &status);
   void Deconfigure(maf::Status &status);
+  static void CheckName(std::string_view name, maf::Status &status);
 };
 
 void ForEachInetrface(std::function<void(Interface &)> callback);
