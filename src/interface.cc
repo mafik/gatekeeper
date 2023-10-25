@@ -1,14 +1,111 @@
 #include "interface.hh"
+#include "fd.hh"
 #include "status.hh"
 #include "virtual_fs.hh"
 
+#include <cerrno>
 #include <cstring>
 #include <linux/if.h>
+#include <linux/sockios.h>
 #include <linux/wireless.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
 using namespace maf;
+
+static void PrepareFD(FD &fd) {
+  if (fd < 0) {
+    fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  }
+}
+
+static void BringInterfaceUpDown(FD &fd, const Interface &iface, bool up,
+                                 Status &status) {
+  PrepareFD(fd);
+  ifreq ifr = {};
+  strncpy(ifr.ifr_name, iface.name.c_str(), IFNAMSIZ - 1);
+  memset(&ifr.ifr_ifru, 0, sizeof(ifr.ifr_ifru));
+  if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) { // get current flags
+    AppendErrorMessage(status) += "ioctl(SIOCGIFFLAGS) failed";
+    return;
+  }
+  if (up) {
+    ifr.ifr_flags |= IFF_UP;
+  } else {
+    ifr.ifr_flags &= ~IFF_UP;
+  }
+  if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0) { // set new flags
+    AppendErrorMessage(status) += "ioctl(SIOCSIFFLAGS) failed";
+    return;
+  }
+}
+
+static void BringInterfaceUp(FD &fd, const Interface &iface, Status &status) {
+  BringInterfaceUpDown(fd, iface, true, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't bring up interface " + iface.name;
+    return;
+  }
+}
+
+static void BringInterfaceDown(FD &fd, const Interface &iface, Status &status) {
+  BringInterfaceUpDown(fd, iface, false, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't bring down interface " + iface.name;
+    return;
+  }
+}
+
+static void SetInterfaceIPv4(FD &fd, const Interface &iface, IP ip,
+                             Status &status) {
+  PrepareFD(fd);
+  ifreq ifr = {};
+  strncpy(ifr.ifr_name, iface.name.c_str(), IFNAMSIZ - 1);
+  sockaddr_in *addr = (sockaddr_in *)&ifr.ifr_addr;
+  // Assign IP
+  addr->sin_family = AF_INET;
+  addr->sin_addr.s_addr = ip.addr;
+  if (ioctl(fd, SIOCSIFADDR, &ifr) < 0) {
+    AppendErrorMessage(status) +=
+        "ioctl(SIOCSIFADDR, " + ip.to_string() + ") failed";
+    return;
+  }
+}
+
+static Interface CreateBridge(FD &fd, const char *bridge_name, Status &status) {
+  PrepareFD(fd);
+  if (ioctl(fd, SIOCBRADDBR, bridge_name) < 0) {
+    if (errno == EEXIST) {
+      errno = 0;
+    } else {
+      AppendErrorMessage(status) +=
+          "ioctl(SIOCBRADDBR, \"" + Str(bridge_name) + "\") failed";
+      return {};
+    }
+  }
+  Interface br = {.name = bridge_name, .index = 0};
+  br.UpdateIndex(status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) +=
+        "Couldn't get index of newly created bridge " + Str(bridge_name);
+    return {};
+  }
+  return br;
+}
+
+static void DeleteBridge(FD &fd, const char *bridge_name, Status &status) {
+  PrepareFD(fd);
+  if (ioctl(fd, SIOCBRDELBR, bridge_name) < 0) {
+    AppendErrorMessage(status) +=
+        "ioctl(SIOCBRDELBR, \"" + Str(bridge_name) + "\") failed";
+    return;
+  }
+}
+
+void DeleteBridge(const char *bridge_name, maf::Status &status) {
+  FD fd;
+  DeleteBridge(fd, bridge_name, status);
+}
 
 bool Interface::IsLoopback() {
   int fd = socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
@@ -47,25 +144,22 @@ Network Interface::Network(Status &status) {
 }
 
 void Interface::Configure(::IP ip, ::Network network, Status &status) {
-  int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-  ifreq ifr = {};
-  strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
-  sockaddr_in *addr = (sockaddr_in *)&ifr.ifr_addr;
+  FD fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   // Assign IP
-  addr->sin_family = AF_INET;
-  addr->sin_addr.s_addr = ip.addr;
-  if (ioctl(fd, SIOCSIFADDR, &ifr) < 0) {
-    status() += "Couldn't set IP on interface " + name +
-                " because ioctl(SIOCSIFADDR) failed";
-    close(fd);
+  SetInterfaceIPv4(fd, *this, ip, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't set IP on interface " + name;
     return;
   }
   // Assign broadcast address
+  ifreq ifr = {};
+  strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
+  sockaddr_in *addr = (sockaddr_in *)&ifr.ifr_addr;
+  addr->sin_family = AF_INET;
   addr->sin_addr.s_addr = network.ip.addr | ~network.netmask.addr;
   if (ioctl(fd, SIOCSIFBRDADDR, &ifr) < 0) {
     status() += "Couldn't set broadcast address on interface " + name +
                 " because ioctl(SIOCSIFBRDADDR) failed";
-    close(fd);
     return;
   }
   // Assign netmask
@@ -74,45 +168,39 @@ void Interface::Configure(::IP ip, ::Network network, Status &status) {
     status() += "Couldn't set netmask " + network.netmask.to_string() +
                 " on interface " + name +
                 " because ioctl(SIOCSIFNETMASK) failed";
-    close(fd);
     return;
   }
   // Bring up the interface
-  memset(&ifr.ifr_ifru, 0, sizeof(ifr.ifr_ifru));
-  if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) { // get current flags
-    status() += "Couldn't bring up interface " + name +
-                " because ioctl(SIOCGIFFLAGS) failed";
-    close(fd);
-    return;
-  }
-  ifr.ifr_flags |= IFF_UP;
-  if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0) { // set new flags
-    status() += "Couldn't bring up interface " + name +
-                " because ioctl(SIOCSIFFLAGS) failed";
-    close(fd);
+  BringInterfaceUp(fd, *this, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't configure interface " + name;
     return;
   }
   // Enable forwarding
   Path path = "/proc/sys/net/ipv4/conf/" + name + "/forwarding";
   fs::Write(fs::real, path, "1", status);
-  close(fd);
 }
 
 void Interface::Deconfigure(Status &status) {
-  int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-  ifreq ifr = {};
-  strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
-  sockaddr_in *addr = (sockaddr_in *)&ifr.ifr_addr;
-  // Assign IP
-  addr->sin_family = AF_INET;
-  addr->sin_addr.s_addr = 0;
-  if (ioctl(fd, SIOCSIFADDR, &ifr) < 0) {
-    status() += "Couldn't clear IP of interface " + name +
-                " because ioctl(SIOCSIFADDR) failed";
-    close(fd);
+  FD fd;
+  SetInterfaceIPv4(fd, *this, ::IP(0, 0, 0, 0), status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't clear IP of interface " + name;
     return;
   }
-  close(fd);
+  BringInterfaceDown(fd, *this, status);
+}
+
+void Interface::UpdateIndex(maf::Status &status) {
+  FD fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  ifreq ifr = {};
+  strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
+  if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+    status() += "Couldn't update index of interface " + name +
+                " because ioctl(SIOCGIFINDEX) failed";
+    return;
+  }
+  index = ifr.ifr_ifindex;
 }
 
 void Interface::CheckName(StrView name, Status &status) {
@@ -152,4 +240,34 @@ void ForEachInetrface(std::function<void(Interface &)> callback) {
     callback(iface);
   }
   if_freenameindex(if_begin);
+}
+
+Interface BridgeInterfaces(const Vec<Interface> &interfaces,
+                           const char *bridge_name, Status &status) {
+  FD fd;
+  PrepareFD(fd);
+  Interface bridge = CreateBridge(fd, bridge_name, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) +=
+        "Couldn't create bridge \"" + Str(bridge_name) + "\"";
+    return {};
+  }
+  ifreq ifr = {};
+  strncpy(ifr.ifr_name, bridge_name, IFNAMSIZ - 1);
+
+  for (auto &iface : interfaces) {
+    BringInterfaceUp(fd, iface, status);
+    if (!OK(status)) {
+      DeleteBridge(fd, bridge_name, status);
+      return {};
+    }
+    ifr.ifr_ifindex = iface.index;
+    if (ioctl(fd, SIOCBRADDIF, &ifr) < 0) {
+      AppendErrorMessage(status) += "Couldn't add interface \"" + iface.name +
+                                    "\" to bridge \"" + Str(bridge_name) + "\"";
+      DeleteBridge(fd, bridge_name, status);
+      return {};
+    }
+  }
+  return bridge;
 }
