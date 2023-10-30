@@ -43,8 +43,11 @@ struct Netlink {
 
   // C++ sibling of `struct nlattr` from <linux/netlink.h>.
   struct alignas(4) Attr {
-    U16 len;         // Length includes the header but not the trailing padding!
-    U16 type;        // Enum value (based on nlmsghdr.nlmsg_type)
+    U16 len; // Length includes the header but not the trailing padding!
+    // bool nested : 1; // Nested attribute flag.
+    U16 type : 14; // Enum value (based on nlmsghdr.nlmsg_type)
+    bool big_endian : 1;
+    bool nested : 1;
     char payload[0]; // Helper for accessing the payload
 
     Attr(U16 len, U16 type) : len(len), type(type) {}

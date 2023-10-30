@@ -1,11 +1,13 @@
 #pragma once
 
+#include <bitset>
 #include <linux/nl80211.h>
 #include <set>
 
 #include "arr.hh"
 #include "genetlink.hh"
 #include "int.hh"
+#include "mac.hh"
 #include "optional.hh"
 #include "str.hh"
 
@@ -100,6 +102,11 @@ struct InterfaceCombination {
   Str Describe() const;
 };
 
+struct VendorCommand {
+  U32 vendor_id;
+  U32 subcommand;
+};
+
 struct Wiphy {
   int index;
   Str name;
@@ -141,8 +148,16 @@ struct Wiphy {
   Vec<InterfaceCombination> interface_combinations;
   bool ap_sme = false; // Built-in AP Station Management Entity
   U32 feature_flags;   // See nl80211_feature_flags
-  std::set<U16> tx_frame_types;
-  std::set<U16> rx_frame_types;
+  std::bitset<NUM_NL80211_EXT_FEATURES>
+      ext_feature_flags; // See nl80211_ext_feature_index
+  std::array<U16, NUM_NL80211_IFTYPES> tx_frame_types;
+  std::array<U16, NUM_NL80211_IFTYPES> rx_frame_types;
+  U32 max_num_sched_scan_plans = 0;
+  U32 max_scan_plan_interval = 0; // seconds
+  U32 max_scan_plan_iterations = 0;
+  MAC mac;
+  Vec<MAC> macs;
+  Vec<VendorCommand> vendor_commands;
   U32 nan_bands_bitmask = 0;               // See NL80211_ATTR_BANDS
   Vec<nl80211_bss_select_attr> bss_select; // See NL80211_ATTR_BSS_SELECT
 
@@ -157,6 +172,7 @@ struct Netlink {
   Vec<Wiphy> GetWiphys(Status &status);
 };
 
+Str ExtFeatureToStr(nl80211_ext_feature_index);
 Str WoWLANTriggerToStr(nl80211_wowlan_triggers);
 Str IftypeToStr(nl80211_iftype);
 Str CipherSuiteToStr(CipherSuite);

@@ -409,18 +409,51 @@ static void ParseWiphyDump(Vec<Wiphy> &wiphys, Attrs attrs) {
       wiphy->feature_flags = attr.As<U32>();
       break;
     case NL80211_ATTR_TX_FRAME_TYPES:
-      LOG << "    NL80211_ATTR_TX_FRAME_TYPES:";
       for (auto &attr2 : attr.Unnest()) {
-        wiphy->tx_frame_types.insert(attr2.type);
-        LOG << "      " << attr2.type << ": " << BytesToHex(attr2.Span());
+        nl80211_iftype iftype = (nl80211_iftype)attr2.type;
+        for (auto &attr3 : attr2.Unnest()) {
+          assert(attr3.type == NL80211_ATTR_FRAME_TYPE);
+          int frame_type = attr3.As<U16>() >> 4;
+          wiphy->tx_frame_types[iftype] |= 1 << frame_type;
+        }
       }
       break;
     case NL80211_ATTR_RX_FRAME_TYPES:
-      LOG << "    NL80211_ATTR_RX_FRAME_TYPES:";
       for (auto &attr2 : attr.Unnest()) {
-        wiphy->rx_frame_types.insert(attr2.type);
-        LOG << "      " << attr2.type << ": " << BytesToHex(attr2.Span());
+        nl80211_iftype iftype = (nl80211_iftype)attr2.type;
+        for (auto &attr3 : attr2.Unnest()) {
+          assert(attr3.type == NL80211_ATTR_FRAME_TYPE);
+          int frame_type = attr3.As<U16>() >> 4;
+          wiphy->rx_frame_types[iftype] |= 1 << frame_type;
+        }
       }
+      break;
+    case NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS:
+      wiphy->max_num_sched_scan_plans = attr.As<U32>();
+      break;
+    case NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL:
+      wiphy->max_scan_plan_interval = attr.As<U32>();
+      break;
+    case NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS:
+      wiphy->max_scan_plan_iterations = attr.As<U32>();
+      break;
+    case NL80211_ATTR_MAC:
+      wiphy->mac = attr.As<MAC>();
+      break;
+    case NL80211_ATTR_MAC_ADDRS:
+      for (auto &attr2 : attr.Unnest()) {
+        wiphy->macs.push_back(attr2.As<MAC>());
+      }
+      break;
+    case NL80211_ATTR_VENDOR_DATA:
+      for (auto &attr2 : attr.Unnest()) {
+        nl80211_vendor_cmd_info cmd_info = attr2.As<nl80211_vendor_cmd_info>();
+        wiphy->vendor_commands.push_back({cmd_info.vendor_id, cmd_info.subcmd});
+      }
+      break;
+    case NL80211_ATTR_EXT_FEATURES:
+      wiphy->ext_feature_flags =
+          attr.As<std::bitset<NUM_NL80211_EXT_FEATURES>>();
       break;
     case NL80211_ATTR_WIPHY_BANDS:
       ParseWiphyBands(*wiphy, attr);
@@ -434,8 +467,7 @@ static void ParseWiphyDump(Vec<Wiphy> &wiphys, Attrs attrs) {
       wiphy->nan_bands_bitmask = attr.As<U32>();
       break;
     default:
-      LOG << "  " << nl80211::AttrToStr(attr.type) << "(" << attr.Span().size()
-          << " bytes): " << BytesToHex(attr.Span());
+      // Ignore unknown attributes
       break;
     }
   }
@@ -657,7 +689,10 @@ Str Wiphy::Describe() const {
     body += "Scheduled scans: max " + std::to_string(max_sched_scan_ssids) +
             " SSIDs, " + std::to_string(max_sched_scan_ie_len) +
             " bytes max IEs length, " +
-            std::to_string(max_sched_scan_match_sets) + " match sets\n";
+            std::to_string(max_sched_scan_match_sets) + " match sets, " +
+            std::to_string(max_num_sched_scan_plans) + " plans, " +
+            std::to_string(max_scan_plan_interval) + " s max interval, " +
+            std::to_string(max_scan_plan_iterations) + " max iterations\n";
   }
   if (roam_support) {
     body += "Roaming supported\n";
@@ -853,19 +888,75 @@ Str Wiphy::Describe() const {
   if (feature_flags & NL80211_FEATURE_ND_RANDOM_MAC_ADDR) {
     body += " ND_RANDOM_MAC_ADDR";
   }
-  body += "\n";
-
-  body += "TX frame types:";
-  for (auto tx : tx_frame_types) {
-    body += f(" %04hx", tx);
-  }
-  body += "\n";
-  body += "RX frame types:";
-  for (auto rx : rx_frame_types) {
-    body += f(" %04hx", rx);
+  for (int ext_feature_i = 0; ext_feature_i < NUM_NL80211_EXT_FEATURES;
+       ++ext_feature_i) {
+    auto ext_feature = (nl80211_ext_feature_index)ext_feature_i;
+    if (ext_feature_flags[ext_feature_i]) {
+      body += " " + ExtFeatureToStr(ext_feature);
+    }
   }
   body += "\n";
 
+  body += "TX frame types (bitmask):";
+  {
+    bool first = true;
+    for (int iftype_i = 0; iftype_i < NUM_NL80211_IFTYPES; ++iftype_i) {
+      nl80211_iftype iftype = (nl80211_iftype)iftype_i;
+      if (tx_frame_types[iftype_i]) {
+        if (first) {
+          first = false;
+        } else {
+          body += ",";
+        }
+        body += " ";
+        body += IftypeToStrShort(iftype);
+        body += f(": %04hx", tx_frame_types[iftype_i]);
+      }
+    }
+  }
+  body += "\n";
+  body += "RX frame types (bitmask):";
+  {
+    bool first = true;
+    for (int iftype_i = 0; iftype_i < NUM_NL80211_IFTYPES; ++iftype_i) {
+      nl80211_iftype iftype = (nl80211_iftype)iftype_i;
+      if (rx_frame_types[iftype_i]) {
+        if (first) {
+          first = false;
+        } else {
+          body += ",";
+        }
+        body += " ";
+        body += IftypeToStrShort(iftype);
+        body += f(": %04hx", rx_frame_types[iftype_i]);
+      }
+    }
+  }
+  body += "\n";
+  body += "MAC address: " + mac.to_string();
+  if (!macs.empty()) {
+    body += " (";
+    bool first = false;
+    for (auto &mac : macs) {
+      if (!first) {
+        first = true;
+      } else {
+        body += ", ";
+      }
+      body += mac.to_string();
+    }
+    body += ")";
+  }
+  body += "\n";
+  if (!vendor_commands.empty()) {
+    body += "Vendor commands:\n";
+    for (auto &cmd : vendor_commands) {
+      body += "  OUI " +
+              f("%02x:%02x:%02x", (cmd.vendor_id >> 16) & 0xff,
+                (cmd.vendor_id >> 8) & 0xff, cmd.vendor_id & 0xff) +
+              ", subcommand " + std::to_string(cmd.subcommand) + "\n";
+    }
+  }
   body += "BSS select strategies:";
   if (bss_select.empty()) {
     body += " none";
@@ -915,6 +1006,72 @@ Str Wiphy::Describe() const {
 #define CASE(name)                                                             \
   case name:                                                                   \
     return #name
+
+Str ExtFeatureToStr(nl80211_ext_feature_index ext_feature) {
+  switch (ext_feature) {
+    CASE(NL80211_EXT_FEATURE_VHT_IBSS);
+    CASE(NL80211_EXT_FEATURE_RRM);
+    CASE(NL80211_EXT_FEATURE_MU_MIMO_AIR_SNIFFER);
+    CASE(NL80211_EXT_FEATURE_SCAN_START_TIME);
+    CASE(NL80211_EXT_FEATURE_BSS_PARENT_TSF);
+    CASE(NL80211_EXT_FEATURE_SET_SCAN_DWELL);
+    CASE(NL80211_EXT_FEATURE_BEACON_RATE_LEGACY);
+    CASE(NL80211_EXT_FEATURE_BEACON_RATE_HT);
+    CASE(NL80211_EXT_FEATURE_BEACON_RATE_VHT);
+    CASE(NL80211_EXT_FEATURE_FILS_STA);
+    CASE(NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA);
+    CASE(NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA_CONNECTED);
+    CASE(NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI);
+    CASE(NL80211_EXT_FEATURE_CQM_RSSI_LIST);
+    CASE(NL80211_EXT_FEATURE_FILS_SK_OFFLOAD);
+    CASE(NL80211_EXT_FEATURE_4WAY_HANDSHAKE_STA_PSK);
+    CASE(NL80211_EXT_FEATURE_4WAY_HANDSHAKE_STA_1X);
+    CASE(NL80211_EXT_FEATURE_FILS_MAX_CHANNEL_TIME);
+    CASE(NL80211_EXT_FEATURE_ACCEPT_BCAST_PROBE_RESP);
+    CASE(NL80211_EXT_FEATURE_OCE_PROBE_REQ_HIGH_TX_RATE);
+    CASE(NL80211_EXT_FEATURE_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION);
+    CASE(NL80211_EXT_FEATURE_MFP_OPTIONAL);
+    CASE(NL80211_EXT_FEATURE_LOW_SPAN_SCAN);
+    CASE(NL80211_EXT_FEATURE_LOW_POWER_SCAN);
+    CASE(NL80211_EXT_FEATURE_HIGH_ACCURACY_SCAN);
+    CASE(NL80211_EXT_FEATURE_DFS_OFFLOAD);
+    CASE(NL80211_EXT_FEATURE_CONTROL_PORT_OVER_NL80211);
+    CASE(NL80211_EXT_FEATURE_ACK_SIGNAL_SUPPORT);
+    CASE(NL80211_EXT_FEATURE_TXQS);
+    CASE(NL80211_EXT_FEATURE_SCAN_RANDOM_SN);
+    CASE(NL80211_EXT_FEATURE_SCAN_MIN_PREQ_CONTENT);
+    CASE(NL80211_EXT_FEATURE_CAN_REPLACE_PTK0);
+    CASE(NL80211_EXT_FEATURE_ENABLE_FTM_RESPONDER);
+    CASE(NL80211_EXT_FEATURE_AIRTIME_FAIRNESS);
+    CASE(NL80211_EXT_FEATURE_AP_PMKSA_CACHING);
+    CASE(NL80211_EXT_FEATURE_SCHED_SCAN_BAND_SPECIFIC_RSSI_THOLD);
+    CASE(NL80211_EXT_FEATURE_EXT_KEY_ID);
+    CASE(NL80211_EXT_FEATURE_STA_TX_PWR);
+    CASE(NL80211_EXT_FEATURE_SAE_OFFLOAD);
+    CASE(NL80211_EXT_FEATURE_VLAN_OFFLOAD);
+    CASE(NL80211_EXT_FEATURE_AQL);
+    CASE(NL80211_EXT_FEATURE_BEACON_PROTECTION);
+    CASE(NL80211_EXT_FEATURE_CONTROL_PORT_NO_PREAUTH);
+    CASE(NL80211_EXT_FEATURE_PROTECTED_TWT);
+    CASE(NL80211_EXT_FEATURE_DEL_IBSS_STA);
+    CASE(NL80211_EXT_FEATURE_MULTICAST_REGISTRATIONS);
+    CASE(NL80211_EXT_FEATURE_BEACON_PROTECTION_CLIENT);
+    CASE(NL80211_EXT_FEATURE_SCAN_FREQ_KHZ);
+    CASE(NL80211_EXT_FEATURE_CONTROL_PORT_OVER_NL80211_TX_STATUS);
+    CASE(NL80211_EXT_FEATURE_OPERATING_CHANNEL_VALIDATION);
+    CASE(NL80211_EXT_FEATURE_4WAY_HANDSHAKE_AP_PSK);
+    CASE(NL80211_EXT_FEATURE_SAE_OFFLOAD_AP);
+    CASE(NL80211_EXT_FEATURE_FILS_DISCOVERY);
+    CASE(NL80211_EXT_FEATURE_UNSOL_BCAST_PROBE_RESP);
+    CASE(NL80211_EXT_FEATURE_BEACON_RATE_HE);
+    CASE(NL80211_EXT_FEATURE_SECURE_LTF);
+    CASE(NL80211_EXT_FEATURE_SECURE_RTT);
+    CASE(NL80211_EXT_FEATURE_PROT_RANGE_NEGO_AND_MEASURE);
+    CASE(NL80211_EXT_FEATURE_BSS_COLOR);
+  default:
+    return f("NL80211_EXT_FEATURE_%d", (int)ext_feature);
+  }
+}
 
 Str WoWLANTriggerToStr(nl80211_wowlan_triggers trigger) {
   switch (trigger) {
