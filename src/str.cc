@@ -1,4 +1,5 @@
 #include "str.hh"
+#include "int.hh"
 
 namespace maf {
 
@@ -12,6 +13,26 @@ void ReplaceAll(Str &s, const Str &from, const Str &to) {
     start_pos += to.length(); // In case 'to' contains 'from', like replacing
                               // 'x' with 'yx'
   }
+}
+
+Str Indent(StrView view, int spaces) {
+  Str ret;
+  while (!view.empty()) {
+    Size eol = view.find('\n');
+    if (eol == Str::npos) {
+      ret += Str(spaces, ' ');
+      ret += view;
+      break;
+    } else if (eol == 0) {
+      ret += '\n';
+    } else {
+      ret += Str(spaces, ' ');
+      ret += view.substr(0, eol);
+      ret += '\n';
+      view.remove_prefix(eol + 1);
+    }
+  }
+  return ret;
 }
 
 } // namespace maf
