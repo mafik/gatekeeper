@@ -35,7 +35,11 @@ __pycache__
 .cache
 
 *.log
+*.pcap
 
 build
 
 .gdb_history
+
+tests/dhclient
+tests/dhclient.pid
