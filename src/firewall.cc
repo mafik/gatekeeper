@@ -443,7 +443,14 @@ struct RecordTrafficPipe : epoll::Listener {
 
 RecordTrafficPipe pipe;
 
-void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
+void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
+  Netlink::Attr *attrs[NFQA_MAX + 1]{};
+  for (auto &attr : attr_seq) {
+    if (attr.type > NFQA_MAX) {
+      continue;
+    }
+    attrs[attr.type] = &attr;
+  }
   if (attrs[NFQA_PACKET_HDR] == nullptr) {
     ERROR << "NFQA_PACKET_HDR is missing";
     return;
@@ -457,8 +464,8 @@ void OnReceive(nfgenmsg &msg, std::span<Netlink::Attr *> attrs) {
     ERROR << "NFQA_PAYLOAD is missing";
     return;
   }
-  std::string_view payload = attrs[NFQA_PAYLOAD]->View();
-  IP_Header &ip = attrs[NFQA_PAYLOAD]->As<IP_Header>();
+  Span<> payload = attrs[NFQA_PAYLOAD]->Span();
+  IP_Header &ip = *(IP_Header *)payload.data();
 
   bool from_lan = lan_network.Contains(ip.source_ip);
   bool to_lan = lan_network.Contains(ip.destination_ip);

@@ -35,7 +35,7 @@ static void ScanInternetSockets(U8 protocol,
   }
   netlink_diag.ReceiveT<inet_diag_msg>(
       SOCK_DIAG_BY_FAMILY,
-      [&](inet_diag_msg &msg, Span<Netlink::Attr *> attributes) {
+      [&](inet_diag_msg &msg, Netlink::Attrs attributes) {
         InternetSocketDescription desc{
             .local_ip = IP(msg.id.idiag_src[0]),
             .local_port = ntohs(msg.id.idiag_sport),

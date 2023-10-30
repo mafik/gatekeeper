@@ -17,8 +17,8 @@ struct Span : std::span<T, Extent> {
   // Allow Span of const arrays.
   inline Span(const T *arr, Size n)
       : std::span<T, Extent>(const_cast<T *>(arr), n) {}
-  inline Span(const Str &s) : Span(s.data(), s.size()) {}
-  inline Span(StrView s) : Span(s.data(), s.size()) {}
+  inline Span(const Str &s) : Span(s.data(), s.size() / sizeof(T)) {}
+  inline Span(StrView s) : Span(s.data(), s.size() / sizeof(T)) {}
   inline Span(std::span<T, Extent> s) : std::span<T, Extent>(s) {}
 
   template <Size ExtentRhs>
@@ -36,6 +36,13 @@ struct Span : std::span<T, Extent> {
     }
     return std::equal(prefix.begin(), prefix.end(), this->begin());
   }
+
+  template <typename U> U &As() {
+    assert(this->size() == sizeof(U));
+    return *(U *)this->data();
+  }
+
+  Str ToStr() const { return Str(this->data(), this->size() * sizeof(T)); }
 };
 
 // Span of a C string, excluding the null terminator.

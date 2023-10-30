@@ -2,6 +2,7 @@
 #include "format.hh"
 
 #include <cstring>
+#include <linux/genetlink.h>
 #include <linux/inet_diag.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink_queue.h>
@@ -17,63 +18,6 @@ static constexpr sockaddr_nl kKernelSockaddr{
     .nl_groups = 0,
 };
 
-static constexpr uint32_t AttributeMax(uint32_t protocol, nlmsghdr &hdr) {
-  switch (protocol) {
-  case NETLINK_ROUTE:
-    return RTA_MAX;
-  case NETLINK_NETFILTER:
-    switch (NFNL_SUBSYS_ID(hdr.nlmsg_type)) {
-    case NFNL_SUBSYS_QUEUE:
-      return NFQA_MAX;
-    case NFNL_SUBSYS_NFTABLES:
-      switch (NFNL_MSG_TYPE(hdr.nlmsg_type)) {
-      case NFT_MSG_NEWTABLE:
-      case NFT_MSG_GETTABLE:
-      case NFT_MSG_DELTABLE:
-        return NFTA_TABLE_MAX;
-      case NFT_MSG_NEWCHAIN:
-      case NFT_MSG_GETCHAIN:
-      case NFT_MSG_DELCHAIN:
-        return NFTA_CHAIN_MAX;
-      case NFT_MSG_NEWRULE:
-      case NFT_MSG_GETRULE:
-      case NFT_MSG_DELRULE:
-        return NFTA_RULE_MAX;
-      case NFT_MSG_NEWSET:
-      case NFT_MSG_GETSET:
-      case NFT_MSG_DELSET:
-        return NFTA_SET_MAX;
-      case NFT_MSG_NEWSETELEM:
-      case NFT_MSG_GETSETELEM:
-      case NFT_MSG_DELSETELEM:
-        return NFTA_SET_ELEM_MAX;
-      case NFT_MSG_NEWGEN:
-      case NFT_MSG_GETGEN:
-        return NFTA_GEN_MAX;
-      case NFT_MSG_TRACE:
-        return NFTA_TRACE_MAX;
-      case NFT_MSG_NEWOBJ:
-      case NFT_MSG_GETOBJ:
-      case NFT_MSG_DELOBJ:
-      case NFT_MSG_GETOBJ_RESET:
-        return NFTA_OBJ_MAX;
-      case NFT_MSG_NEWFLOWTABLE:
-      case NFT_MSG_GETFLOWTABLE:
-      case NFT_MSG_DELFLOWTABLE:
-        return NFTA_FLOWTABLE_MAX;
-      default:
-        return -1; // unknown nf_tables message
-      }
-    default:
-      return -1; // unknown netlink subsystem
-    }
-  case NETLINK_SOCK_DIAG:
-    return INET_DIAG_MAX;
-  default: // unknown protocol (should have been reported in the constructor)
-    return -1;
-  }
-}
-
 Netlink::Netlink(int protocol, Status &status) : protocol(protocol) {
   switch (protocol) {
   case NETLINK_ROUTE:
@@ -84,6 +28,9 @@ Netlink::Netlink(int protocol, Status &status) : protocol(protocol) {
     break;
   case NETLINK_SOCK_DIAG:
     fixed_message_size = sizeof(inet_diag_msg);
+    break;
+  case NETLINK_GENERIC:
+    fixed_message_size = sizeof(genlmsghdr);
     break;
   default:
     status() += "Unknown netlink protocol " + std::to_string(protocol);
@@ -282,54 +229,17 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
         }
 
         void *msg = buf_iter;
-        buf_iter += fixed_message_size;
-        const uint32_t attribute_max = AttributeMax(protocol, *hdr);
-        if (attribute_max == -1) {
-          status() += "Unknown netlink message NETLINK_<PROTOCOL>=" +
-                      std::to_string(protocol) +
-                      " nlmsg_type=" + std::to_string(hdr->nlmsg_type);
-          return;
-        }
+        buf_iter += NLA_ALIGN(fixed_message_size);
 
-        Attr *attrs[attribute_max + 1];
-        memset(attrs, 0, sizeof(attrs));
-
-        while (buf_iter < msg_end - sizeof(Attr)) {
-          buf_iter = (char *)(((uintptr_t)buf_iter + 3ull) & ~3ull);
-          Attr *a = (Attr *)buf_iter;
-          if (a->len < sizeof(Attr)) { // Detect parsing errors early
-            status() +=
-                "Attribute length " + std::to_string(a->len) + " is too small";
-            return;
-          }
-          if (a->type > attribute_max) {
-            // New kernel versions can add new attributes.
-            // They should be ignored.
-          } else {
-            attrs[a->type] = a;
-          }
-          buf_iter += a->len;
-          if (buf_iter > msg_end) {
-            status() +=
-                "Attribute length " + std::to_string(a->len) + " is too large";
-            return;
-          }
-        }
-
-        if (buf_iter != msg_end) {
-          buf_iter = (char *)(((uintptr_t)buf_iter + 3ull) & ~3ull);
-          if (buf_iter != msg_end) {
-            status() += f("Parsing error (buf_iter=%p, msg_end=%p)",
-                          buf_iter - buf, msg_end - buf);
-            return; // Parsing error - don't progress further to avoid more
-                    // noise
-          }
-        }
+        void *attr_start = buf_iter;
+        Size attr_size = msg_end - buf_iter;
+        Attrs attrs(buf_iter, msg_end - buf_iter);
+        buf_iter = msg_end;
 
         if ((hdr->nlmsg_flags & NLM_F_MULTI) == 0) {
           expect_more_messages = false;
         }
-        callback(msg, {attrs, attribute_max + 1});
+        callback(msg, attrs);
       }
     } // while (buf_iter < buf_end - sizeof(nlmsghdr))
 

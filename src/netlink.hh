@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <linux/netlink.h>
 
 #include "fd.hh"
@@ -18,17 +19,54 @@ namespace maf {
 // See: https://docs.kernel.org/userspace-api/netlink/intro.html.
 struct Netlink {
 
-  // C++ sibling of `struct nlattr` from <linux/netlink.h>.
-  struct Attr {
-    uint16_t len;  // Length includes the header but not the trailing padding!
-    uint16_t type; // Enum value (based on nlmsghdr.nlmsg_type)
-    char c[0];     // Helper for accessing the payload
+  struct Attr;
 
-    std::string_view View() const { return {c, len - sizeof(*this)}; }
-    template <typename T> T &As() { return *(T *)c; }
+  struct Attrs {
+    struct iterator {
+      Attr *attr;
+      iterator &operator++() {
+        attr = (Attr *)((uintptr_t)attr + ((attr->len + 3) & ~3));
+        return *this;
+      }
+      bool operator!=(const iterator &other) const {
+        return attr != other.attr;
+      }
+      Attr &operator*() const { return *attr; }
+    };
+
+    char *ptr;
+    Size size;
+
+    iterator begin() const { return {(Attr *)ptr}; }
+    iterator end() const { return {(Attr *)(ptr + ((size + 3) & ~3))}; }
   };
 
-  static_assert(sizeof(Attr) == 4, "NLAttr must be 4 bytes");
+  // C++ sibling of `struct nlattr` from <linux/netlink.h>.
+  struct alignas(4) Attr {
+    U16 len;         // Length includes the header but not the trailing padding!
+    U16 type;        // Enum value (based on nlmsghdr.nlmsg_type)
+    char payload[0]; // Helper for accessing the payload
+
+    Attr(U16 len, U16 type) : len(len), type(type) {}
+
+    // Payload is stored immediately after Attr. Copying it to a different
+    // place in memory would miss the payload.
+    Attr(const Attr &) = delete;
+
+    Span<> Span() const { return {payload, len - sizeof(*this)}; }
+    template <typename T> T &As() {
+      assert(len == sizeof(*this) + sizeof(T));
+      return *(T *)payload;
+    }
+    Attrs Unnest() {
+      return Attrs{
+          .ptr = payload,
+          .size = len - sizeof(*this),
+      };
+    }
+  };
+
+  static_assert(sizeof(Attr) == 4, "Netlink::Attr must be 4 bytes");
 
   // The netlink socket.
   FD fd;
@@ -81,8 +119,7 @@ struct Netlink {
   // object to report errors.
   void SendRaw(std::string_view, Status &status);
 
-  using ReceiveCallback =
-      Fn<void(void *fixed_message, Span<Attr *> attributes)>;
+  using ReceiveCallback = Fn<void(void *fixed_message, Attrs)>;
 
   // Receive one or more netlink messages.
   //
@@ -107,14 +144,10 @@ struct Netlink {
   void ReceiveAck(Status &status);
 
   template <typename T>
-  void ReceiveT(uint16_t expected_type,
-                Fn<void(T &message, Span<Attr *> attributes)> callback,
+  void ReceiveT(uint16_t expected_type, Fn<void(T &message, Attrs)> cb,
                 Status &status) {
     Receive(
-        expected_type,
-        [&](void *fixed_message, Span<Attr *> attributes) {
-          callback(*(T *)fixed_message, attributes);
-        },
+        expected_type, [&](void *ptr, Attrs attrs) { cb(*(T *)ptr, attrs); },
         status);
   }
 };

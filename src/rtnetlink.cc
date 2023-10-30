@@ -26,29 +26,32 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
   }
   netlink_route.ReceiveT<rtmsg>(
       RTM_NEWROUTE,
-      [&](rtmsg &rtm, std::span<Netlink::Attr *> attr) {
+      [&](rtmsg &rtm, Netlink::Attrs attrs) {
         Route route = {};
         route.rtm = rtm;
         route.dst_mask = IP::NetmaskFromPrefixLength(route.rtm.rtm_dst_len);
-        if (attr[RTA_OIF]) {
-          route.oif = attr[RTA_OIF]->As<uint32_t>();
-        }
-        if (attr[RTA_PREFSRC]) {
-          route.prefsrc = attr[RTA_PREFSRC]->As<IP>();
-        }
-        if (attr[RTA_DST]) {
-          route.dst = attr[RTA_DST]->As<IP>();
-        }
-        if (attr[RTA_TABLE]) {
-          // this is always RT_TABLE_MAIN
-          int table = attr[RTA_TABLE]->As<int>();
-          assert(table == RT_TABLE_MAIN);
-        }
-        if (attr[RTA_PRIORITY]) {
-          route.priority = attr[RTA_PRIORITY]->As<uint32_t>();
-        }
-        if (attr[RTA_GATEWAY]) {
-          route.gateway = attr[RTA_GATEWAY]->As<IP>();
+        for (auto &attr : attrs) {
+          switch (attr.type) {
+          case RTA_OIF:
+            route.oif = attr.As<uint32_t>();
+            break;
+          case RTA_PREFSRC:
+            route.prefsrc = attr.As<IP>();
+            break;
+          case RTA_DST:
+            route.dst = attr.As<IP>();
+            break;
+          case RTA_TABLE:
+            // this is always RT_TABLE_MAIN
+            assert(attr.As<int>() == RT_TABLE_MAIN);
+            break;
+          case RTA_PRIORITY:
+            route.priority = attr.As<uint32_t>();
+            break;
+          case RTA_GATEWAY:
+            route.gateway = attr.As<IP>();
+            break;
+          }
         }
         callback(route);
       },
