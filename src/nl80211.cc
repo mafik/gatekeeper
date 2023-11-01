@@ -6,6 +6,7 @@
 #include "format.hh"
 #include "log.hh"
 #include "netlink.hh"
+#include <linux/genetlink.h>
 #include <string>
 
 namespace maf::nl80211 {
@@ -487,6 +488,225 @@ Vec<Wiphy> Netlink::GetWiphys(Status &status) {
   return ret;
 }
 
+Vec<Interface> Netlink::GetInterfaces(Status &status) {
+  Vec<Interface> interfaces;
+  nl.Dump(
+      NL80211_CMD_GET_INTERFACE, nullptr,
+      [&](Span<>, Attrs attrs) {
+        Interface &i = interfaces.emplace_back();
+        for (auto &attr : attrs) {
+          switch (attr.type) {
+          case NL80211_ATTR_IFINDEX:
+            i.index = attr.As<U32>();
+            break;
+          case NL80211_ATTR_IFNAME:
+            i.name = attr.Span().ToStr();
+            if (i.name.ends_with("\0")) {
+              i.name.pop_back();
+            }
+            break;
+          case NL80211_ATTR_IFTYPE:
+            i.type = attr.As<nl80211_iftype>();
+            break;
+          case NL80211_ATTR_WIPHY:
+            i.wiphy_index = attr.As<U32>();
+            break;
+          case NL80211_ATTR_WDEV:
+            i.wireless_device_id = attr.As<U64>();
+            break;
+          case NL80211_ATTR_MAC:
+            i.mac = attr.As<MAC>();
+            break;
+          case NL80211_ATTR_GENERATION:
+            // Ignore
+            break;
+          case NL80211_ATTR_4ADDR:
+            i.use_4addr = (bool)attr.As<U8>();
+            break;
+          case NL80211_ATTR_WIPHY_FREQ:
+            i.frequency = attr.As<U32>();
+            break;
+          case NL80211_ATTR_WIPHY_FREQ_OFFSET:
+            i.frequency_offset = attr.As<U32>();
+            break;
+          case NL80211_ATTR_CHANNEL_WIDTH:
+            i.chan_width = attr.As<nl80211_chan_width>();
+            break;
+          case NL80211_ATTR_CENTER_FREQ1:
+            i.center_frequency1 = attr.As<U32>();
+            break;
+          case NL80211_ATTR_CENTER_FREQ2:
+            i.center_frequency2 = attr.As<U32>();
+            break;
+          default:
+            LOG << "Unknown attribute " << nl80211::AttrToStr(attr.type) << " ("
+                << attr.Span().size() << " bytes)" << ": "
+                << BytesToHex(attr.Span());
+            break;
+          }
+        }
+        interfaces.push_back(i);
+      },
+      status);
+  return interfaces;
+}
+
+void Netlink::SetInterfaceType(Interface::Index if_index, Interface::Type type,
+                               Status &status) {
+  struct SetInterfaceMessage {
+    nlmsghdr hdr;
+    genlmsghdr genl;
+    nlattr attr_ifindex;
+    U32 ifindex;
+    nlattr attr_iftype;
+    U32 iftype;
+  } set_interface{
+      .hdr =
+          {
+              .nlmsg_len = sizeof(SetInterfaceMessage),
+              .nlmsg_type = nl.family_id,
+              .nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
+              .nlmsg_seq = 0, // Populated by Netlink::Send
+              .nlmsg_pid = 0,
+          },
+      .genl =
+          {
+              .cmd = NL80211_CMD_SET_INTERFACE,
+              .version = 0,
+          },
+      .attr_ifindex =
+          {
+              .nla_len = sizeof(nlattr) + sizeof(U32),
+              .nla_type = NL80211_ATTR_IFINDEX,
+          },
+      .ifindex = if_index,
+      .attr_iftype =
+          {
+              .nla_len = sizeof(nlattr) + sizeof(U32),
+              .nla_type = NL80211_ATTR_IFTYPE,
+          },
+      .iftype = type,
+  };
+  nl.netlink.Send(set_interface.hdr, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't send netlink message";
+    return;
+  }
+  nl.netlink.ReceiveAck(status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Failed to change nl80211 interface type";
+    return;
+  }
+}
+
+void Netlink::RegisterFrame(Interface::Index if_index, U16 frame_type,
+                            Status &status) {
+  struct RegisterFrameMessage {
+    nlmsghdr hdr;
+    genlmsghdr genl;
+    nlattr attr_ifindex;
+    U32 ifindex;
+    nlattr attr_frame_type;
+    U16 frame_type;
+    alignas(4) nlattr attr_frame_match;
+    U8 frame_match[0];
+  } msg{
+      .hdr =
+          {
+              .nlmsg_len = sizeof(RegisterFrameMessage),
+              .nlmsg_type = nl.family_id,
+              .nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
+              .nlmsg_seq = 0, // Populated by Netlink::Send
+              .nlmsg_pid = 0,
+          },
+      .genl = {.cmd = NL80211_CMD_REGISTER_FRAME, .version = 0},
+      .attr_ifindex = {.nla_len = sizeof(nlattr) + sizeof(U32),
+                       .nla_type = NL80211_ATTR_IFINDEX},
+      .ifindex = if_index,
+      .attr_frame_type = {.nla_len = sizeof(nlattr) + sizeof(U16),
+                          .nla_type = NL80211_ATTR_FRAME_TYPE},
+      .frame_type = frame_type,
+      .attr_frame_match = {.nla_len = sizeof(nlattr) + 0,
+                           .nla_type = NL80211_ATTR_FRAME_MATCH},
+  };
+  nl.netlink.Send(msg.hdr, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't send netlink message";
+    return;
+  }
+  nl.netlink.ReceiveAck(status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Failed to register nl80211 frame";
+    return;
+  }
+}
+
+void Netlink::DelStation(Interface::Index if_index, MAC *mac,
+                         DisconnectReason *reason, Status &status) {
+  struct DelStationMessage {
+    nlmsghdr hdr;
+    genlmsghdr genl;
+    nlattr attr_ifindex;
+    U32 ifindex;
+    nlattr attr_mac;
+    MAC mac;
+    alignas(4) nlattr attr_mgmt_subtype;
+    U8 mgmt_subtype;
+    alignas(4) nlattr attr_reason_code;
+    U16 reason_code;
+  } msg{
+      .hdr =
+          {
+              .nlmsg_len = sizeof(DelStationMessage),
+              .nlmsg_type = nl.family_id,
+              .nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
+              .nlmsg_seq = 0, // Populated by Netlink::Send
+              .nlmsg_pid = 0,
+          },
+      .genl = {.cmd = NL80211_CMD_DEL_STATION, .version = 0},
+      .attr_ifindex = {.nla_len = sizeof(nlattr) + sizeof(U32),
+                       .nla_type = NL80211_ATTR_IFINDEX},
+      .ifindex = if_index,
+      .attr_mac = {.nla_len = sizeof(nlattr) + sizeof(MAC),
+                   .nla_type = NL80211_ATTR_MAC},
+      .attr_mgmt_subtype = {.nla_len = sizeof(nlattr) + 1,
+                            .nla_type = NL80211_ATTR_MGMT_SUBTYPE},
+      .attr_reason_code = {.nla_len = sizeof(nlattr) + 2,
+                           .nla_type = NL80211_ATTR_REASON_CODE},
+  };
+  if (mac == nullptr) {
+    msg.hdr.nlmsg_len = offsetof(DelStationMessage, attr_mac);
+  } else {
+    msg.mac = *mac;
+    if (reason == nullptr) {
+      msg.hdr.nlmsg_len = offsetof(DelStationMessage, attr_mgmt_subtype);
+    } else {
+      msg.mgmt_subtype =
+          reason->type == DisconnectReason::DEAUTHENTICATION ? 0x0c : 0x0a;
+      msg.reason_code = reason->reason_code;
+    }
+  }
+  nl.netlink.Send(msg.hdr, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't send netlink message";
+    return;
+  }
+  nl.netlink.ReceiveAck(status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Failed to delete nl80211 station";
+    return;
+  }
+}
+
+void Netlink::StartAP(Interface::Index, Span<> beacon_head, Span<> beacon_tail,
+                      U32 beacon_interval, U32 dtim_period, StrView ssid,
+                      nl80211_hidden_ssid, bool privacy, nl80211_auth_type,
+                      U32 wpa_versions, Span<U32> akm_suites,
+                      Span<CipherSuite> pairwise_ciphers,
+                      Span<CipherSuite> group_ciphers, Span<> ie,
+                      Span<> ie_probe_resp, Span<> ie_assoc_resep,
+                      bool socket_owner, Status &status) {}
+
 Str DfsStateToStrShort(DFS::State state) {
   switch (state) {
   case NL80211_DFS_USABLE:
@@ -550,6 +770,29 @@ static Str IftypeToStrShort(nl80211_iftype iftype) {
   default:
     return IftypeToStr(iftype);
   }
+}
+
+Str Interface::Describe() const {
+  Str ret;
+  ret += f("Interface %d \"%s\":\n", index, name.c_str());
+  Str body;
+  body += "Type: " + IftypeToStrShort(type) + "\n";
+  body += "MAC: " + mac.to_string() + "\n";
+  body += "Wiphy: " + std::to_string(wiphy_index) + "\n";
+  body += "Wireless device ID: " + std::to_string(wireless_device_id) + "\n";
+  if (use_4addr) {
+    body += "4-address frames: enabled\n";
+  }
+  body += "Frequency: " + std::to_string(frequency) + " MHz\n";
+  body += "Frequency offset: " + std::to_string(frequency_offset) + " kHz\n";
+  body += "Channel width: " + ChanWidthToStr(chan_width) + "\n";
+  body += "Center frequency 1: " + std::to_string(center_frequency1) + " MHz\n";
+  if (center_frequency2) {
+    body +=
+        "Center frequency 2: " + std::to_string(center_frequency2) + " MHz\n";
+  }
+  ret += Indent(body);
+  return ret;
 }
 
 Str Frequency::Describe() const {
@@ -635,7 +878,18 @@ Str Band::Describe() const {
   for (auto &freq : frequencies) {
     body += Indent(freq.Describe());
   }
-  // TODO...
+  if (ht.has_value()) {
+    body += "High Throughput:";
+    body += " capabilities=";
+    body += f("%04hx", ht->capa);
+    body += ", A-MPDU factor=";
+    body += std::to_string(ht->ampdu_factor);
+    body += ", A-MPDU density=";
+    body += std::to_string(ht->ampdu_density);
+    body += ", MCS set=";
+    body += BytesToHex(Span<>((char *)ht->mcs_set.begin(), 16));
+    body += "\n";
+  }
   ret += Indent(body);
   return ret;
 }
@@ -1006,6 +1260,26 @@ Str Wiphy::Describe() const {
 #define CASE(name)                                                             \
   case name:                                                                   \
     return #name
+
+Str ChanWidthToStr(nl80211_chan_width chan_width) {
+  switch (chan_width) {
+    CASE(NL80211_CHAN_WIDTH_20_NOHT);
+    CASE(NL80211_CHAN_WIDTH_20);
+    CASE(NL80211_CHAN_WIDTH_40);
+    CASE(NL80211_CHAN_WIDTH_80);
+    CASE(NL80211_CHAN_WIDTH_80P80);
+    CASE(NL80211_CHAN_WIDTH_160);
+    CASE(NL80211_CHAN_WIDTH_5);
+    CASE(NL80211_CHAN_WIDTH_10);
+    CASE(NL80211_CHAN_WIDTH_1);
+    CASE(NL80211_CHAN_WIDTH_2);
+    CASE(NL80211_CHAN_WIDTH_4);
+    CASE(NL80211_CHAN_WIDTH_8);
+    CASE(NL80211_CHAN_WIDTH_16);
+  default:
+    return f("NL80211_CHAN_WIDTH_UNKNOWN_%d", chan_width);
+  }
+}
 
 Str ExtFeatureToStr(nl80211_ext_feature_index ext_feature) {
   switch (ext_feature) {

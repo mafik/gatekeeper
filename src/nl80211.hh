@@ -62,7 +62,7 @@ struct Band {
   struct HighThroughput {
     Arr<U8, 16> mcs_set; // 16-byte attribute containing the MCS set as defined
                          // in 802.11n
-    U16 capa;            // HT capabilities, as in the HT information IE
+    U16 capa;            // See table 9-162 of IEEE 802.11-2016
     U8 ampdu_factor;     // A-MPDU factor, as in 11n
     U8 ampdu_density;    // A-MPDU density, as in 11n
   };
@@ -83,6 +83,10 @@ enum class CipherSuite : U32 {
   CCMP = 0x000FAC04,
   WEP104 = 0x000FAC05,
   BIP = 0x00FAC06,
+};
+
+enum class AuthenticationKeyManagement : U32 {
+  PSK = 0x000FAC02,
 };
 
 struct InterfaceLimit {
@@ -164,14 +168,145 @@ struct Wiphy {
   Str Describe() const;
 };
 
+struct Interface {
+  using Index = U32;
+  using Type = nl80211_iftype;
+  Index index;
+  Str name;
+  Type type;
+  U32 wiphy_index;
+  U64 wireless_device_id;
+  MAC mac;
+  bool use_4addr;
+  U32 frequency;
+  U32 frequency_offset;
+  U32 center_frequency1;
+  U32 center_frequency2;
+  nl80211_chan_width chan_width;
+
+  Str Describe() const;
+};
+
+struct DisconnectReason {
+  enum {
+    DISASSOCIATION = 0,
+    DEAUTHENTICATION = 1,
+  } type;
+  enum {
+    UNSPECIFIED_REASON = 1,
+    INVALID_AUTHENTICATION = 2,
+    LEAVING_NETWORK_DEAUTH = 3,
+    REASON_INACTIVITY = 4,
+    NO_MORE_STAS = 5,
+    INVALID_CLASS2_FRAME = 6,
+    INVALID_CLASS3_FRAME = 7,
+    LEAVING_NETWORK_DISASSOC = 8,
+    NOT_AUTHENTICATED = 9,
+    UNACCEPTABLE_POWER_CAPABILITY = 10,
+    UNACCEPTABLE_SUPPORTED_CHANNELS = 11,
+    BSS_TRANSITION_DISASSOC = 12,
+    REASON_INVALID_ELEMENT = 13,
+    MIC_FAILURE = 14,
+    FOURWAY_HANDSHAKE_TIMEOUT = 15,
+    GK_HANDSHAKE_TIMEOUT = 16,
+    HANDSHAKE_ELEMENT_MISMATCH = 17,
+  } reason_code;
+};
+
+// See section 9.4.1.4 of IEEE 802.11-2016
+struct CapabilitiesInformation {
+  bool ess : 1 = true;
+  bool ibss : 1 = false;
+  bool cf_pollable : 1 = false;
+  bool cf_poll_request : 1 = false;
+  bool privacy : 1 = true;
+  bool short_preamble : 1 = false;
+  bool reserved1 : 1 = false;
+  bool reserved2 : 1 = false;
+  bool spectrum_management : 1 = false;
+  bool qos : 1 = false;
+  bool short_slot_time : 1 = false;
+  bool apsd : 1 = false;
+  bool radio_measurement : 1 = false;
+  bool reserved3 : 1 = false;
+  bool delayed_block_ack : 1 = false;
+  bool immediate_block_ack : 1 = false;
+};
+
+enum class ReplayCountersUsage : U8 {
+  ONE = 0,
+  TWO = 1,
+  FOUR = 2,
+  SIXTEEN = 3,
+};
+
+// See section 9.4.2.25.4 of IEEE 802.11-2016
+struct RSNCapabilities {
+  // First octet
+  bool management_frame_protection_capable : 1 = false;
+  bool management_frame_protection_required : 1 = false;
+  ReplayCountersUsage gtksa_replay_counter_usage : 2 = ReplayCountersUsage::ONE;
+  ReplayCountersUsage ptksa_replay_counter_usage : 2 = ReplayCountersUsage::ONE;
+  bool no_pairwise : 1 = false;
+  bool preauthentication : 1 = false;
+
+  // Second octet
+  bool extended_key_id : 1 = false;
+  bool pbac : 1 = false;
+  bool spp_a_msdu_required : 1 = false;
+  bool spp_a_msdu_capable : 1 = false;
+  bool peerkey_enabled : 1 = false;
+  bool joint_multi_band_rsna : 1 = false;
+};
+
+struct BeaconHeader {
+  U16 type_subtype = 0x0080;
+  U16 duration = 0;
+  MAC destination_address = MAC::Broadcast();
+  MAC source_address;
+  MAC bssid;
+  U16 sequence_control = 0;
+  U64 timestamp = 0;
+  U16 beacon_interval = 100;
+  CapabilitiesInformation capabilities_information;
+  BeaconHeader(MAC mac) : source_address(mac), bssid(mac) {}
+} __attribute__((packed));
+
+enum class ElementID : U8 {
+  SSID = 0,                    // See section 9.4.2.2 of IEEE 802.11-2016
+  SUPPORTED_RATES = 1,         // See section 9.4.2.3 of IEEE 802.11-2016
+                               // Can be also used to require HT or VHT
+  DSSS_PARAMETER_SET = 3,      // See section 9.4.2.4 of IEEE 802.11-2016
+  CF_PARAMETER_SET = 4,        // See section 9.4.2.5 of IEEE 802.11-2016
+  TIM = 5,                     // See section 9.4.2.6 of IEEE 802.11-2016
+  IBSS_PARAMETER_SET = 6,      // See section 9.4.2.7 of IEEE 802.11-2016
+  HT_CAPABILITIES = 45,        // See section  9.4.2.56 of IEEE 802.11-2016
+  RSN = 48,                    // See section 9.4.2.25 of IEEE 802.11-2016
+  HT_OPERATION = 61,           // See section 9.4.2.57 of IEEE 802.11-2016
+  EXTENDED_CAPABILITIES = 127, // See section 9.4.2.27 of IEEE 802.11-2016
+};
+
 struct Netlink {
   GenericNetlink nl;
 
-  Netlink(Status &status);
+  Netlink(Status &);
 
-  Vec<Wiphy> GetWiphys(Status &status);
+  Vec<Wiphy> GetWiphys(Status &);
+  Vec<Interface> GetInterfaces(Status &);
+
+  void SetInterfaceType(Interface::Index, Interface::Type, Status &);
+  void RegisterFrame(Interface::Index, U16 frame_type, Status &);
+  void DelStation(Interface::Index, MAC *, DisconnectReason *, Status &);
+  void StartAP(Interface::Index, Span<> beacon_head, Span<> beacon_tail,
+               U32 beacon_interval, U32 dtim_period, StrView ssid,
+               nl80211_hidden_ssid, bool privacy, nl80211_auth_type,
+               U32 wpa_versions, Span<U32> akm_suites,
+               Span<CipherSuite> pairwise_ciphers,
+               Span<CipherSuite> group_ciphers, Span<> ie, Span<> ie_probe_resp,
+               Span<> ie_assoc_resep, bool socket_owner, Status &);
 };
 
+Str ChanWidthToStr(nl80211_chan_width);
 Str ExtFeatureToStr(nl80211_ext_feature_index);
 Str WoWLANTriggerToStr(nl80211_wowlan_triggers);
 Str IftypeToStr(nl80211_iftype);
