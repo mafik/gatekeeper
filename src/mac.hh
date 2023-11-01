@@ -14,6 +14,7 @@ struct MAC {
       : bytes{(uint8_t)s[0], (uint8_t)s[1], (uint8_t)s[2],
               (uint8_t)s[3], (uint8_t)s[4], (uint8_t)s[5]} {}
   static MAC FromInterface(std::string_view interface_name);
+  static MAC Broadcast() { return MAC(0xff, 0xff, 0xff, 0xff, 0xff, 0xff); }
   std::string to_string() const;
   uint8_t &operator[](int i) { return bytes[i]; }
   bool TryParse(const char *cp) {
