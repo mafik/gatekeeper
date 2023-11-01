@@ -12,6 +12,7 @@ template <typename T> void AppendBigEndian(Vec<> &s, T x);
 
 template <> void AppendBigEndian(Vec<> &s, U16 x);
 template <> void AppendBigEndian(Vec<> &s, U24 x);
+template <> void AppendBigEndian(Vec<> &s, U32 x);
 
 template <typename T> void PutBigEndian(Span<> s, Size offset, T x);
 
