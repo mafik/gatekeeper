@@ -123,6 +123,26 @@ GenericNetlink::GenericNetlink(StrView family, int cmd_max, Status &status)
             }
             break;
           }
+          case CTRL_ATTR_MCAST_GROUPS: {
+            for (auto &group_attrs : attr.Unnest()) {
+              MulticastGroup &group = multicast_groups.emplace_back();
+              for (auto &group_attr : group_attrs.Unnest()) {
+                switch (group_attr.type) {
+                case CTRL_ATTR_MCAST_GRP_ID:
+                  group.id = group_attr.As<U32>();
+                  break;
+                case CTRL_ATTR_MCAST_GRP_NAME:
+                  group.name = group_attr.Span().ToStr();
+                  if (group.name.ends_with('\0')) {
+                    group.name.pop_back();
+                  }
+                  break;
+                }
+              }
+            }
+            break;
+          }
+
           default:
             break;
           }
@@ -174,6 +194,24 @@ void GenericNetlink::Dump(U8 cmd, Netlink::Attr *attr,
         cb(header, attrs);
       },
       status);
+}
+
+void GenericNetlink::Subscribe(StrView group_name, Status &status) {
+  MulticastGroup *found_group = nullptr;
+  for (auto &group : multicast_groups) {
+    if (group.name == group_name) {
+      found_group = &group;
+      break;
+    }
+  }
+  if (found_group == nullptr) {
+    AppendErrorMessage(status) +=
+        f("Couldn't find multicast group '%s'", group_name);
+    return;
+  }
+
+  setsockopt(netlink.fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &found_group->id,
+             sizeof(found_group->id));
 }
 
 } // namespace maf

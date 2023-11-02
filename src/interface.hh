@@ -17,6 +17,8 @@ struct Interface {
   maf::IP IP(maf::Status &status);
   maf::IP Netmask(maf::Status &status);
   maf::Network Network(maf::Status &status);
+  void BringUp(maf::Status &status);
+  void BringDown(maf::Status &status);
   void Configure(maf::IP ip, maf::Network network, maf::Status &status);
   void Deconfigure(maf::Status &status);
 

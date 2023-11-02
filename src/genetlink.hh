@@ -28,12 +28,19 @@ struct GenericNetlink {
     Str LoggableString() const;
   };
   Vec<Cmd> cmds; // maps netlink command to index
+  struct MulticastGroup {
+    U32 id;
+    Str name;
+  };
+  Vec<MulticastGroup> multicast_groups;
 
   // Establish connection with the specified generic netlink family.
   GenericNetlink(StrView family, int cmd_max, Status &status);
 
   void Dump(U8 cmd, Netlink::Attr *attr, Fn<void(Span<>, Netlink::Attrs)> cb,
             Status &status);
+
+  void Subscribe(StrView group_name, Status &status);
 };
 
 } // namespace maf

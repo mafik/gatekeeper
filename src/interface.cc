@@ -143,6 +143,16 @@ Network Interface::Network(Status &status) {
   return {.ip = ip & netmask, .netmask = netmask};
 }
 
+void Interface::BringUp(Status &status) {
+  FD fd;
+  BringInterfaceUp(fd, *this, status);
+}
+
+void Interface::BringDown(Status &status) {
+  FD fd;
+  BringInterfaceDown(fd, *this, status);
+}
+
 void Interface::Configure(::IP ip, ::Network network, Status &status) {
   FD fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   // Assign IP

@@ -68,9 +68,8 @@ struct Band {
   };
   Optional<HighThroughput> ht = std::nullopt;
   struct VeryHighThroughput {
-    Arr<U8, 8> mcs_set; // struct ieee80211_vht_mcs_info (nl80211.h sems to have
-                        // wrong info about this)
-    U32 capa;           // VHT capabilities, as in the HT information IE
+    Arr<U8, 8> mcs_set; // See 9.4.2.158.3 of IEEE 802.11-2016
+    U32 capa;           // See 9.4.2.158.2 of IEEE 802.11-2016
   };
   Optional<VeryHighThroughput> vht = std::nullopt;
   Str Describe() const;
@@ -273,18 +272,81 @@ struct BeaconHeader {
 } __attribute__((packed));
 
 enum class ElementID : U8 {
-  SSID = 0,                    // See section 9.4.2.2 of IEEE 802.11-2016
-  SUPPORTED_RATES = 1,         // See section 9.4.2.3 of IEEE 802.11-2016
-                               // Can be also used to require HT or VHT
-  DSSS_PARAMETER_SET = 3,      // See section 9.4.2.4 of IEEE 802.11-2016
-  CF_PARAMETER_SET = 4,        // See section 9.4.2.5 of IEEE 802.11-2016
-  TIM = 5,                     // See section 9.4.2.6 of IEEE 802.11-2016
-  IBSS_PARAMETER_SET = 6,      // See section 9.4.2.7 of IEEE 802.11-2016
-  HT_CAPABILITIES = 45,        // See section  9.4.2.56 of IEEE 802.11-2016
-  RSN = 48,                    // See section 9.4.2.25 of IEEE 802.11-2016
-  HT_OPERATION = 61,           // See section 9.4.2.57 of IEEE 802.11-2016
-  EXTENDED_CAPABILITIES = 127, // See section 9.4.2.27 of IEEE 802.11-2016
+  SSID = 0,                      // See section 9.4.2.2 of IEEE 802.11-2016
+  SUPPORTED_RATES = 1,           // See section 9.4.2.3 of IEEE 802.11-2016
+                                 // Can be also used to require HT or VHT
+  DSSS_PARAMETER_SET = 3,        // See section 9.4.2.4 of IEEE 802.11-2016
+  CF_PARAMETER_SET = 4,          // See section 9.4.2.5 of IEEE 802.11-2016
+  TIM = 5,                       // See section 9.4.2.6 of IEEE 802.11-2016
+  IBSS_PARAMETER_SET = 6,        // See section 9.4.2.7 of IEEE 802.11-2016
+  HT_CAPABILITIES = 45,          // See section  9.4.2.56 of IEEE 802.11-2016
+  RSN = 48,                      // See section 9.4.2.25 of IEEE 802.11-2016
+  HT_OPERATION = 61,             // See section 9.4.2.57 of IEEE 802.11-2016
+  EXTENDED_CAPABILITIES = 127,   // See section 9.4.2.27 of IEEE 802.11-2016
+  VHT_CAPABILITIES = 191,        // See section 9.4.2.158 of IEEE 802.11-2016
+  VHT_OPERATION = 192,           // See section 9.4.2.159 of IEEE 802.11-2016
+  TRANSMIT_POWER_ENVELOPE = 195, // See section 9.4.2.162 of IEEE 802.11-2016
+  VENDOR_SPECIFIC = 221,         // See section 9.4.2.26 of IEEE 802.11-2016
 };
+
+struct VHTOperationInformation {
+  enum ChannelWidth : U8 {
+    CHANNEL_WIDTH_20MHZ_40MHZ = 0,
+    CHANNEL_WIDTH_80MHZ_160MHZ_80_80MHZ = 1,
+    CHANNEL_WIDTH_160MHZ = 2,   // deprecated
+    CHANNEL_WIDTH_80_80MHZ = 3, // deprecated
+  };
+  ChannelWidth channel_width;
+  U8 channel_center_frequency_segment_0; // See Table 9-253 of IEEE 802.11-2016
+  U8 channel_center_frequency_segment_1;
+};
+
+struct VHT_MCS_NSS_Map {
+  enum Support : U8 {
+    MCS_0_7 = 0,
+    MCS_0_8 = 1,
+    MCS_0_9 = 2,
+    NOT_SUPPORTED = 3,
+  };
+  Support spatial_streams_1 : 2;
+  Support spatial_streams_2 : 2;
+  Support spatial_streams_3 : 2;
+  Support spatial_streams_4 : 2;
+  Support spatial_streams_5 : 2;
+  Support spatial_streams_6 : 2;
+  Support spatial_streams_7 : 2;
+  Support spatial_streams_8 : 2;
+};
+
+namespace wmm {
+
+// See section 9.4.1.17 of IEEE 802.11-2016
+struct QoS_Info_AP {
+  U8 edca_parameter_set_count : 4;
+  bool q_ack : 1;
+  bool queue_request : 1;
+  bool txop_request : 1;
+  bool uapsd : 1;
+};
+
+enum class AC {
+  BE = 0, // Best Effort
+  BK = 1, // Background
+  VI = 2, // Video
+  VO = 3, // Voice
+};
+
+struct AC_Parameter {
+  U8 aifsn : 4; // Number of slots to defer after a SIFS
+  bool acm : 1; // Admission Control Mandatory
+  AC aci : 2;
+  U8 reserved : 1;
+  U8 ecw_min : 4; // CW = 2^ECW - 1
+  U8 ecw_max : 4;
+  U16 txop_limit; // In units of 32 microseconds. See section 10.22.2.8.
+} __attribute__((packed));
+
+} // namespace wmm
 
 struct Netlink {
   GenericNetlink nl;
@@ -300,10 +362,21 @@ struct Netlink {
   void StartAP(Interface::Index, Span<> beacon_head, Span<> beacon_tail,
                U32 beacon_interval, U32 dtim_period, StrView ssid,
                nl80211_hidden_ssid, bool privacy, nl80211_auth_type,
-               U32 wpa_versions, Span<U32> akm_suites,
-               Span<CipherSuite> pairwise_ciphers,
-               Span<CipherSuite> group_ciphers, Span<> ie, Span<> ie_probe_resp,
-               Span<> ie_assoc_resep, bool socket_owner, Status &);
+               U32 wpa_versions, Span<AuthenticationKeyManagement> akm_suites,
+               Span<CipherSuite> pairwise_ciphers, CipherSuite group_cipher,
+               Span<> ie, Span<> ie_probe_resp, Span<> ie_assoc_resp,
+               bool socket_owner, Status &);
+  // Configure BSS parameters.
+  //
+  // `ht_opmode` is the second and third octet from `HT Operation Information`
+  // from 9.4.2.57 of IEEE 802.11-2016.
+  //
+  // `basic_rates` is a list of BSSBasicRateSet from 9.4.2.3 of IEEE
+  // 802.11-2016. For example 0x0c, 0x18, 0x30 for 6, 12, 24 Mbps.
+  void SetBSS(Interface::Index, bool cts_protection, bool short_preamble,
+              U16 ht_opmode, bool ap_isolate, Span<> basic_rates, Status &);
+
+  void SetMulticastToUnicast(Interface::Index, bool enable, Status &);
 };
 
 Str ChanWidthToStr(nl80211_chan_width);
