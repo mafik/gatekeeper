@@ -7,6 +7,7 @@
 #include "format.hh"
 #include "log.hh"
 #include "netlink.hh"
+#include "status.hh"
 #include <linux/genetlink.h>
 #include <linux/netlink.h>
 #include <string>
@@ -501,8 +502,7 @@ AppendHeader(Netlink &nl, BufferBuilder &buf, nl80211_commands cmd) {
   return hdr;
 }
 
-static void AppendAttrPrimitive(BufferBuilder &buf, nl80211_attrs type,
-                                auto &primitive) {
+static void AppendAttrPrimitive(BufferBuilder &buf, int type, auto &primitive) {
   buf.AlignTo<4>();
   buf.AppendPrimitive(nlattr{
       .nla_len = (U16)(sizeof(nlattr) + sizeof(primitive)),
@@ -511,8 +511,12 @@ static void AppendAttrPrimitive(BufferBuilder &buf, nl80211_attrs type,
   buf.AppendPrimitive(primitive);
 }
 
-static void AppendAttrRange(BufferBuilder &buf, nl80211_attrs type,
-                            auto &range) {
+static void AppendAttrPrimitive(BufferBuilder &buf, nl80211_attrs type,
+                                auto &primitive) {
+  AppendAttrPrimitive(buf, (int)type, primitive);
+}
+
+static void AppendAttrRange(BufferBuilder &buf, int type, auto &range) {
   buf.AlignTo<4>();
   buf.AppendPrimitive(nlattr{
       .nla_len = (U16)(sizeof(nlattr) + range.size() * sizeof(range[0])),
@@ -521,13 +525,37 @@ static void AppendAttrRange(BufferBuilder &buf, nl80211_attrs type,
   buf.AppendRange(range);
 }
 
-static void AppendAttrFlag(BufferBuilder &buf, nl80211_attrs type) {
+static void AppendAttrRange(BufferBuilder &buf, nl80211_attrs type,
+                            auto &range) {
+  AppendAttrRange(buf, (int)type, range);
+}
+
+static void AppendAttrFlag(BufferBuilder &buf, int type) {
   buf.AlignTo<4>();
   buf.AppendPrimitive(nlattr{
       .nla_len = sizeof(nlattr),
       .nla_type = (U16)type,
   });
 }
+
+static void AppendAttrFlag(BufferBuilder &buf, nl80211_attrs type) {
+  AppendAttrFlag(buf, (int)type);
+}
+
+#define SEND_WITH_ACK(buf, hdr, status)                                        \
+  hdr->nlmsg_len = buf.Size();                                                 \
+  nl.netlink.Send(hdr, status);                                                \
+  if (!OK(status)) {                                                           \
+    AppendErrorMessage(status) += "Couldn't send netlink message";             \
+    return;                                                                    \
+  }                                                                            \
+  nl.netlink.ReceiveAck(status);                                               \
+  if (!OK(status)) {                                                           \
+    auto &err = AppendErrorMessage(status);                                    \
+    err += "Error in nl80211::";                                               \
+    err += __FUNCTION__;                                                       \
+    return;                                                                    \
+  }
 
 Vec<Wiphy> Netlink::GetWiphys(Status &status) {
   Vec<Wiphy> ret;
@@ -711,17 +739,7 @@ void Netlink::DelStation(Interface::Index if_index, MAC *mac,
     U16 reason_code = reason->reason_code;
     AppendAttrPrimitive(buf, NL80211_ATTR_REASON_CODE, reason_code);
   }
-  hdr->nlmsg_len = buf.Size();
-  nl.netlink.Send(hdr, status);
-  if (!OK(status)) {
-    AppendErrorMessage(status) += "Couldn't send netlink message";
-    return;
-  }
-  nl.netlink.ReceiveAck(status);
-  if (!OK(status)) {
-    AppendErrorMessage(status) += "Failed to delete nl80211 station";
-    return;
-  }
+  SEND_WITH_ACK(buf, hdr, status);
 }
 
 void Netlink::StartAP(Interface::Index ifindex, Span<> beacon_head,
@@ -756,18 +774,7 @@ void Netlink::StartAP(Interface::Index ifindex, Span<> beacon_head,
   if (socket_owner) {
     AppendAttrFlag(buf, NL80211_ATTR_SOCKET_OWNER);
   }
-  hdr->nlmsg_len = buf.Size();
-
-  nl.netlink.Send(hdr, status);
-  if (!OK(status)) {
-    AppendErrorMessage(status) += "Couldn't send netlink message";
-    return;
-  }
-  nl.netlink.ReceiveAck(status);
-  if (!OK(status)) {
-    AppendErrorMessage(status) += "Failed to start nl80211 AP";
-    return;
-  }
+  SEND_WITH_ACK(buf, hdr, status);
 }
 
 void Netlink::SetBSS(Interface::Index ifindex, bool cts_protection,
@@ -776,23 +783,12 @@ void Netlink::SetBSS(Interface::Index ifindex, bool cts_protection,
   BufferBuilder buf(128);
   auto hdr = AppendHeader(*this, buf, NL80211_CMD_SET_BSS);
   AppendAttrPrimitive(buf, NL80211_ATTR_IFINDEX, ifindex);
-  // AppendAttrPrimitive(buf, NL80211_ATTR_BSS_CTS_PROT, cts_protection);
-  // AppendAttrPrimitive(buf, NL80211_ATTR_BSS_SHORT_PREAMBLE, short_preamble);
-  // AppendAttrPrimitive(buf, NL80211_ATTR_BSS_HT_OPMODE, ht_opmode);
-  // AppendAttrPrimitive(buf, NL80211_ATTR_AP_ISOLATE, ap_isolate);
-  // AppendAttrRange(buf, NL80211_ATTR_BSS_BASIC_RATES, basic_rates);
-  hdr->nlmsg_len = buf.Size();
-
-  nl.netlink.Send(hdr, status);
-  if (!OK(status)) {
-    AppendErrorMessage(status) += "Couldn't send netlink message";
-    return;
-  }
-  nl.netlink.ReceiveAck(status);
-  if (!OK(status)) {
-    AppendErrorMessage(status) += "Failed to set nl80211 BSS parameters";
-    return;
-  }
+  AppendAttrPrimitive(buf, NL80211_ATTR_BSS_CTS_PROT, cts_protection);
+  AppendAttrPrimitive(buf, NL80211_ATTR_BSS_SHORT_PREAMBLE, short_preamble);
+  AppendAttrPrimitive(buf, NL80211_ATTR_BSS_HT_OPMODE, ht_opmode);
+  AppendAttrPrimitive(buf, NL80211_ATTR_AP_ISOLATE, ap_isolate);
+  AppendAttrRange(buf, NL80211_ATTR_BSS_BASIC_RATES, basic_rates);
+  SEND_WITH_ACK(buf, hdr, status);
 }
 
 void Netlink::SetMulticastToUnicast(Interface::Index ifindex, bool enable,
@@ -803,17 +799,47 @@ void Netlink::SetMulticastToUnicast(Interface::Index ifindex, bool enable,
   if (enable) {
     AppendAttrFlag(buf, NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED);
   }
-  hdr->nlmsg_len = buf.Size();
-  nl.netlink.Send(hdr, status);
-  if (!OK(status)) {
-    AppendErrorMessage(status) += "Couldn't send netlink message";
-    return;
+  SEND_WITH_ACK(buf, hdr, status);
+}
+
+void Netlink::NewKey(Interface::Index ifindex, Span<> key_data,
+                     CipherSuite cipher_suite, KeyIndex key_index,
+                     Status &status) {
+  BufferBuilder buf(128);
+  auto hdr = AppendHeader(*this, buf, NL80211_CMD_NEW_KEY);
+  AppendAttrPrimitive(buf, NL80211_ATTR_IFINDEX, ifindex);
+  BufferBuilder key_attr(64);
+  AppendAttrRange(key_attr, NL80211_KEY_DATA, key_data);
+  AppendAttrPrimitive(key_attr, NL80211_KEY_CIPHER, cipher_suite);
+  AppendAttrPrimitive(key_attr, NL80211_KEY_IDX, key_index);
+  AppendAttrRange(buf, NL80211_ATTR_KEY, key_attr.buffer);
+  SEND_WITH_ACK(buf, hdr, status);
+}
+
+void Netlink::SetKey(Interface::Index ifindex, KeyIndex key_index,
+                     bool key_default, bool key_default_unicast,
+                     bool key_default_multicast, Status &status) {
+  BufferBuilder buf(128);
+  auto hdr = AppendHeader(*this, buf, NL80211_CMD_SET_KEY);
+  AppendAttrPrimitive(buf, NL80211_ATTR_IFINDEX, ifindex);
+  BufferBuilder key_attr(32);
+  AppendAttrPrimitive(key_attr, NL80211_KEY_IDX, key_index);
+  if (key_default) {
+    AppendAttrFlag(key_attr, NL80211_KEY_DEFAULT);
   }
-  nl.netlink.ReceiveAck(status);
-  if (!OK(status)) {
-    AppendErrorMessage(status) += "Failed to set nl80211 multicast-to-unicast";
-    return;
+  BufferBuilder key_default_types(16);
+  if (key_default_unicast) {
+    key_default_types.AppendPrimitive(
+        (U16)(1 << NL80211_KEY_DEFAULT_TYPE_UNICAST));
   }
+  if (key_default_multicast) {
+    key_default_types.AppendPrimitive(
+        (U16)(1 << NL80211_KEY_DEFAULT_TYPE_MULTICAST));
+  }
+  AppendAttrRange(key_attr, NL80211_KEY_DEFAULT_TYPES | NLA_F_NESTED,
+                  key_default_types.buffer);
+  AppendAttrRange(buf, NL80211_ATTR_KEY, key_attr.buffer);
+  SEND_WITH_ACK(buf, hdr, status);
 }
 
 Str DfsStateToStrShort(DFS::State state) {

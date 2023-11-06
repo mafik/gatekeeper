@@ -349,6 +349,8 @@ struct AC_Parameter {
 
 } // namespace wmm
 
+using KeyIndex = U8;
+
 struct Netlink {
   GenericNetlink nl;
 
@@ -378,6 +380,12 @@ struct Netlink {
               U16 ht_opmode, bool ap_isolate, Span<> basic_rates, Status &);
 
   void SetMulticastToUnicast(Interface::Index, bool enable, Status &);
+
+  void NewKey(Interface::Index, Span<> key_data, CipherSuite, KeyIndex,
+              Status &);
+
+  void SetKey(Interface::Index, KeyIndex, bool key_default,
+              bool key_default_unicast, bool key_default_multicast, Status &);
 };
 
 Str ChanWidthToStr(nl80211_chan_width);
