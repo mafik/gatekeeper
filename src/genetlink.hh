@@ -40,7 +40,10 @@ struct GenericNetlink {
   void Dump(U8 cmd, Netlink::Attr *attr, Fn<void(Span<>, Netlink::Attrs)> cb,
             Status &status);
 
-  void Subscribe(StrView group_name, Status &status);
+  void AddMembership(StrView group_name, Status &status);
+
+  // Receive a message without any fixed-size header.
+  void Receive(Fn<void(U8 cmd, Netlink::Attrs)> cb, Status &status);
 };
 
 } // namespace maf

@@ -4,8 +4,6 @@
 #include <linux/genetlink.h>
 
 #include "format.hh"
-#include "hex.hh"
-#include "log.hh"
 #include "status.hh"
 #include "str.hh"
 
@@ -196,7 +194,7 @@ void GenericNetlink::Dump(U8 cmd, Netlink::Attr *attr,
       status);
 }
 
-void GenericNetlink::Subscribe(StrView group_name, Status &status) {
+void GenericNetlink::AddMembership(StrView group_name, Status &status) {
   MulticastGroup *found_group = nullptr;
   for (auto &group : multicast_groups) {
     if (group.name == group_name) {
@@ -210,8 +208,29 @@ void GenericNetlink::Subscribe(StrView group_name, Status &status) {
     return;
   }
 
-  setsockopt(netlink.fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &found_group->id,
-             sizeof(found_group->id));
+  int ret = setsockopt(netlink.fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
+                       &found_group->id, sizeof(found_group->id));
+  if (ret < 0) {
+    AppendErrorMessage(status) +=
+        f("Couldn't join netlink group '%s'", group_name);
+    return;
+  }
+}
+
+void GenericNetlink::Receive(Fn<void(U8 cmd, Netlink::Attrs)> cb,
+                             Status &status) {
+  netlink.ReceiveT<genlmsghdr>(
+      family_id,
+      [cb](genlmsghdr &generic_hdr, Netlink::Attrs attrs) {
+        cb(generic_hdr.cmd, attrs);
+      },
+      status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) +=
+        "Couldn't receive a message from Generic Netlink for \"" + family +
+        "\"";
+    return;
+  }
 }
 
 } // namespace maf
