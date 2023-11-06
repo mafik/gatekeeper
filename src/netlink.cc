@@ -189,7 +189,9 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
                 a->nla_type != NLMSGERR_ATTR_OFFS) {
               msg += dump_struct(*a);
             }
-            err_attrs[a->nla_type] = a;
+            if (a->nla_type <= NLMSGERR_ATTR_MAX) {
+              err_attrs[a->nla_type] = a;
+            }
             buf_iter += a->nla_len;
           }
           if (err_attrs[NLMSGERR_ATTR_MSG]) {
