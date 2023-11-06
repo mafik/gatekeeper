@@ -182,6 +182,7 @@ struct Interface {
   U32 center_frequency1;
   U32 center_frequency2;
   nl80211_chan_width chan_width;
+  Optional<I32> tx_power_level_mbm;
 
   Str Describe() const;
 };

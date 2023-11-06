@@ -19,6 +19,15 @@ namespace maf::nl80211 {
 
 // #define NL80211_DEBUG
 
+#ifdef NL80211_WARN
+#define WARN_UNKNOWN_ATTR(attr)                                                \
+  LOG << "Unknown netlink attribute in " << __FUNCTION__ << " (" << __FILE__   \
+      << ":" << __LINE__ << "): " << AttrToStr(attr.type) << " "               \
+      << BytesToHex(attr.Span());
+#else
+#define WARN_UNKNOWN_ATTR(attr)
+#endif
+
 Netlink::Netlink(Status &status) : nl("nl80211"sv, NL80211_CMD_MAX, status) {
   if (!OK(status)) {
     return;
@@ -52,7 +61,7 @@ static void ParseBitrate(Bitrate &bitrate, Attr &attr4) {
       bitrate.short_preamble = true;
       break;
     default:
-      // Ignore unknown attributes
+      WARN_UNKNOWN_ATTR(attr5);
       break;
     }
   }
@@ -75,7 +84,7 @@ static void ParseWMMRule(WMMRule &rule, Attr &rule_attrs) {
       rule.txop = rule_attr.As<U16>();
       break;
     default:
-      // Ignore unknown attributes
+      WARN_UNKNOWN_ATTR(rule_attr);
       break;
     }
   }
@@ -140,7 +149,7 @@ static void ParseFrequency(Frequency &f, Attr &freq_attrs) {
       }
       break;
     default:
-      // Ignore unknown attributes
+      WARN_UNKNOWN_ATTR(attr5);
       break;
     }
   }
@@ -207,7 +216,7 @@ static void ParseWiphyBand(Band &band, Attr &band_attrs) {
       }
       break;
     default:
-      // Ignore unknown attributes
+      WARN_UNKNOWN_ATTR(attr2);
       break;
     }
   }
@@ -254,7 +263,7 @@ static void ParseInterfaceCombination(InterfaceCombination &ic, Attr &attr) {
             }
             break;
           default:
-            // Ignore unknown attributes
+            WARN_UNKNOWN_ATTR(attr4);
             break;
           }
         }
@@ -279,7 +288,7 @@ static void ParseInterfaceCombination(InterfaceCombination &ic, Attr &attr) {
       ic.beacon_interval_min_gcd = attr2.As<U32>();
       break;
     default:
-      // Ignore unknown attributes
+      WARN_UNKNOWN_ATTR(attr2);
       break;
     }
   }
@@ -470,7 +479,7 @@ static void ParseWiphyDump(Vec<Wiphy> &wiphys, Attrs attrs) {
       wiphy->nan_bands_bitmask = attr.As<U32>();
       break;
     default:
-      // Ignore unknown attributes
+      WARN_UNKNOWN_ATTR(attr);
       break;
     }
   }
@@ -584,10 +593,10 @@ Vec<Interface> Netlink::GetInterfaces(Status &status) {
           case NL80211_ATTR_CENTER_FREQ2:
             i.center_frequency2 = attr.As<U32>();
             break;
+          case NL80211_ATTR_WIPHY_TX_POWER_LEVEL:
+            i.tx_power_level_mbm = attr.As<I32>();
           default:
-            LOG << "Unknown attribute " << nl80211::AttrToStr(attr.type) << " ("
-                << attr.Span().size() << " bytes)" << ": "
-                << BytesToHex(attr.Span());
+            WARN_UNKNOWN_ATTR(attr);
             break;
           }
         }
@@ -890,6 +899,9 @@ Str Interface::Describe() const {
   if (center_frequency2) {
     body +=
         "Center frequency 2: " + std::to_string(center_frequency2) + " MHz\n";
+  }
+  if (tx_power_level_mbm.has_value()) {
+    body += "TX power level: " + std::to_string(*tx_power_level_mbm) + " mBm\n";
   }
   ret += Indent(body);
   return ret;
