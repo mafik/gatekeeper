@@ -842,6 +842,25 @@ void Netlink::SetKey(Interface::Index ifindex, KeyIndex key_index,
   SEND_WITH_ACK(buf, hdr, status);
 }
 
+void Netlink::SetStation(Interface::Index ifindex, MAC mac,
+                         Span<nl80211_sta_flags> set_flags,
+                         Span<nl80211_sta_flags> clear_flags, Status &status) {
+  BufferBuilder buf(128);
+  auto hdr = AppendHeader(*this, buf, NL80211_CMD_SET_STATION);
+  AppendAttrPrimitive(buf, NL80211_ATTR_IFINDEX, ifindex);
+  AppendAttrPrimitive(buf, NL80211_ATTR_MAC, mac);
+  nl80211_sta_flag_update flag_update{.mask = 0, .set = 0};
+  for (auto flag : set_flags) {
+    flag_update.mask |= 1 << flag;
+    flag_update.set |= 1 << flag;
+  }
+  for (auto flag : clear_flags) {
+    flag_update.mask |= 1 << flag;
+  }
+  AppendAttrPrimitive(buf, NL80211_ATTR_STA_FLAGS2, flag_update);
+  SEND_WITH_ACK(buf, hdr, status);
+}
+
 Str DfsStateToStrShort(DFS::State state) {
   switch (state) {
   case NL80211_DFS_USABLE:

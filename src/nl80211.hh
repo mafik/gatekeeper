@@ -386,6 +386,9 @@ struct Netlink {
 
   void SetKey(Interface::Index, KeyIndex, bool key_default,
               bool key_default_unicast, bool key_default_multicast, Status &);
+
+  void SetStation(Interface::Index, MAC, Span<nl80211_sta_flags> set_flags,
+                  Span<nl80211_sta_flags> clear_flags, Status &);
 };
 
 Str ChanWidthToStr(nl80211_chan_width);
