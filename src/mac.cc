@@ -9,6 +9,8 @@
 
 using namespace maf;
 
+static_assert(sizeof(MAC) == 6, "MAC must be 6 bytes");
+
 MAC MAC::FromInterface(std::string_view interface_name) {
   ifreq ifr = {};
   int sock = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
