@@ -43,6 +43,8 @@ struct BufferBuilder {
     return ref;
   }
 
+  void AppendZeroes(Size n) { buffer.insert(buffer.end(), n, 0); }
+
   // Aligns the buffer to the given alignment.
   //
   // The alignment must be a power of two.
