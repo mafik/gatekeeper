@@ -4,6 +4,7 @@
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 
 struct MAC {
   uint8_t bytes[6];
@@ -41,3 +42,41 @@ template <> struct std::hash<MAC> {
                                  mac.bytes[1] << 8 | mac.bytes[0]);
   }
 };
+
+namespace maf {
+
+// Mixin class for objects that should be indexed by MAC address.
+template <typename T> struct HashableByMAC {
+  MAC mac;
+
+  HashableByMAC(MAC mac) : mac(mac) {
+    assert(by_mac.find((T *)this) == by_mac.end());
+    by_mac.insert((T *)this);
+  }
+
+  virtual ~HashableByMAC() { by_mac.erase((T *)this); }
+
+  struct HashByMAC {
+    using is_transparent = std::true_type;
+    size_t operator()(const T *t) const { return std::hash<MAC>()(t->mac); }
+    size_t operator()(const MAC &mac) const { return std::hash<MAC>()(mac); }
+  };
+
+  struct EqualMAC {
+    using is_transparent = std::true_type;
+    bool operator()(const T *a, const T *b) const { return a->mac == b->mac; }
+    bool operator()(const T *a, const MAC &b) const { return a->mac == b; }
+    bool operator()(const MAC &a, const T *b) const { return a == b->mac; }
+  };
+
+  static inline std::unordered_set<T *, HashByMAC, EqualMAC> by_mac;
+
+  static T *Find(MAC mac) {
+    auto it = by_mac.find(mac);
+    if (it == by_mac.end())
+      return nullptr;
+    return *it;
+  }
+};
+
+} // namespace maf
