@@ -29,13 +29,25 @@ struct Status {
   void Reset();
 } __attribute__((packed));
 
-inline bool OK(const Status &s) { return s.Ok(); }
+inline bool OK(const Status &status) { return status.Ok(); }
 inline Str ErrorMessage(const Status &s) { return s.ToString(); }
 inline Str &AppendErrorMessage(
-    Status &s,
+    Status &status,
     const std::source_location location_arg = std::source_location::current()) {
-  return s(location_arg);
+  return status(location_arg);
 }
 void AppendErrorAdvice(Status &, StrView advice);
+
+#define RETURN_ON_ERROR(status)                                                \
+  if (!OK(status)) {                                                           \
+    AppendErrorMessage(status) += __FUNCTION__;                                \
+    return;                                                                    \
+  }
+
+#define RETURN_VAL_ON_ERROR(status, value)                                     \
+  if (!OK(status)) {                                                           \
+    AppendErrorMessage(status) += __FUNCTION__;                                \
+    return value;                                                              \
+  }
 
 } // namespace maf
