@@ -37,6 +37,7 @@ template <typename T> struct Big {
   Big(T host_value) : big_endian(std::byteswap(host_value)) {}
 
   T get() const { return std::byteswap(big_endian); }
+  void Set(T value) { big_endian = std::byteswap(value); }
 } __attribute__((packed));
 
 } // namespace maf
