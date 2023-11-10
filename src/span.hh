@@ -2,7 +2,9 @@
 
 #include <span>
 
+#include "format.hh"
 #include "int.hh"
+#include "status.hh"
 #include "str.hh"
 
 namespace maf {
@@ -40,6 +42,36 @@ struct Span : std::span<T, Extent> {
   template <typename U> U &As() {
     assert(this->size() == sizeof(U));
     return *(U *)this->data();
+  }
+
+  template <typename U> U &Consume(Status &status) {
+    U &ret = *(U *)this->data();
+    if (this->size() < sizeof(U)) {
+      AppendErrorMessage(status) +=
+          f("Span too small to contain %s (%x vs %x)", typeid(U).name(),
+            this->size(), sizeof(U));
+      this->RemovePrefix(this->size());
+    } else {
+      this->RemovePrefix(sizeof(U));
+    }
+    return ret;
+  }
+
+  Span<> ConsumeSpan(Size n, Status &status) {
+    Span<> ret = this->first(n);
+    if (this->size() < n) {
+      AppendErrorMessage(status) +=
+          f("Span too small (%x vs %x)", this->size(), n);
+      this->RemovePrefix(this->size());
+    } else {
+      this->RemovePrefix(n);
+    }
+    return ret;
+  }
+
+  bool operator<(const Span &rhs) const {
+    return std::lexicographical_compare(this->begin(), this->end(), rhs.begin(),
+                                        rhs.end());
   }
 
   Str ToStr() const { return Str(this->data(), this->size() * sizeof(T)); }
