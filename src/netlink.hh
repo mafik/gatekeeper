@@ -3,8 +3,9 @@
 #include <cassert>
 #include <linux/netlink.h>
 
-#include "fd.hh"
+#include "epoll.hh"
 #include "fn.hh"
+#include "format.hh"
 #include "span.hh"
 #include "status.hh"
 
@@ -17,7 +18,9 @@ namespace maf {
 //
 // Users of this class should be intimately familiar with the netlink protocol.
 // See: https://docs.kernel.org/userspace-api/netlink/intro.html.
-struct Netlink {
+struct Netlink : epoll::Listener {
+
+  using MessageType = U16;
 
   struct Attr;
 
@@ -36,6 +39,23 @@ struct Netlink {
 
     char *ptr;
     Size size;
+
+    template <typename T> T &RemovePrefixHeader(Status &status) {
+      T &ret = *(T *)ptr;
+      if (size < sizeof(T)) {
+        AppendErrorMessage(status) += f(
+            "Netlink message too small to contain its header (%x vs %x bytes)",
+            size, sizeof(T));
+      } else {
+        Size header_size = NLA_ALIGN(sizeof(T));
+        ptr += header_size;
+        if (size >= header_size)
+          size -= header_size;
+        else
+          size = 0;
+      }
+      return ret;
+    }
 
     iterator begin() const { return {(Attr *)ptr}; }
     iterator end() const { return {(Attr *)(ptr + ((size + 3) & ~3))}; }
@@ -71,9 +91,6 @@ struct Netlink {
 
   static_assert(sizeof(Attr) == 4, "Netlink::Attr must be 4 bytes");
 
-  // The netlink socket.
-  FD fd;
-
   // The sequence number of the next message to be sent.
   uint32_t seq = 1;
 
@@ -87,6 +104,13 @@ struct Netlink {
   // See: https://docs.kernel.org/userspace-api/netlink/intro.html for an
   // explanation of NETLINK_GENERIC protocol.
   Netlink(int protocol, Status &status);
+
+  using ReceiveCallback = Fn<void(MessageType, Attrs)>;
+
+  ReceiveCallback epoll_callback;
+
+  const char *Name() const override;
+  void NotifyRead(Status &) override;
 
   // Send a simple netlink message.
   //
@@ -122,13 +146,10 @@ struct Netlink {
   // object to report errors.
   void SendRaw(std::string_view, Status &status);
 
-  using ReceiveCallback = Fn<void(void *fixed_message, Attrs)>;
-
   // Receive one or more netlink messages.
   //
   // Each netlink message is composed of a header, a fixed-size struct & a
-  // sequence of attributes. This method will predict the size of fixed size
-  // struct and the maximum number of attributes based on message type.
+  // sequence of attributes.
   //
   // The `callback` will be called once for each response message received. For
   // `BATCH` requests it may be called multiple times - for each multipart
@@ -139,18 +160,24 @@ struct Netlink {
   //
   // This method will block so call it only if you expect a message.
   //
-  // Errors will be reported using either the `status` argument or the `status`
-  // field of this netlink connection.
-  void Receive(uint16_t expected_type, ReceiveCallback callback,
-               Status &status);
+  // Errors will be reported through the `status` argument.
+  void Receive(ReceiveCallback, Status &);
 
-  void ReceiveAck(Status &status);
+  void ReceiveAck(Status &);
 
-  template <typename T>
-  void ReceiveT(uint16_t expected_type, Fn<void(T &message, Attrs)> cb,
-                Status &status) {
+  template <MessageType expected_type, typename T>
+  void ReceiveT(Fn<void(T &message, Attrs)> cb, Status &status) {
     Receive(
-        expected_type, [&](void *ptr, Attrs attrs) { cb(*(T *)ptr, attrs); },
+        [&](MessageType message_type, Attrs attrs) {
+          if (message_type != expected_type) {
+            AppendErrorMessage(status) +=
+                "Unexpected message type: 0x" + f("%04hx", message_type);
+            return;
+          }
+          T &message = attrs.RemovePrefixHeader<T>(status);
+          RETURN_ON_ERROR(status);
+          cb(message, attrs);
+        },
         status);
   }
 };

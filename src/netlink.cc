@@ -80,6 +80,23 @@ Netlink::Netlink(int protocol, Status &status) : protocol(protocol) {
   }
 }
 
+const char *Netlink::Name() const {
+  switch (protocol) {
+  case NETLINK_ROUTE:
+    return "Netlink(ROUTE)";
+  case NETLINK_NETFILTER:
+    return "Netlink(NETFILTER)";
+  case NETLINK_SOCK_DIAG:
+    return "Netlink(SOCK_DIAG)";
+  case NETLINK_GENERIC:
+    return "Netlink(GENERIC)";
+  default:
+    return "Netlink(unknown)";
+  }
+}
+
+void Netlink::NotifyRead(Status &status) { Receive(epoll_callback, status); }
+
 void Netlink::Send(nlmsghdr &msg, Status &status) {
   msg.nlmsg_seq = seq++;
   SendRaw(std::string_view((char *)&msg, msg.nlmsg_len), status);
@@ -125,11 +142,18 @@ void Netlink::SendRaw(std::string_view raw, Status &status) {
 }
 
 void Netlink::ReceiveAck(Status &status) {
-  Receive(NLMSG_ERROR, nullptr, status);
+  Receive(
+      [&](MessageType message_type, Attrs attrs) {
+        if (message_type != NLMSG_ERROR) {
+          status() +=
+              "Expected NLMSG_ERROR, got " + std::to_string(message_type);
+          return;
+        }
+      },
+      status);
 }
 
-void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
-                      Status &status) {
+void Netlink::Receive(ReceiveCallback callback, Status &status) {
   bool expect_more_messages = true;
   while (expect_more_messages) {
     ssize_t peek_len = recv(fd, nullptr, 0, MSG_PEEK | MSG_TRUNC);
@@ -223,25 +247,17 @@ void Netlink::Receive(uint16_t expected_type, ReceiveCallback callback,
       } else if (hdr->nlmsg_type == NLMSG_DONE) {
         return;
       } else {
-        if (hdr->nlmsg_type != expected_type) {
-          status() +=
-              f("Received wrong netlink message expected type=%x, got type=%x",
-                expected_type, hdr->nlmsg_type);
-          return;
-        }
-
-        void *msg = buf_iter;
-        buf_iter += NLA_ALIGN(fixed_message_size);
-
-        void *attr_start = buf_iter;
-        Size attr_size = msg_end - buf_iter;
-        Attrs attrs(buf_iter, msg_end - buf_iter);
-        buf_iter = msg_end;
-
         if ((hdr->nlmsg_flags & NLM_F_MULTI) == 0) {
           expect_more_messages = false;
         }
-        callback(msg, attrs);
+
+        Attrs attrs{
+            .ptr = buf_iter,
+            .size = static_cast<Size>(msg_end - buf_iter),
+        };
+        buf_iter = msg_end;
+
+        callback(hdr->nlmsg_type, attrs);
       }
     } // while (buf_iter < buf_end - sizeof(nlmsghdr))
 

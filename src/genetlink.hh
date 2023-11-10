@@ -14,6 +14,10 @@
 namespace maf {
 
 struct GenericNetlink {
+  using Command = U8;
+  using Attrs = Netlink::Attrs;
+  using Callback = Fn<void(Command, Attrs)>;
+
   Netlink netlink;
   Str family;
   U16 family_id;
@@ -33,17 +37,17 @@ struct GenericNetlink {
     Str name;
   };
   Vec<MulticastGroup> multicast_groups;
+  Callback epoll_callback;
 
   // Establish connection with the specified generic netlink family.
   GenericNetlink(StrView family, int cmd_max, Status &status);
 
-  void Dump(U8 cmd, Netlink::Attr *attr, Fn<void(Span<>, Netlink::Attrs)> cb,
-            Status &status);
+  void Dump(U8 cmd, Netlink::Attr *attr, Fn<void(Attrs)> cb, Status &status);
 
   void AddMembership(StrView group_name, Status &status);
 
   // Receive a message without any fixed-size header.
-  void Receive(Fn<void(U8 cmd, Netlink::Attrs)> cb, Status &status);
+  void Receive(Callback cb, Status &status);
 };
 
 } // namespace maf

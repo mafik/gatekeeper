@@ -4,6 +4,7 @@
 #include <linux/genetlink.h>
 
 #include "format.hh"
+#include "log.hh"
 #include "status.hh"
 #include "str.hh"
 
@@ -75,8 +76,7 @@ GenericNetlink::GenericNetlink(StrView family, int cmd_max, Status &status)
 
   cmds.resize(cmd_max + 1);
 
-  netlink.ReceiveT<genlmsghdr>(
-      GENL_ID_CTRL,
+  netlink.ReceiveT<GENL_ID_CTRL, genlmsghdr>(
       [this](genlmsghdr &genl, Netlink::Attrs attrs) {
         for (auto &attr : attrs) {
           switch (attr.type) {
@@ -151,10 +151,22 @@ GenericNetlink::GenericNetlink(StrView family, int cmd_max, Status &status)
     AppendErrorMessage(status) += "Couldn't receive GETFAMILY response";
     return;
   }
+
+  netlink.epoll_callback = [&](Netlink::MessageType message_type, Attrs attrs) {
+    if (message_type != family_id) {
+      ERROR << "Unexpected netlink message type: 0x"
+            << f("%04hx", message_type);
+      return;
+    }
+    Status status;
+    genlmsghdr &generic_hdr = attrs.RemovePrefixHeader<genlmsghdr>(status);
+    RETURN_ON_ERROR(status);
+    epoll_callback(generic_hdr.cmd, attrs);
+  };
 }
 
 void GenericNetlink::Dump(U8 cmd, Netlink::Attr *attr,
-                          Fn<void(Span<>, Netlink::Attrs)> cb, Status &status) {
+                          Fn<void(Netlink::Attrs)> cb, Status &status) {
   struct Message {
     nlmsghdr hdr;
     genlmsghdr genl;
@@ -183,13 +195,17 @@ void GenericNetlink::Dump(U8 cmd, Netlink::Attr *attr,
     return;
   }
 
-  netlink.ReceiveT<genlmsghdr>(
-      family_id,
-      [&](genlmsghdr &genl, Netlink::Attrs attrs) {
-        Span<> header(attrs.ptr, header_size);
-        attrs.ptr += NLA_ALIGN(header_size);
-        attrs.size -= NLA_ALIGN(header_size);
-        cb(header, attrs);
+  netlink.Receive(
+      [&](Netlink::MessageType message_type, Netlink::Attrs attrs) {
+        if (message_type != family_id) {
+          AppendErrorMessage(status) +=
+              "Received unexpected netlink message type: 0x" +
+              f("%04hx", message_type);
+          return;
+        }
+        attrs.RemovePrefixHeader<genlmsghdr>(status);
+        RETURN_ON_ERROR(status);
+        cb(attrs);
       },
       status);
 }
@@ -219,9 +235,16 @@ void GenericNetlink::AddMembership(StrView group_name, Status &status) {
 
 void GenericNetlink::Receive(Fn<void(U8 cmd, Netlink::Attrs)> cb,
                              Status &status) {
-  netlink.ReceiveT<genlmsghdr>(
-      family_id,
-      [cb](genlmsghdr &generic_hdr, Netlink::Attrs attrs) {
+  netlink.Receive(
+      [&](Netlink::MessageType message_type, Netlink::Attrs attrs) {
+        if (message_type != family_id) {
+          AppendErrorMessage(status) +=
+              "Received unexpected netlink message type: 0x" +
+              f("%04hx", message_type);
+          return;
+        }
+        genlmsghdr &generic_hdr = attrs.RemovePrefixHeader<genlmsghdr>(status);
+        RETURN_ON_ERROR(status);
         cb(generic_hdr.cmd, attrs);
       },
       status);
