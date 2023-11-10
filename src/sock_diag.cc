@@ -33,8 +33,7 @@ static void ScanInternetSockets(U8 protocol,
   if (!OK(status)) {
     status() += "Couldn't request the list of internet sockets from the kernel";
   }
-  netlink_diag.ReceiveT<inet_diag_msg>(
-      SOCK_DIAG_BY_FAMILY,
+  netlink_diag.ReceiveT<SOCK_DIAG_BY_FAMILY, inet_diag_msg>(
       [&](inet_diag_msg &msg, Netlink::Attrs attributes) {
         InternetSocketDescription desc{
             .local_ip = IP(msg.id.idiag_src[0]),

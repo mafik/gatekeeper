@@ -589,8 +589,8 @@ void Loop() {
   loop_tid = gettid();
   while (!stop) {
     Status status;
-    queue->ReceiveT<nfgenmsg>(NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
-                              OnReceive, status);
+    queue->ReceiveT<NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET, nfgenmsg>(
+        OnReceive, status);
     if (!stop && !status.Ok()) {
       status() += "Firewall failed to receive message from kernel";
       ERROR << status;

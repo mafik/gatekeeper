@@ -24,8 +24,7 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
   if (!status.Ok()) {
     return;
   }
-  netlink_route.ReceiveT<rtmsg>(
-      RTM_NEWROUTE,
+  netlink_route.ReceiveT<RTM_NEWROUTE, rtmsg>(
       [&](rtmsg &rtm, Netlink::Attrs attrs) {
         Route route = {};
         route.rtm = rtm;
