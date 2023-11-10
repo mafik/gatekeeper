@@ -374,6 +374,74 @@ SHA1::SHA1(Span<> mem) {
   memcpy(this->bytes, digest, sizeof(digest));
 }
 
+static void FinalizeTo(SHA1::Builder &builder, SHA1 &sha) {
+  U32 block[BLOCK_INTS];
+
+  // Increase the length of the message
+  builder.length += builder.curlen * 8ULL;
+
+  // Append the '1' bit
+  builder.buffer[builder.curlen++] = (char)0x80;
+
+  // Zero remaining bits
+  bzero(builder.buffer + builder.curlen, BLOCK_BYTES - builder.curlen);
+
+  buffer_to_block(builder.buffer, block);
+
+  if (builder.curlen > BLOCK_BYTES - 8) {
+    transform(builder.digest, block);
+    for (size_t i = 0; i < BLOCK_INTS - 2; i++) {
+      block[i] = 0;
+    }
+  }
+
+  /* Append total_bits, split this U64 into two U32 */
+  block[BLOCK_INTS - 1] = (U32)builder.length;
+  block[BLOCK_INTS - 2] = (U32)(builder.length >> 32);
+  transform(builder.digest, block);
+
+  for (size_t i = 0; i < 5; i++) {
+    builder.digest[i] = std::byteswap(builder.digest[i]);
+  }
+
+  memcpy(sha.bytes, builder.digest, sizeof(SHA1));
+}
+
+SHA1::Builder::Builder()
+    : length(0),
+      digest{0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0},
+      curlen(0) {}
+
+SHA1::Builder &SHA1::Builder::Update(Span<> mem) {
+  U32 block[BLOCK_INTS];
+  while (!mem.empty()) {
+    if (curlen == 0 && mem.size() >= BLOCK_BYTES) {
+      buffer_to_block(mem.data(), block);
+      transform(digest, block);
+      length += BLOCK_BYTES * 8;
+      mem = mem.subspan<BLOCK_BYTES>();
+    } else {
+      Size n = MIN(mem.size(), (BLOCK_BYTES - curlen));
+      memcpy(buffer + curlen, mem.data(), n);
+      curlen += n;
+      mem = mem.subspan(n);
+      if (curlen == BLOCK_BYTES) {
+        buffer_to_block(buffer, block);
+        transform(digest, block);
+        length += BLOCK_BYTES * 8;
+        curlen = 0;
+      }
+    }
+  }
+  return *this;
+}
+
+SHA1 SHA1::Builder::Finalize() {
+  SHA1 sha;
+  FinalizeTo(*this, sha);
+  return sha;
+}
+
 SHA256::Builder::Builder()
     : state{0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
             0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19},
@@ -553,7 +621,7 @@ SHA512::Builder &SHA512::Builder::Update(Span<> mem) {
       length += BLOCK_SIZE * 8;
       mem = mem.subspan<BLOCK_SIZE>();
     } else {
-      U32 n = MIN(mem.size(), (BLOCK_SIZE - curlen));
+      Size n = MIN(mem.size(), (BLOCK_SIZE - curlen));
       memcpy(buf + curlen, mem.data(), (size_t)n);
       curlen += n;
       mem = mem.subspan(n);

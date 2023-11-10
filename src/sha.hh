@@ -7,14 +7,31 @@
 namespace maf {
 
 struct SHA1 {
+  constexpr static size_t kBlockSize = 64;
+
   char bytes[20];
 
+  // Construct an uninitialized SHA1. There shoud be no reason to use this
+  // function except to reserve space for a proper SHA1.
+  SHA1() = default;
+
+  // Compute a SHA1 of a memory buffer in one go.
   SHA1(Span<>);
 
   operator Span<char, 20>() { return bytes; }
   operator Span<>() { return bytes; }
   // TODO: SHA1 is not text so this operator should be removed
   operator StrView() { return StrView(bytes, 20); }
+
+  struct Builder {
+    U64 length;
+    U32 digest[5];
+    char buffer[64];
+    U32 curlen;
+    Builder();
+    Builder &Update(Span<>);
+    SHA1 Finalize();
+  };
 };
 
 struct SHA256 {
