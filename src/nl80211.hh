@@ -352,7 +352,7 @@ struct AC_Parameter {
 using KeyIndex = U8;
 
 struct Netlink {
-  GenericNetlink nl;
+  GenericNetlink gn;
 
   Netlink(Status &);
 

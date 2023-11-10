@@ -1,16 +1,16 @@
 #include "nl80211.hh"
 
-#include "buffer_builder.hh"
-#include "hex.hh"
-#include "linux/nl80211.h"
+#include <linux/genetlink.h>
+#include <linux/netlink.h>
+#include <linux/nl80211.h>
+#include <string>
 
+#include "buffer_builder.hh"
 #include "format.hh"
+#include "hex.hh"
 #include "log.hh"
 #include "netlink.hh"
 #include "status.hh"
-#include <linux/genetlink.h>
-#include <linux/netlink.h>
-#include <string>
 
 namespace maf::nl80211 {
 
@@ -29,7 +29,7 @@ namespace maf::nl80211 {
 #define WARN_UNKNOWN_ATTR(attr)
 #endif
 
-Netlink::Netlink(Status &status) : nl("nl80211"sv, NL80211_CMD_MAX, status) {
+Netlink::Netlink(Status &status) : gn("nl80211"sv, NL80211_CMD_MAX, status) {
   if (!OK(status)) {
     return;
   }
@@ -490,7 +490,7 @@ static BufferBuilder::Ref<nlmsghdr>
 AppendHeader(Netlink &nl, BufferBuilder &buf, nl80211_commands cmd) {
   auto hdr = buf.AppendPrimitive(nlmsghdr{
       .nlmsg_len = 0,
-      .nlmsg_type = nl.nl.family_id,
+      .nlmsg_type = nl.gn.family_id,
       .nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
       .nlmsg_seq = 0, // Populated by Netlink::Send
       .nlmsg_pid = 0,
@@ -544,12 +544,12 @@ static void AppendAttrFlag(BufferBuilder &buf, nl80211_attrs type) {
 
 #define SEND_WITH_ACK(buf, hdr, status)                                        \
   hdr->nlmsg_len = buf.Size();                                                 \
-  nl.netlink.Send(hdr, status);                                                \
+  gn.netlink.Send(hdr, status);                                                \
   if (!OK(status)) {                                                           \
     AppendErrorMessage(status) += "Couldn't send netlink message";             \
     return;                                                                    \
   }                                                                            \
-  nl.netlink.ReceiveAck(status);                                               \
+  gn.netlink.ReceiveAck(status);                                               \
   if (!OK(status)) {                                                           \
     auto &err = AppendErrorMessage(status);                                    \
     err += "Error in nl80211::";                                               \
@@ -562,9 +562,9 @@ Vec<Wiphy> Netlink::GetWiphys(Status &status) {
 
   // Required to get full wiphy description.
   Attr attr_split_wiphy_dump(sizeof(Attr), NL80211_ATTR_SPLIT_WIPHY_DUMP);
-  nl.Dump(
+  gn.Dump(
       NL80211_CMD_GET_WIPHY, &attr_split_wiphy_dump,
-      [&](Span<>, Attrs attrs) { ParseWiphyDump(ret, attrs); }, status);
+      [&](Attrs attrs) { ParseWiphyDump(ret, attrs); }, status);
   if (!OK(status)) {
     return {};
   }
@@ -573,9 +573,9 @@ Vec<Wiphy> Netlink::GetWiphys(Status &status) {
 
 Vec<Interface> Netlink::GetInterfaces(Status &status) {
   Vec<Interface> interfaces;
-  nl.Dump(
+  gn.Dump(
       NL80211_CMD_GET_INTERFACE, nullptr,
-      [&](Span<>, Attrs attrs) {
+      [&](Attrs attrs) {
         Interface &i = interfaces.emplace_back();
         for (auto &attr : attrs) {
           switch (attr.type) {
@@ -647,7 +647,7 @@ void Netlink::SetInterfaceType(Interface::Index if_index, Interface::Type type,
       .hdr =
           {
               .nlmsg_len = sizeof(SetInterfaceMessage),
-              .nlmsg_type = nl.family_id,
+              .nlmsg_type = gn.family_id,
               .nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
               .nlmsg_seq = 0, // Populated by Netlink::Send
               .nlmsg_pid = 0,
@@ -670,12 +670,12 @@ void Netlink::SetInterfaceType(Interface::Index if_index, Interface::Type type,
           },
       .iftype = type,
   };
-  nl.netlink.Send(set_interface.hdr, status);
+  gn.netlink.Send(set_interface.hdr, status);
   if (!OK(status)) {
     AppendErrorMessage(status) += "Couldn't send netlink message";
     return;
   }
-  nl.netlink.ReceiveAck(status);
+  gn.netlink.ReceiveAck(status);
   if (!OK(status)) {
     AppendErrorMessage(status) += "Failed to change nl80211 interface type";
     return;
@@ -697,7 +697,7 @@ void Netlink::RegisterFrame(Interface::Index if_index, U16 frame_type,
       .hdr =
           {
               .nlmsg_len = sizeof(RegisterFrameMessage),
-              .nlmsg_type = nl.family_id,
+              .nlmsg_type = gn.family_id,
               .nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
               .nlmsg_seq = 0, // Populated by Netlink::Send
               .nlmsg_pid = 0,
@@ -712,12 +712,12 @@ void Netlink::RegisterFrame(Interface::Index if_index, U16 frame_type,
       .attr_frame_match = {.nla_len = sizeof(nlattr) + 0,
                            .nla_type = NL80211_ATTR_FRAME_MATCH},
   };
-  nl.netlink.Send(msg.hdr, status);
+  gn.netlink.Send(msg.hdr, status);
   if (!OK(status)) {
     AppendErrorMessage(status) += "Couldn't send netlink message";
     return;
   }
-  nl.netlink.ReceiveAck(status);
+  gn.netlink.ReceiveAck(status);
   if (!OK(status)) {
     AppendErrorMessage(status) += "Failed to register nl80211 frame";
     return;
