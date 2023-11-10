@@ -3,7 +3,6 @@
 #include "fd.hh"
 #include "status.hh"
 
-// TODO: migrate this file to status.hh
 // TODO: Replace Mod & Listen*Availability with Add & Mod parameters
 // TODO: Migrate const char* Name() to str Name()
 
