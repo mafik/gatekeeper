@@ -1,5 +1,6 @@
 #pragma once
 
+#include <compare>
 #include <span>
 
 #include "format.hh"
@@ -69,9 +70,15 @@ struct Span : std::span<T, Extent> {
     return ret;
   }
 
-  bool operator<(const Span &rhs) const {
-    return std::lexicographical_compare(this->begin(), this->end(), rhs.begin(),
-                                        rhs.end());
+  template <class T2 = char, Size Extent2 = DynamicExtent>
+  std::strong_ordering operator<=>(Span<T2, Extent2> other) const {
+    return std::lexicographical_compare_three_way(this->begin(), this->end(),
+                                                  other.begin(), other.end());
+  }
+
+  template <class T2 = char, Size Extent2 = DynamicExtent>
+  bool operator==(Span<T2, Extent2> other) const {
+    return std::equal(this->begin(), this->end(), other.begin(), other.end());
   }
 
   Str ToStr() const { return Str(this->data(), this->size() * sizeof(T)); }
