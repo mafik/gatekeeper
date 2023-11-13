@@ -31,6 +31,7 @@ struct Expirable {
 
   // O(log n)
   void UpdateExpiration(std::chrono::steady_clock::time_point new_expiration);
+  void UpdateExpiration(std::chrono::steady_clock::duration ttl);
 
   // O(1)
   static void Expire();

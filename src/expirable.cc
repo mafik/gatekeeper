@@ -63,6 +63,10 @@ void Expirable::UpdateExpiration(
   expiration_queue.insert(this);
 }
 
+void Expirable::UpdateExpiration(std::chrono::steady_clock::duration ttl) {
+  UpdateExpiration(chrono::steady_clock::now() + ttl);
+}
+
 void Expirable::Expire() {
   auto now = chrono::steady_clock::now();
   while (!expiration_queue.empty() &&
