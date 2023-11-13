@@ -41,7 +41,7 @@ struct RecordHeader {
   }
 
   operator Span<>() { return {(char *)this, sizeof(*this)}; }
-  Span<> Contents() { return {contents, length.get()}; }
+  Span<> Contents() { return {contents, length.Get()}; }
 };
 
 static_assert(sizeof(RecordHeader) == 5,
@@ -656,7 +656,7 @@ struct Phase1 : Phase {
         break;
       }
       } // switch (extension_type)
-    }   // while (!server_hello.empty())
+    } // while (!server_hello.empty())
 
     sha_builder.Update(handshake);
     curve25519::Shared shared_secret =
@@ -701,7 +701,7 @@ Size ConsumeRecord(Connection &conn) {
     AppendErrorMessage(conn) += "TLS stream corrupted";
     return 0;
   }
-  Size record_size = sizeof(RecordHeader) + record_header.length.get();
+  Size record_size = sizeof(RecordHeader) + record_header.length.Get();
   if (received_tcp.size() < record_size) {
     return 0; // wait for more data
   }
