@@ -628,7 +628,6 @@ Vec<Interface> Netlink::GetInterfaces(Status &status) {
             break;
           }
         }
-        interfaces.push_back(i);
       },
       status);
   return interfaces;
