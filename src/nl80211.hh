@@ -381,7 +381,7 @@ struct Netlink {
 
   void SetMulticastToUnicast(Interface::Index, bool enable, Status &);
 
-  void NewKey(Interface::Index, Span<> key_data, CipherSuite, KeyIndex,
+  void NewKey(Interface::Index, MAC *, Span<> key_data, CipherSuite, KeyIndex,
               Status &);
 
   void SetKey(Interface::Index, KeyIndex, bool key_default,

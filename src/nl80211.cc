@@ -802,12 +802,15 @@ void Netlink::SetMulticastToUnicast(Interface::Index ifindex, bool enable,
   SEND_WITH_ACK(buf, hdr, status);
 }
 
-void Netlink::NewKey(Interface::Index ifindex, Span<> key_data,
+void Netlink::NewKey(Interface::Index ifindex, MAC *mac, Span<> key_data,
                      CipherSuite cipher_suite, KeyIndex key_index,
                      Status &status) {
   BufferBuilder buf(128);
   auto hdr = AppendHeader(*this, buf, NL80211_CMD_NEW_KEY);
   AppendAttrPrimitive(buf, NL80211_ATTR_IFINDEX, ifindex);
+  if (mac) {
+    AppendAttrPrimitive(buf, NL80211_ATTR_MAC, *mac);
+  }
   BufferBuilder key_attr(64);
   AppendAttrRange(key_attr, NL80211_KEY_DATA, key_data);
   AppendAttrPrimitive(key_attr, NL80211_KEY_CIPHER, cipher_suite);
