@@ -1,5 +1,7 @@
 #pragma once
 
+#include "status.hh"
+
 // Helpers for working with 802.1X (EAP).
 namespace maf::eap {
 
@@ -16,6 +18,8 @@ struct KeyInformation {
   int key_index : 2;
   bool install : 1;
   bool key_ack : 1;
+
+  void Validate(KeyInformation expected, Status &status) const;
 } __attribute__((packed));
 
 static_assert(sizeof(KeyInformation) == 2, "KeyInformation must be 2 bytes");
