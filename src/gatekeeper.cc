@@ -18,6 +18,7 @@
 #include "interface.hh"
 #include "log.hh"
 #include "netlink.hh"
+#include "passgen.hh"
 #include "proc.hh"
 #include "random.hh"
 #include "rtnetlink.hh"
@@ -81,6 +82,11 @@ void gatekeeper::UnhookSignals() {
   sigabrt.reset();
   sigterm.reset();
   sigint.reset();
+}
+
+StrView GetWifiPassword() {
+  static Str password = RandomPassword52bit();
+  return password;
 }
 
 const char *gatekeeper::kUnderstoodEnvironmentVariables[] = {
@@ -189,6 +195,7 @@ Interface PickLANInterface(Status &status) {
     if (iface.IsWireless()) {
       LOG << "Starting Wi-Fi access point on interface \"" << iface.name
           << "\".";
+      StrView password = GetWifiPassword();
       Status wifi_status;
       wifi_access_points.emplace_back(
           new wifi::AccessPoint(iface, wifi::Band::kPrefer5GHz, etc::hostname,
@@ -201,6 +208,10 @@ Interface PickLANInterface(Status &status) {
         --i;
       }
     }
+  }
+
+  if (!wifi_access_points.empty()) {
+    LOG << "Wi-Fi password: " << GetWifiPassword();
   }
 
   if (candidates.empty()) {

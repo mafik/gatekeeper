@@ -90,6 +90,12 @@ constexpr inline Span<char, N - 1> SpanOf(const char (&c_str)[N]) {
   return Span<char, N - 1>(const_cast<char *>(c_str), N - 1);
 }
 
+// Span of an arbitrary type passed by reference.
+template <typename T>
+constexpr inline Span<char, sizeof(T)> SpanOfRef(const T &x) {
+  return Span<char, sizeof(T)>((char *)&x, sizeof(T));
+}
+
 inline StrView StrViewOf(Span<char> span) {
   return StrView(span.data(), span.size());
 }
