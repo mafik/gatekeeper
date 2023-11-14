@@ -123,7 +123,7 @@ compiler = os.environ[
 default_compile_args = [
     '-std=c++2b', '-fcolor-diagnostics', '-static', '-ffunction-sections',
     '-fdata-sections', '-funsigned-char', '-D_FORTIFY_SOURCE=2', '-Wformat',
-    '-Wformat-security', '-Werror=format-security', '-fno-plt'
+    '-Wformat-security', '-Werror=format-security', '-fno-plt', '-Wno-vla-extension'
 ]
 if 'CXXFLAGS' in os.environ:
     default_compile_args += os.environ['CXXFLAGS'].split()
