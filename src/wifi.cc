@@ -22,6 +22,24 @@ namespace maf::wifi {
 
 // #define DEBUG_WIFI 1
 
+// See section 9.4.2.25 RSNE
+struct RSNE_WPA2 {
+  nl80211::ElementID tag_number = nl80211::ElementID::RSN;
+  U8 length = sizeof(*this) - 2;
+  U16 version = 1;
+  Big<U32> group_cipher_suite = (U32)nl80211::CipherSuite::CCMP;
+  U16 pairwise_cipher_suite_count = 1;
+  Big<U32> pairwise_cipher_suite = (U32)nl80211::CipherSuite::CCMP;
+  U16 akm_suite_count = 1;
+  Big<U32> akm_suite = (U32)nl80211::AuthenticationKeyManagement::PSK;
+  nl80211::RSNCapabilities capabilities = {
+      .gtksa_replay_counter_usage =
+          nl80211::ReplayCountersUsage::SIXTEEN, // Required by WMM
+  };
+} __attribute__((packed));
+
+static constexpr RSNE_WPA2 kRSNE = {};
+
 static void PRF(Span<> out, Span<> key, StrView a_label, Span<> b) {
   const U8 n = (out.size() + sizeof(SHA1) - 1) / sizeof(SHA1);
   for (U8 i = 0; i < n; ++i) {
@@ -68,7 +86,6 @@ struct EAPOLReceiver : epoll::Listener {
 
 Optional<EAPOLReceiver> eapol_receiver;
 Optional<nl80211::Netlink> mlme_netlink;
-BufferBuilder rsne;
 std::vector<AccessPoint *> access_points;
 
 static void OnNewStation(nl80211::Interface::Index ifindex, MAC mac,
@@ -175,23 +192,6 @@ static void Start(AccessPoint &ap, Status &status) {
   }
 
   access_points.push_back(&ap);
-
-  rsne.AppendPrimitive((U16)1); // Version
-  AppendBigEndian<U32>(rsne.buffer,
-                       (U32)nl80211::CipherSuite::CCMP); // Group cipher suite
-  rsne.AppendPrimitive((U16)1); // Pairwise cipher suite count
-  AppendBigEndian<U32>(
-      rsne.buffer,
-      (U32)nl80211::CipherSuite::CCMP); // Pairwise cipher suite
-  rsne.AppendPrimitive((U16)1);         // AKM suite count
-  AppendBigEndian<U32>(
-      rsne.buffer,
-      (U32)nl80211::AuthenticationKeyManagement::PSK); // AKM suite
-  nl80211::RSNCapabilities rsn_capabilities;
-  // Required by WMM
-  rsn_capabilities.gtksa_replay_counter_usage =
-      nl80211::ReplayCountersUsage::SIXTEEN;
-  rsne.AppendPrimitive(rsn_capabilities);
 }
 
 static void Stop(AccessPoint &ap) {
@@ -285,7 +285,7 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
   AppendElementPrimitive(beacon_head, nl80211::ElementID::DSSS_PARAMETER_SET,
                          (U8)channel);
 
-  AppendElementRange(beacon_tail, nl80211::ElementID::RSN, (Span<>)rsne);
+  beacon_tail.AppendPrimitive(kRSNE);
 
   { // HT Capabilities
     BufferBuilder ht_capabilities;
@@ -662,7 +662,7 @@ struct Handshake : Expirable, HashableByMAC<Handshake> {
     auto key_data_length_ref = eapol3.AppendPrimitive(Big<U16>(0));
 
     BufferBuilder key_data;
-    AppendElementRange(key_data, nl80211::ElementID::RSN, (Span<>)rsne);
+    key_data.AppendPrimitive(kRSNE);
     Arr<char, 22> gtk_header{
         0x00,       0x0f,       0xac, // OUI
         0x01,                         // Type

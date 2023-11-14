@@ -34,7 +34,7 @@ template <typename T> struct Big {
   T big_endian;
 
   Big() = default;
-  Big(T host_value) : big_endian(std::byteswap(host_value)) {}
+  constexpr Big(T host_value) : big_endian(std::byteswap(host_value)) {}
 
   T Get() const { return std::byteswap(big_endian); }
   void Set(T value) { big_endian = std::byteswap(value); }
