@@ -84,9 +84,11 @@ struct Span : std::span<T, Extent> {
   Str ToStr() const { return Str(this->data(), this->size() * sizeof(T)); }
 };
 
+constexpr Span<char, 0> kEmptySpan;
+
 // Span of a C string, excluding the null terminator.
 template <size_t N>
-constexpr inline Span<char, N - 1> SpanOf(const char (&c_str)[N]) {
+constexpr inline Span<char, N - 1> SpanOfCStr(const char (&c_str)[N]) {
   return Span<char, N - 1>(const_cast<char *>(c_str), N - 1);
 }
 

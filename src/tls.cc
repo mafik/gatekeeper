@@ -13,6 +13,7 @@
 #include "log.hh"
 #include "poly1305.hh"
 #include "sha.hh"
+#include "span.hh"
 #include "status.hh"
 
 namespace maf::tls {
@@ -59,7 +60,7 @@ void HKDF_Expand_Label(Span<> key, StrView label, Span<> ctx, Span<> out) {
 
 Arr<char, 32> zero_key = {};
 SHA256 early_secret = HKDF_Extract<SHA256>(Span<>("\x00", 1), zero_key);
-SHA256 empty_hash(SpanOf(""));
+SHA256 empty_hash(kEmptySpan);
 Arr<char, 6> kClientChangeCipherSpec = HexArr("140303000101");
 
 static void XorIV(Arr<char, 12> &iv, U64 counter) {
@@ -78,8 +79,8 @@ struct RecordWrapper {
   RecordWrapper() = default;
 
   RecordWrapper(Span<char, 32> secret) {
-    HKDF_Expand_Label(secret, "tls13 key", SpanOf(""), key);
-    HKDF_Expand_Label(secret, "tls13 iv", SpanOf(""), iv);
+    HKDF_Expand_Label(secret, "tls13 key", kEmptySpan, key);
+    HKDF_Expand_Label(secret, "tls13 iv", kEmptySpan, iv);
   }
 
   void Wrap(Vec<> &buf, U8 record_type, std::function<void()> wrapped) {
@@ -359,7 +360,7 @@ struct Phase2 : Phase {
 
         client_wrapper.Wrap(conn.tcp_connection.outbox, 0x16, [&]() {
           Arr<char, 32> finished_key; // Hash-size-bytes
-          HKDF_Expand_Label(client_secret, "tls13 finished", SpanOf(""),
+          HKDF_Expand_Label(client_secret, "tls13 finished", kEmptySpan,
                             finished_key);
           SHA256 verify_data = HMAC<SHA256>(finished_key, handshake_hash);
           auto &buf = conn.tcp_connection.outbox;

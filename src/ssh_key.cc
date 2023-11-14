@@ -47,7 +47,7 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
     return {};
   }
   Span<> buf = decoded;
-  static constexpr auto kSshKeyMagic = SpanOf("openssh-key-v1\0");
+  static constexpr auto kSshKeyMagic = SpanOfCStr("openssh-key-v1\0");
   if (!buf.StartsWith(kSshKeyMagic)) {
     AppendErrorMessage(status) +=
         "Key at " + Str(path) +
