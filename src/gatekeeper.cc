@@ -3,13 +3,6 @@
 #include <algorithm>
 #include <csignal>
 #include <cstdlib>
-#include <fcntl.h>
-#include <linux/if.h>
-#include <linux/wireless.h>
-#include <string>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <unordered_set>
 
 #include "../build/generated/version.hh"
 #include "atexit.hh"
@@ -34,8 +27,10 @@
 #include "split.hh"
 #include "status.hh"
 #include "systemd.hh"
+#include "unique_ptr.hh"
 #include "update.hh"
 #include "webui.hh"
+#include "wifi.hh"
 #include "xdg.hh"
 
 #pragma maf main
@@ -48,6 +43,8 @@ Optional<SignalHandler> sigabrt; // systemd watchdog
 Optional<SignalHandler> sigterm; // systemctl stop & systemd timeout
 Optional<SignalHandler> sigint;  // Ctrl+C
 
+Vec<UniquePtr<wifi::AccessPoint>> wifi_access_points;
+
 void StopSignal(const char *signal) {
   LOG << "Received " << signal << ". Stopping Gatekeeper.";
   webui::Stop();
@@ -57,6 +54,7 @@ void StopSignal(const char *signal) {
   systemd::Stop();
   update::Stop();
   firewall::Stop();
+  wifi_access_points.clear();
   // Signal handlers must be stopped so that epoll::Loop would terminate.
   UnhookSignals();
 }
@@ -176,17 +174,33 @@ Interface PickLANInterface(Status &status) {
       if (iface.IsLoopback()) { // skip loopback
         return;
       }
-      if (iface.IsWireless()) { // skip wireless
-        return;
-      }
       // TODO: try DHCP INFORM probe
       Status ip_status;
       iface.IP(ip_status);
-      if (!OK(ip_status)) { // skip interfaces with IPs
+      if (OK(ip_status)) { // skip interfaces with IPs
         return;
       }
       candidates.push_back(iface);
     });
+  }
+
+  for (int i = 0; i < candidates.size(); ++i) {
+    auto &iface = candidates[i];
+    if (iface.IsWireless()) {
+      LOG << "Starting Wi-Fi access point on interface \"" << iface.name
+          << "\".";
+      Status wifi_status;
+      wifi_access_points.emplace_back(
+          new wifi::AccessPoint(iface, wifi::Band::kPrefer5GHz, etc::hostname,
+                                "password"sv, wifi_status));
+      if (!OK(wifi_status)) {
+        ERROR << "Couldn't configure Wi-Fi on interface " << iface.name << ". "
+              << wifi_status;
+        wifi_access_points.pop_back();
+        candidates.erase(candidates.begin() + i);
+        --i;
+      }
+    }
   }
 
   if (candidates.empty()) {
@@ -372,6 +386,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  etc::ReadConfig();
+
   lan = PickLANInterface(status);
   if (!status.Ok()) {
     ERROR << status;
@@ -422,8 +438,6 @@ int main(int argc, char *argv[]) {
     }
     AtExit(Deconfigure);
   }
-
-  etc::ReadConfig();
 
   KillConflictingProcesses(status);
   if (!OK(status)) {

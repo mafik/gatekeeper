@@ -143,12 +143,12 @@ Network Interface::Network(Status &status) {
   return {.ip = ip & netmask, .netmask = netmask};
 }
 
-void Interface::BringUp(Status &status) {
+void Interface::BringUp(Status &status) const {
   FD fd;
   BringInterfaceUp(fd, *this, status);
 }
 
-void Interface::BringDown(Status &status) {
+void Interface::BringDown(Status &status) const {
   FD fd;
   BringInterfaceDown(fd, *this, status);
 }
