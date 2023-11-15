@@ -355,21 +355,17 @@ void KillConflictingProcesses(Status &status) {
       },
       status);
   RETURN_ON_ERROR(status);
-  ScanProcesses(
-      [&inodes, &pids](U32 pid, Status &status) {
-        ScanOpenedFiles(
-            pid,
-            [&](U32 fd, StrView path, Status &status) {
-              if (path.starts_with("socket:[") && path.ends_with("]")) {
-                U32 inode = strtoul(path.data() + 8, nullptr, 10);
-                if (inodes.contains(inode)) {
-                  pids.insert(pid);
-                }
-              }
-            },
-            status);
-      },
-      status);
+  for (U32 pid : ScanProcesses(status)) {
+    for (auto [fd, path] : ScanOpenedFiles(pid, status)) {
+      RETURN_ON_ERROR(status);
+      if (path.starts_with("socket:[") && path.ends_with("]")) {
+        U32 inode = strtoul(path.data() + 8, nullptr, 10);
+        if (inodes.contains(inode)) {
+          pids.insert(pid);
+        }
+      }
+    }
+  }
   RETURN_ON_ERROR(status);
   U32 my_pid = getpid();
   if (pids.contains(my_pid)) {

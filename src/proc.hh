@@ -2,15 +2,16 @@
 
 // Functions for working with the /proc filesystem.
 
-#include "fn.hh"
+#include "generator.hh"
 #include "int.hh"
 #include "status.hh"
 
 namespace maf {
 
-void ScanProcesses(Fn<void(U32 pid, Status &)> callback, Status &);
-void ScanOpenedFiles(U32 pid, Fn<void(U32 fd, StrView path, Status &)>,
-                     Status &);
+Generator<U32> ScanProcesses(Status &);
+
+// Return a sequence of opened (fd, path) pairs for the given process.
+Generator<std::pair<U32, StrView>> ScanOpenedFiles(U32 pid, Status &);
 
 // Returns the name of the process with the given pid or "" in case of error.
 Str GetProcessName(U32 pid, Status &);
