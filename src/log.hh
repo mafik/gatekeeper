@@ -57,9 +57,11 @@ void DefaultLogger(const LogEntry &e);
 // Emscripten).
 extern std::vector<Logger> loggers;
 
-#define LOG LogEntry(LogLevel::Info, std::source_location::current())
-#define ERROR LogEntry(LogLevel::Error, std::source_location::current())
-#define FATAL LogEntry(LogLevel::Fatal, std::source_location::current())
+#define LOG maf::LogEntry(maf::LogLevel::Info, std::source_location::current())
+#define ERROR                                                                  \
+  maf::LogEntry(maf::LogLevel::Error, std::source_location::current())
+#define FATAL                                                                  \
+  maf::LogEntry(maf::LogLevel::Fatal, std::source_location::current())
 
 const LogEntry &operator<<(const LogEntry &, int);
 const LogEntry &operator<<(const LogEntry &, long);
