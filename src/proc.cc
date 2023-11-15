@@ -84,6 +84,17 @@ Generator<std::pair<U32, StrView>> ScanOpenedFiles(U32 pid, Status &status) {
   }
 }
 
+Generator<U32> ScanOpenedSockets(U32 pid, Status &status) {
+  for (auto [fd, path] : ScanOpenedFiles(pid, status)) {
+    if (!OK(status)) {
+      co_return;
+    }
+    if (path.starts_with("socket:[") && path.ends_with("]")) {
+      co_yield strtoul(path.data() + 8, nullptr, 10);
+    }
+  }
+}
+
 Str GetProcessName(U32 pid, Status &status) {
   Path path = f("/proc/%d/comm", pid);
   Str process_name = fs::Read(fs::real, path, status);

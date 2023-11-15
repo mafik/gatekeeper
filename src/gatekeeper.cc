@@ -356,13 +356,11 @@ void KillConflictingProcesses(Status &status) {
       status);
   RETURN_ON_ERROR(status);
   for (U32 pid : ScanProcesses(status)) {
-    for (auto [fd, path] : ScanOpenedFiles(pid, status)) {
+    for (auto opened_inode : ScanOpenedSockets(pid, status)) {
       RETURN_ON_ERROR(status);
-      if (path.starts_with("socket:[") && path.ends_with("]")) {
-        U32 inode = strtoul(path.data() + 8, nullptr, 10);
-        if (inodes.contains(inode)) {
-          pids.insert(pid);
-        }
+      if (inodes.contains(opened_inode)) {
+        pids.insert(pid);
+        break;
       }
     }
   }
