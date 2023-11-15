@@ -39,8 +39,8 @@ void Install(Status &status) {
     return;
   }
 
-  for (int i = 0; kUnderstoodEnvironmentVariables[i]; ++i) {
-    auto env = kUnderstoodEnvironmentVariables[i];
+  for (int i = 0; kKnownEnvironmentVariables[i]; ++i) {
+    auto env = kKnownEnvironmentVariables[i];
     if (auto val = getenv(env)) {
       systemd::OverrideEnvironment("gatekeeper", env, val, status);
       if (!status.Ok()) {

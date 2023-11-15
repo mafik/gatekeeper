@@ -84,13 +84,48 @@ void gatekeeper::UnhookSignals() {
   sigint.reset();
 }
 
-StrView GetWifiPassword() {
-  static Str password = RandomPassword52bit();
-  return password;
+const char *gatekeeper::kKnownEnvironmentVariables[] = {
+    "LAN", "WAN", "NO_AUTO_UPDATE", "WIFI_PASSWORD", "WIFI_NAME", nullptr};
+
+// Get Environment Variable `name` or call `default_fn` and return its result.
+//
+// If `persist_default` is true, then save the result of `default_fn` so that
+// subsequent calls will return the same value.
+static Str GetEnvDefault(const char *name, Fn<Str()> default_fn,
+                         bool persist_default = false) {
+  if (auto env = getenv(name)) {
+    return env;
+  }
+  auto default_value = default_fn();
+  if (persist_default) {
+    Status status;
+    if (setenv(name, default_value.c_str(), 1) == -1) {
+      AppendErrorMessage(status) += f("Couldn't save %s in env", name);
+      FATAL << status;
+    }
+    if (systemd::IsRunningUnderSystemd()) {
+      systemd::OverrideEnvironment("gatekeeper", name, default_value, status);
+      if (!OK(status)) {
+        AppendErrorMessage(status) +=
+            f("Couldn't save %s in systemd service environment", name);
+        FATAL << status;
+      }
+    }
+  }
+  return default_value;
 }
 
-const char *gatekeeper::kUnderstoodEnvironmentVariables[] = {
-    "LAN", "WAN", "NO_AUTO_UPDATE", nullptr};
+StrView GetWifiPassword() {
+  static Str wifi_password =
+      GetEnvDefault("WIFI_PASSWORD", RandomPassword52bit, true);
+  return wifi_password;
+}
+
+StrView GetWifiName() {
+  static Str wifi_name =
+      GetEnvDefault("WIFI_NAME", []() { return etc::hostname; });
+  return wifi_name;
+}
 
 Interface PickWANInterface(Status &status) {
   if (auto env_WAN = getenv("WAN")) {
@@ -311,9 +346,7 @@ void KillConflictingProcesses(Status &status) {
         }
       },
       status);
-  if (!OK(status)) {
-    return;
-  }
+  RETURN_ON_ERROR(status);
   ScanTcpSockets(
       [&](InternetSocketDescription &desc) {
         if (desc.local_port == 1337) {
@@ -321,9 +354,7 @@ void KillConflictingProcesses(Status &status) {
         }
       },
       status);
-  if (!OK(status)) {
-    return;
-  }
+  RETURN_ON_ERROR(status);
   ScanProcesses(
       [&inodes, &pids](U32 pid, Status &status) {
         ScanOpenedFiles(
@@ -339,9 +370,7 @@ void KillConflictingProcesses(Status &status) {
             status);
       },
       status);
-  if (!OK(status)) {
-    return;
-  }
+  RETURN_ON_ERROR(status);
   U32 my_pid = getpid();
   if (pids.contains(my_pid)) {
     // Current Gatekeeper process is already listening on the vital ports.
