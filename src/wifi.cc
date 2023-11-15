@@ -1,5 +1,6 @@
 #include "wifi.hh"
 
+#include <csignal>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <sys/socket.h>
@@ -13,10 +14,13 @@
 #include "log.hh"
 #include "nl80211.hh"
 #include "pbkdf2.hh"
+#include "proc.hh"
 #include "random.hh"
 #include "sha.hh"
+#include "sock_diag.hh"
 #include "span.hh"
 #include "status.hh"
+#include "systemd.hh"
 
 namespace maf::wifi {
 
@@ -84,6 +88,7 @@ struct EAPOLReceiver : epoll::Listener {
   const char *Name() const override { return "EAPOLReceiver"; }
 };
 
+Optional<systemd::MaskGuard> wpa_supplicant_mask;
 Optional<EAPOLReceiver> eapol_receiver;
 Optional<nl80211::Netlink> mlme_netlink;
 std::vector<AccessPoint *> access_points;
@@ -174,8 +179,47 @@ static void EpollCallback(GenericNetlink::Command cmd, Netlink::Attrs attrs) {
   }
 }
 
+static void KillOtherEAPOLListeners(Status &status) {
+  std::unordered_set<U32> inodes, pids;
+  ScanPacketSockets(
+      [&](PacketSocketDescription &desc) {
+        if (desc.protocol == ETH_P_PAE)
+          inodes.insert(desc.inode);
+      },
+      status);
+  RETURN_ON_ERROR(status);
+  if (inodes.empty()) {
+    return;
+  }
+  for (U32 pid : ScanProcesses(status)) {
+    for (auto opened_inode : ScanOpenedSockets(pid, status)) {
+      RETURN_ON_ERROR(status);
+      if (inodes.contains(opened_inode)) {
+        pids.insert(pid);
+        break;
+      }
+    }
+  }
+  if (pids.contains(getpid())) {
+    AppendErrorMessage(status) += "EAPOLListener already running";
+    return;
+  }
+  for (U32 pid : pids) {
+    Status status_ignored;
+    Str process_name = GetProcessName(pid, status_ignored);
+    LOG << "Killing conflicting process \"" << process_name << "\" (PID=" << pid
+        << ")";
+    kill(pid, SIGKILL);
+  }
+}
+
 static void Start(AccessPoint &ap, Status &status) {
   if (access_points.empty()) {
+    wpa_supplicant_mask.emplace("wpa_supplicant");
+
+    KillOtherEAPOLListeners(status);
+    RETURN_ON_ERROR(status);
+
     eapol_receiver.emplace(status);
     RETURN_ON_ERROR(status);
     mlme_netlink.emplace(status);
@@ -210,6 +254,7 @@ static void Stop(AccessPoint &ap) {
       epoll::Del(&(mlme_netlink->gn.netlink), status_ignore);
     }
     mlme_netlink.reset();
+    wpa_supplicant_mask.reset();
   }
 }
 
@@ -218,10 +263,15 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
     : netlink(status) {
   RETURN_ON_ERROR(status);
 
-  Start(*this, status);
-  RETURN_ON_ERROR(status);
+  RandomBytesSecure(gtk);
+#if DEBUG_WIFI
+  LOG << "GTK: " << BytesToHex(gtk);
+#endif
 
   PBKDF2<SHA1>(psk, password, ssid, 4096);
+
+  Start(*this, status);
+  RETURN_ON_ERROR(status);
 
   auto wiphys = netlink.GetWiphys(status);
   RETURN_ON_ERROR(status);
@@ -459,11 +509,6 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
     netlink.DelStation(iface.index, &broadcast_mac, &disconnect_reason, status);
     RETURN_ON_ERROR(status);
   }
-
-  RandomBytesSecure(gtk);
-#if DEBUG_WIFI
-  LOG << "GTK: " << BytesToHex(gtk);
-#endif
 
   netlink.NewKey(iface.index, nullptr, gtk, nl80211::CipherSuite::CCMP, 1,
                  status);
