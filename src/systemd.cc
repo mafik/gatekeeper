@@ -8,27 +8,43 @@
 
 #include "format.hh"
 #include "log.hh"
+#include "proc.hh"
 #include "status.hh"
 #include "timer.hh"
 #include "virtual_fs.hh"
 
-using namespace maf;
-
-namespace systemd {
+namespace maf::systemd {
 
 std::optional<FD> notify_socket;
 std::optional<FD> journal_socket;
+
+MaskGuard::MaskGuard(StrView unit) : unit(unit), masked(false) {
+  if (!IsSystemdAvailable()) {
+    return;
+  }
+  Str command = f("systemctl mask --now --runtime %s", this->unit.c_str());
+  int ret = system(command.c_str());
+  if (ret) {
+    AppendErrorMessage(status) += "Failed to mask " + this->unit +
+                                  " (exit code " + std::to_string(ret) + ")";
+  }
+  masked = true;
+}
+
+MaskGuard::~MaskGuard() {
+  if (masked) {
+    Str command = f("systemctl unmask --runtime %s", unit.c_str());
+    system(command.c_str());
+  }
+}
 
 bool IsRunningUnderSystemd() { return getenv("NOTIFY_SOCKET") != nullptr; }
 
 bool IsSystemdAvailable() {
   static const bool is_systemd_available = []() {
     Status status_ignored;
-    Str process_name = fs::Read(fs::real, "/proc/1/comm", status_ignored);
-    if (!OK(status_ignored)) {
-      return false;
-    }
-    return process_name == "systemd\n";
+    Str process_name = GetProcessName(1, status_ignored);
+    return process_name == "systemd";
   }();
   return is_systemd_available;
 }
@@ -225,4 +241,4 @@ void Ready() { Notify("READY=1"); }
 
 void Stop() { StopWatchdog(); }
 
-} // namespace systemd
+} // namespace maf::systemd

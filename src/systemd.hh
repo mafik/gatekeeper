@@ -3,7 +3,16 @@
 #include "status.hh"
 #include "str.hh"
 
-namespace systemd {
+namespace maf::systemd {
+
+// A RAII class that masks the given unit from systemd.
+struct MaskGuard {
+  Str unit;
+  Status status;
+  bool masked;
+  MaskGuard(StrView unit);
+  ~MaskGuard();
+};
 
 // Returns true when the current process is running under systemd.
 bool IsRunningUnderSystemd();
@@ -36,4 +45,4 @@ void Stop();
 void OverrideEnvironment(maf::StrView unit, maf::StrView env,
                          maf::StrView value, maf::Status &status);
 
-} // namespace systemd
+} // namespace maf::systemd
