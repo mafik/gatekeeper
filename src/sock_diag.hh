@@ -8,6 +8,14 @@
 
 namespace maf {
 
+struct PacketSocketDescription {
+  U16 protocol;
+  U32 inode;
+};
+
+void ScanPacketSockets(Fn<void(PacketSocketDescription &)> callback,
+                       Status &status);
+
 struct InternetSocketDescription {
   IP local_ip;
   U16 local_port;
