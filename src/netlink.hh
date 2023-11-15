@@ -43,9 +43,9 @@ struct Netlink : epoll::Listener {
     template <typename T> T &RemovePrefixHeader(Status &status) {
       T &ret = *(T *)ptr;
       if (size < sizeof(T)) {
-        AppendErrorMessage(status) += f(
-            "Netlink message too small to contain its header (%x vs %x bytes)",
-            size, sizeof(T));
+        AppendErrorMessage(status) +=
+            f("Netlink message too small to contain %s (%d vs %d bytes)",
+              typeid(T).name(), size, sizeof(T));
       } else {
         Size header_size = NLA_ALIGN(sizeof(T));
         ptr += header_size;
