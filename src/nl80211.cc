@@ -21,13 +21,39 @@ namespace maf::nl80211 {
 // #define NL80211_DEBUG
 
 #ifdef NL80211_WARN
-#define WARN_UNKNOWN_ATTR(attr)                                                \
+#define WARN_UNKNOWN_ATTR(attr, to_str)                                        \
   LOG << "Unknown netlink attribute in " << __FUNCTION__ << " (" << __FILE__   \
-      << ":" << __LINE__ << "): " << AttrToStr(attr.type) << " "               \
-      << BytesToHex(attr.Span());
+      << ":" << __LINE__ << "): " << to_str(attr.type) << " "                  \
+      << attr.Span().size() << " bytes " << BytesToHex(attr.Span());
 #else
-#define WARN_UNKNOWN_ATTR(attr)
+#define WARN_UNKNOWN_ATTR(attr, to_str)
 #endif
+
+static Str BitrateAttrToStr(U16 attr) {
+  return BitrateAttrToStr((nl80211_bitrate_attr)attr);
+}
+
+static Str WmmRuleToStr(U16 rule) {
+  return WmmRuleToStr((nl80211_wmm_rule)rule);
+}
+
+static Str FrequencyAttrToStr(U16 attr) {
+  return FrequencyAttrToStr((nl80211_frequency_attr)attr);
+}
+
+static Str BandAttrToStr(U16 attr) {
+  return BandAttrToStr((nl80211_band_attr)attr);
+}
+
+static Str IfaceLimitAttrToStr(U16 attr) {
+  return IfaceLimitAttrToStr((nl80211_iface_limit_attrs)attr);
+}
+
+static Str IfaceCombinationAttrToStr(U16 attr) {
+  return IfaceCombinationAttrToStr((nl80211_if_combination_attrs)attr);
+}
+
+static Str AttrToStr(U16 attr) { return AttrToStr((nl80211_attrs)attr); }
 
 Netlink::Netlink(Status &status) : gn("nl80211"sv, NL80211_CMD_MAX, status) {
   if (!OK(status)) {
@@ -62,7 +88,7 @@ static void ParseBitrate(Bitrate &bitrate, Attr &attr4) {
       bitrate.short_preamble = true;
       break;
     default:
-      WARN_UNKNOWN_ATTR(attr5);
+      WARN_UNKNOWN_ATTR(attr5, BitrateAttrToStr);
       break;
     }
   }
@@ -85,16 +111,22 @@ static void ParseWMMRule(WMMRule &rule, Attr &rule_attrs) {
       rule.txop = rule_attr.As<U16>();
       break;
     default:
-      WARN_UNKNOWN_ATTR(rule_attr);
+      WARN_UNKNOWN_ATTR(rule_attr, WmmRuleToStr);
       break;
     }
   }
 }
 
-static void ParseFrequency(Frequency &f, Attr &freq_attrs) {
+// See nl80211_msg_put_channel in nl80211.c in Linux kernel source.
+static void ParseFrequencyAttrs(Frequency &f, Attr &freq_attrs) {
   for (auto &attr5 : freq_attrs.Unnest()) {
     nl80211_frequency_attr freq_attr = (nl80211_frequency_attr)attr5.type;
     switch (freq_attr) {
+    case __NL80211_FREQUENCY_ATTR_NO_IBSS: // Obsolete equivalent of
+                                           // NL80211_FREQUENCY_ATTR_NO_IR
+    case NL80211_FREQUENCY_ATTR_NO_IR:
+      f.no_ir = true;
+      break;
     case NL80211_FREQUENCY_ATTR_FREQ:
       f.frequency = attr5.As<U32>();
       break;
@@ -150,13 +182,13 @@ static void ParseFrequency(Frequency &f, Attr &freq_attrs) {
       }
       break;
     default:
-      WARN_UNKNOWN_ATTR(attr5);
+      WARN_UNKNOWN_ATTR(attr5, FrequencyAttrToStr);
       break;
     }
   }
 }
 
-static void ParseWiphyBand(Band &band, Attr &band_attrs) {
+static void ParseWiphyBandAttrs(Band &band, Attr &band_attrs) {
   for (auto &attr2 : band_attrs.Unnest()) {
     nl80211_band_attr band_attr = (nl80211_band_attr)attr2.type;
     switch (band_attr) {
@@ -173,7 +205,7 @@ static void ParseWiphyBand(Band &band, Attr &band_attrs) {
           band.frequencies.resize(attr4.type + 1);
         }
         Frequency &freq = band.frequencies[attr4.type];
-        ParseFrequency(freq, attr4);
+        ParseFrequencyAttrs(freq, attr4);
       }
       break;
     case NL80211_BAND_ATTR_HT_MCS_SET:
@@ -217,7 +249,7 @@ static void ParseWiphyBand(Band &band, Attr &band_attrs) {
       }
       break;
     default:
-      WARN_UNKNOWN_ATTR(attr2);
+      WARN_UNKNOWN_ATTR(attr2, BandAttrToStr);
       break;
     }
   }
@@ -239,11 +271,12 @@ static void ParseWiphyBands(Wiphy &wiphy, Attr &attr) {
       band = &wiphy.bands.emplace_back();
       band->nl80211_band = (nl80211_band)attr2.type;
     }
-    ParseWiphyBand(*band, attr2);
+    ParseWiphyBandAttrs(*band, attr2);
   }
 }
 
-static void ParseInterfaceCombination(InterfaceCombination &ic, Attr &attr) {
+static void ParseInterfaceCombinationAttrs(InterfaceCombination &ic,
+                                           Attr &attr) {
   for (auto &attr2 : attr.Unnest()) {
     nl80211_if_combination_attrs attr_type =
         (nl80211_if_combination_attrs)attr2.type;
@@ -264,7 +297,7 @@ static void ParseInterfaceCombination(InterfaceCombination &ic, Attr &attr) {
             }
             break;
           default:
-            WARN_UNKNOWN_ATTR(attr4);
+            WARN_UNKNOWN_ATTR(attr4, IfaceLimitAttrToStr);
             break;
           }
         }
@@ -289,13 +322,13 @@ static void ParseInterfaceCombination(InterfaceCombination &ic, Attr &attr) {
       ic.beacon_interval_min_gcd = attr2.As<U32>();
       break;
     default:
-      WARN_UNKNOWN_ATTR(attr2);
+      WARN_UNKNOWN_ATTR(attr2, IfaceCombinationAttrToStr);
       break;
     }
   }
 }
 
-static void ParseWiphyDump(Vec<Wiphy> &wiphys, Attrs attrs) {
+static void ParseWiphyAttrs(Vec<Wiphy> &wiphys, Attrs attrs) {
   Wiphy *wiphy = nullptr;
   for (auto &attr : attrs) {
     switch (attr.type) {
@@ -412,7 +445,7 @@ static void ParseWiphyDump(Vec<Wiphy> &wiphys, Attrs attrs) {
     case NL80211_ATTR_INTERFACE_COMBINATIONS:
       for (auto &attr2 : attr.Unnest()) {
         InterfaceCombination &ic = wiphy->interface_combinations.emplace_back();
-        ParseInterfaceCombination(ic, attr2);
+        ParseInterfaceCombinationAttrs(ic, attr2);
       }
       break;
     case NL80211_ATTR_DEVICE_AP_SME:
@@ -480,7 +513,7 @@ static void ParseWiphyDump(Vec<Wiphy> &wiphys, Attrs attrs) {
       wiphy->nan_bands_bitmask = attr.As<U32>();
       break;
     default:
-      WARN_UNKNOWN_ATTR(attr);
+      WARN_UNKNOWN_ATTR(attr, AttrToStr);
       break;
     }
   }
@@ -564,11 +597,69 @@ Vec<Wiphy> Netlink::GetWiphys(Status &status) {
   Attr attr_split_wiphy_dump(sizeof(Attr), NL80211_ATTR_SPLIT_WIPHY_DUMP);
   gn.Dump(
       NL80211_CMD_GET_WIPHY, &attr_split_wiphy_dump,
-      [&](Attrs attrs) { ParseWiphyDump(ret, attrs); }, status);
+      [&](Attrs attrs) { ParseWiphyAttrs(ret, attrs); }, status);
   if (!OK(status)) {
     return {};
   }
   return ret;
+}
+
+static void ParseInterfaceAttrs(Interface &i, Attrs attrs) {
+  for (auto &attr : attrs) {
+    switch (attr.type) {
+    case NL80211_ATTR_IFINDEX:
+      i.index = attr.As<U32>();
+      break;
+    case NL80211_ATTR_IFNAME:
+      i.name = attr.Span().ToStr();
+      if (i.name.ends_with("\0")) {
+        i.name.pop_back();
+      }
+      break;
+    case NL80211_ATTR_IFTYPE:
+      i.type = attr.As<nl80211_iftype>();
+      break;
+    case NL80211_ATTR_WIPHY:
+      i.wiphy_index = attr.As<U32>();
+      break;
+    case NL80211_ATTR_WDEV:
+      i.wireless_device_id = attr.As<U64>();
+      break;
+    case NL80211_ATTR_MAC:
+      i.mac = attr.As<MAC>();
+      break;
+    case NL80211_ATTR_GENERATION:
+      // Ignore
+      break;
+    case NL80211_ATTR_4ADDR:
+      i.use_4addr = (bool)attr.As<U8>();
+      break;
+    case NL80211_ATTR_WIPHY_FREQ:
+      i.frequency_MHz = attr.As<U32>();
+      break;
+    case NL80211_ATTR_WIPHY_CHANNEL_TYPE:
+      i.channel_type = attr.As<nl80211_channel_type>();
+      break;
+    case NL80211_ATTR_WIPHY_FREQ_OFFSET:
+      i.frequency_offset = attr.As<U32>();
+      break;
+    case NL80211_ATTR_CHANNEL_WIDTH:
+      i.chan_width = attr.As<nl80211_chan_width>();
+      break;
+    case NL80211_ATTR_CENTER_FREQ1:
+      i.center_frequency1 = attr.As<U32>();
+      break;
+    case NL80211_ATTR_CENTER_FREQ2:
+      i.center_frequency2 = attr.As<U32>();
+      break;
+    case NL80211_ATTR_WIPHY_TX_POWER_LEVEL:
+      i.tx_power_level_mbm = attr.As<I32>();
+      break;
+    default:
+      WARN_UNKNOWN_ATTR(attr, AttrToStr);
+      break;
+    }
+  }
 }
 
 Vec<Interface> Netlink::GetInterfaces(Status &status) {
@@ -577,57 +668,7 @@ Vec<Interface> Netlink::GetInterfaces(Status &status) {
       NL80211_CMD_GET_INTERFACE, nullptr,
       [&](Attrs attrs) {
         Interface &i = interfaces.emplace_back();
-        for (auto &attr : attrs) {
-          switch (attr.type) {
-          case NL80211_ATTR_IFINDEX:
-            i.index = attr.As<U32>();
-            break;
-          case NL80211_ATTR_IFNAME:
-            i.name = attr.Span().ToStr();
-            if (i.name.ends_with("\0")) {
-              i.name.pop_back();
-            }
-            break;
-          case NL80211_ATTR_IFTYPE:
-            i.type = attr.As<nl80211_iftype>();
-            break;
-          case NL80211_ATTR_WIPHY:
-            i.wiphy_index = attr.As<U32>();
-            break;
-          case NL80211_ATTR_WDEV:
-            i.wireless_device_id = attr.As<U64>();
-            break;
-          case NL80211_ATTR_MAC:
-            i.mac = attr.As<MAC>();
-            break;
-          case NL80211_ATTR_GENERATION:
-            // Ignore
-            break;
-          case NL80211_ATTR_4ADDR:
-            i.use_4addr = (bool)attr.As<U8>();
-            break;
-          case NL80211_ATTR_WIPHY_FREQ:
-            i.frequency = attr.As<U32>();
-            break;
-          case NL80211_ATTR_WIPHY_FREQ_OFFSET:
-            i.frequency_offset = attr.As<U32>();
-            break;
-          case NL80211_ATTR_CHANNEL_WIDTH:
-            i.chan_width = attr.As<nl80211_chan_width>();
-            break;
-          case NL80211_ATTR_CENTER_FREQ1:
-            i.center_frequency1 = attr.As<U32>();
-            break;
-          case NL80211_ATTR_CENTER_FREQ2:
-            i.center_frequency2 = attr.As<U32>();
-            break;
-          case NL80211_ATTR_WIPHY_TX_POWER_LEVEL:
-            i.tx_power_level_mbm = attr.As<I32>();
-          default:
-            WARN_UNKNOWN_ATTR(attr);
-            break;
-          }
-        }
+        ParseInterfaceAttrs(i, attrs);
       },
       status);
   return interfaces;
@@ -738,6 +779,19 @@ void Netlink::DelStation(Interface::Index if_index, MAC *mac,
     U16 reason_code = reason->reason_code;
     AppendAttrPrimitive(buf, NL80211_ATTR_REASON_CODE, reason_code);
   }
+  SEND_WITH_ACK(buf, hdr, status);
+}
+
+// See nl80211_parse_chandef in nl80211.c in Linux kernel source.
+void Netlink::SetChannel(Interface::Index ifindex, U32 frequency_MHz,
+                         nl80211_chan_width channel_width,
+                         U32 center_frequency1_MHz, Status &status) {
+  BufferBuilder buf(128);
+  auto hdr = AppendHeader(*this, buf, NL80211_CMD_SET_CHANNEL);
+  AppendAttrPrimitive(buf, NL80211_ATTR_IFINDEX, ifindex);
+  AppendAttrPrimitive(buf, NL80211_ATTR_WIPHY_FREQ, frequency_MHz);
+  AppendAttrPrimitive(buf, NL80211_ATTR_CHANNEL_WIDTH, channel_width);
+  AppendAttrPrimitive(buf, NL80211_ATTR_CENTER_FREQ1, center_frequency1_MHz);
   SEND_WITH_ACK(buf, hdr, status);
 }
 
@@ -939,7 +993,8 @@ Str Interface::Describe() const {
   if (use_4addr) {
     body += "4-address frames: enabled\n";
   }
-  body += "Frequency: " + std::to_string(frequency) + " MHz\n";
+  body += "Frequency: " + std::to_string(frequency_MHz) + " MHz\n";
+  body += "Channel type: " + ChannelTypeToStr(channel_type) + "\n";
   body += "Frequency offset: " + std::to_string(frequency_offset) + " kHz\n";
   body += "Channel width: " + ChanWidthToStr(chan_width) + "\n";
   body += "Center frequency 1: " + std::to_string(center_frequency1) + " MHz\n";
@@ -1560,6 +1615,42 @@ Str IftypeToStr(nl80211_iftype iftype) {
   }
 }
 
+Str ChannelTypeToStr(nl80211_channel_type type) {
+  switch (type) {
+    CASE(NL80211_CHAN_NO_HT);
+    CASE(NL80211_CHAN_HT20);
+    CASE(NL80211_CHAN_HT40MINUS);
+    CASE(NL80211_CHAN_HT40PLUS);
+  default:
+    return f("NL80211_CHAN_%d", (int)type);
+  }
+}
+
+Str IfaceLimitAttrToStr(nl80211_iface_limit_attrs attr) {
+  switch (attr) {
+    CASE(NL80211_IFACE_LIMIT_UNSPEC);
+    CASE(NL80211_IFACE_LIMIT_MAX);
+    CASE(NL80211_IFACE_LIMIT_TYPES);
+  default:
+    return f("NL80211_IFACE_LIMIT_%d", (int)attr);
+  }
+}
+
+Str IfaceCombinationAttrToStr(nl80211_if_combination_attrs attr) {
+  switch (attr) {
+    CASE(NL80211_IFACE_COMB_UNSPEC);
+    CASE(NL80211_IFACE_COMB_LIMITS);
+    CASE(NL80211_IFACE_COMB_MAXNUM);
+    CASE(NL80211_IFACE_COMB_STA_AP_BI_MATCH);
+    CASE(NL80211_IFACE_COMB_NUM_CHANNELS);
+    CASE(NL80211_IFACE_COMB_RADAR_DETECT_WIDTHS);
+    CASE(NL80211_IFACE_COMB_RADAR_DETECT_REGIONS);
+    CASE(NL80211_IFACE_COMB_BI_MIN_GCD);
+  default:
+    return f("NL80211_IFACE_COMB_%d", (int)attr);
+  }
+}
+
 Str CipherSuiteToStr(CipherSuite cipher) {
   switch (cipher) {
     CASE(CipherSuite::FallbackToGroup);
@@ -1726,7 +1817,7 @@ Str CmdToStr(U8 cmd) {
   }
 }
 
-Str AttrToStr(U16 attr) {
+Str AttrToStr(nl80211_attrs attr) {
   switch (attr) {
     CASE(NL80211_ATTR_UNSPEC);
     CASE(NL80211_ATTR_WIPHY);

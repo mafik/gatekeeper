@@ -3,6 +3,7 @@
 #include <csignal>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
+#include <linux/nl80211.h>
 #include <sys/socket.h>
 
 #include "aes.hh"
@@ -473,6 +474,10 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
   }
 
   if_ctrl.BringUp(status);
+  RETURN_ON_ERROR(status);
+
+  // TODO: compute the frequencies
+  netlink.SetChannel(iface.index, 5500, NL80211_CHAN_WIDTH_80, 5530, status);
   RETURN_ON_ERROR(status);
 
   nl80211::AuthenticationKeyManagement akm_suites[] = {

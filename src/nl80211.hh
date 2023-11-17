@@ -177,7 +177,8 @@ struct Interface {
   U64 wireless_device_id;
   MAC mac;
   bool use_4addr;
-  U32 frequency;
+  U32 frequency_MHz;
+  nl80211_channel_type channel_type;
   U32 frequency_offset;
   U32 center_frequency1;
   U32 center_frequency2;
@@ -362,6 +363,8 @@ struct Netlink {
   void SetInterfaceType(Interface::Index, Interface::Type, Status &);
   void RegisterFrame(Interface::Index, U16 frame_type, Status &);
   void DelStation(Interface::Index, MAC *, DisconnectReason *, Status &);
+  void SetChannel(Interface::Index, U32 frequency_MHz, nl80211_chan_width,
+                  U32 center_frequency1_MHz, Status &);
   void StartAP(Interface::Index, Span<> beacon_head, Span<> beacon_tail,
                U32 beacon_interval, U32 dtim_period, StrView ssid,
                nl80211_hidden_ssid, bool privacy, nl80211_auth_type,
@@ -395,9 +398,12 @@ Str ChanWidthToStr(nl80211_chan_width);
 Str ExtFeatureToStr(nl80211_ext_feature_index);
 Str WoWLANTriggerToStr(nl80211_wowlan_triggers);
 Str IftypeToStr(nl80211_iftype);
+Str ChannelTypeToStr(nl80211_channel_type);
+Str IfaceLimitAttrToStr(nl80211_iface_limit_attrs);
+Str IfaceCombinationAttrToStr(nl80211_if_combination_attrs);
 Str CipherSuiteToStr(CipherSuite);
 Str CmdToStr(U8 cmd);
-Str AttrToStr(U16 attr);
+Str AttrToStr(nl80211_attrs);
 Str BandAttrToStr(nl80211_band_attr);
 Str BitrateAttrToStr(nl80211_bitrate_attr);
 Str FrequencyAttrToStr(nl80211_frequency_attr);
