@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <csignal>
 #include <cstdlib>
+#include <ctime>
 
 #include "../build/generated/version.hh"
 #include "atexit.hh"
@@ -225,6 +226,7 @@ Interface PickLANInterface(Status &status) {
     });
   }
 
+  systemd::MaskGuard wpa_supplicant_mask_guard("wpa_supplicant");
   for (int i = 0; i < candidates.size(); ++i) {
     auto &iface = candidates[i];
     if (iface.IsWireless()) {

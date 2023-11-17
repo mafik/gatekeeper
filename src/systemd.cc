@@ -18,21 +18,27 @@ namespace maf::systemd {
 std::optional<FD> notify_socket;
 std::optional<FD> journal_socket;
 
-MaskGuard::MaskGuard(StrView unit) : unit(unit), masked(false) {
+std::unordered_map<Str, U32> unit_to_mask_count;
+
+MaskGuard::MaskGuard(StrView unit) : unit(unit) {
   if (!IsSystemdAvailable()) {
     return;
   }
-  Str command = f("systemctl mask --now --runtime %s", this->unit.c_str());
-  int ret = system(command.c_str());
-  if (ret) {
-    AppendErrorMessage(status) += "Failed to mask " + this->unit +
-                                  " (exit code " + std::to_string(ret) + ")";
+  if (unit_to_mask_count[this->unit]++ == 0) {
+    Str command = f("systemctl mask --now --runtime %s", this->unit.c_str());
+    int ret = system(command.c_str());
+    if (ret) {
+      AppendErrorMessage(status) += "Failed to mask " + this->unit +
+                                    " (exit code " + std::to_string(ret) + ")";
+    }
   }
-  masked = true;
 }
 
 MaskGuard::~MaskGuard() {
-  if (masked) {
+  if (!IsSystemdAvailable()) {
+    return;
+  }
+  if (--unit_to_mask_count[this->unit] == 0) {
     Str command = f("systemctl unmask --runtime %s", unit.c_str());
     system(command.c_str());
   }

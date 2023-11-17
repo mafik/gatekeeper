@@ -9,7 +9,6 @@ namespace maf::systemd {
 struct MaskGuard {
   Str unit;
   Status status;
-  bool masked;
   MaskGuard(StrView unit);
   ~MaskGuard();
 };
