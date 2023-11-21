@@ -188,6 +188,26 @@ struct Interface {
   Str Describe() const;
 };
 
+struct Regulation {
+  Arr<char, 2> alpha2 = {'X', 'X'};
+  nl80211_dfs_regions dfs_region = NL80211_DFS_UNSET;
+
+  struct Rule {
+    std::bitset<32> flags;
+    U32 start_kHz;
+    U32 end_kHz;
+    U32 max_bandwidth_kHz;
+    U32 max_antenna_gain_mBi; // 100 * dBi
+    U32 max_eirp_mBm;         // 100 * dBm; Effective Isotropic Radiated Power
+    U32 dfs_cac_time_ms;      // Channel Availability Check time
+    Str Describe() const;
+  };
+
+  Vec<Rule> rules;
+
+  Str Describe() const;
+};
+
 struct DisconnectReason {
   enum {
     DISASSOCIATION = 0,
@@ -359,6 +379,7 @@ struct Netlink {
 
   Vec<Wiphy> GetWiphys(Status &);
   Vec<Interface> GetInterfaces(Status &);
+  Regulation GetRegulation(Status &);
 
   void SetInterfaceType(Interface::Index, Interface::Type, Status &);
   void RegisterFrame(Interface::Index, U16 frame_type, Status &);
@@ -408,8 +429,10 @@ Str BandAttrToStr(nl80211_band_attr);
 Str BitrateAttrToStr(nl80211_bitrate_attr);
 Str FrequencyAttrToStr(nl80211_frequency_attr);
 Str BssSelectAttrToStr(nl80211_bss_select_attr);
+Str RegRuleAttrToStr(nl80211_reg_rule_attr);
 Str WmmRuleToStr(nl80211_wmm_rule);
 Str DfsStateToStr(DFS::State);
 Str BandToStr(nl80211_band);
+Str DFSRegionToStr(nl80211_dfs_regions);
 
 } // namespace maf::nl80211

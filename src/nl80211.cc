@@ -41,6 +41,10 @@ static Str FrequencyAttrToStr(U16 attr) {
   return FrequencyAttrToStr((nl80211_frequency_attr)attr);
 }
 
+static Str RegRuleAttrToStr(U16 attr) {
+  return RegRuleAttrToStr((nl80211_reg_rule_attr)attr);
+}
+
 static Str BandAttrToStr(U16 attr) {
   return BandAttrToStr((nl80211_band_attr)attr);
 }
@@ -672,6 +676,143 @@ Vec<Interface> Netlink::GetInterfaces(Status &status) {
       },
       status);
   return interfaces;
+}
+
+Str Regulation::Rule::Describe() const {
+  Str ret = f("%d - %d MHz:\n", start_kHz / 1000, end_kHz / 1000);
+  ret += f("  max bandwidth: %d MHz\n", max_bandwidth_kHz / 1000);
+  ret += f("  max antenna gain: %d dBi\n", max_antenna_gain_mBi / 100);
+  ret += f("  max EIRP: %d dBm\n", max_eirp_mBm / 100);
+  if (dfs_cac_time_ms) { // 0 means "use default DFS CAC time"
+    ret += f("  DFS CAC time: %d s\n", dfs_cac_time_ms / 1000);
+  }
+  if (flags.any()) {
+    ret += f("  flags:");
+#define PRINT_FLAG(flag)                                                       \
+  if (flags.to_ulong() & NL80211_RRF_##flag) {                                 \
+    ret += " " #flag;                                                          \
+  }
+    PRINT_FLAG(NO_OFDM)
+    PRINT_FLAG(NO_CCK)
+    PRINT_FLAG(NO_INDOOR)
+    PRINT_FLAG(NO_OUTDOOR)
+    PRINT_FLAG(DFS)
+    PRINT_FLAG(PTP_ONLY)
+    PRINT_FLAG(PTMP_ONLY)
+    PRINT_FLAG(NO_IR)
+    PRINT_FLAG(AUTO_BW)
+    PRINT_FLAG(IR_CONCURRENT)
+    PRINT_FLAG(NO_HT40MINUS)
+    PRINT_FLAG(NO_HT40PLUS)
+    PRINT_FLAG(NO_80MHZ)
+    PRINT_FLAG(NO_160MHZ)
+    PRINT_FLAG(NO_HE)
+#undef PRINT_FLAG
+    ret += "\n";
+  }
+  return ret;
+}
+
+Str Regulation::Describe() const {
+  Str ret;
+  ret += "Regulation for country ";
+  ret += StrView(alpha2.data(), (Size)2);
+  ret += ", ";
+  ret += DFSRegionToStr(dfs_region);
+  ret += ":\n";
+  for (auto &rule : rules) {
+    ret += Indent(rule.Describe());
+  }
+  return ret;
+}
+
+static void ParseRegulationRuleAttrs(Regulation::Rule &rule, Attrs attrs) {
+  for (auto &attr : attrs) {
+    switch (attr.type) {
+    case NL80211_ATTR_REG_RULE_FLAGS:
+      rule.flags = attr.As<U32>();
+      break;
+    case NL80211_ATTR_FREQ_RANGE_START:
+      rule.start_kHz = attr.As<U32>();
+      break;
+    case NL80211_ATTR_FREQ_RANGE_END:
+      rule.end_kHz = attr.As<U32>();
+      break;
+    case NL80211_ATTR_FREQ_RANGE_MAX_BW:
+      rule.max_bandwidth_kHz = attr.As<U32>();
+      break;
+    case NL80211_ATTR_POWER_RULE_MAX_ANT_GAIN:
+      rule.max_antenna_gain_mBi = attr.As<U32>();
+      break;
+    case NL80211_ATTR_POWER_RULE_MAX_EIRP:
+      rule.max_eirp_mBm = attr.As<U32>();
+      break;
+    case NL80211_ATTR_DFS_CAC_TIME:
+      rule.dfs_cac_time_ms = attr.As<U32>();
+      break;
+    default:
+      WARN_UNKNOWN_ATTR(attr, RegRuleAttrToStr);
+      break;
+    }
+  }
+}
+
+static void ParseRegulationAttrs(Regulation &reg, Attrs attrs) {
+  for (auto &attr : attrs) {
+    switch (attr.type) {
+    case NL80211_ATTR_REG_ALPHA2:
+      reg.alpha2[0] = attr.payload[0];
+      reg.alpha2[1] = attr.payload[1];
+      break;
+    case NL80211_ATTR_DFS_REGION:
+      reg.dfs_region = (nl80211_dfs_regions)attr.As<U8>();
+      break;
+    case NL80211_ATTR_REG_RULES:
+      for (auto &rule_attrs : attr.Unnest()) {
+        Regulation::Rule &rule = reg.rules.emplace_back();
+        ParseRegulationRuleAttrs(rule, rule_attrs.Unnest());
+      }
+      break;
+    default:
+      WARN_UNKNOWN_ATTR(attr, AttrToStr);
+    }
+  }
+}
+
+Regulation Netlink::GetRegulation(Status &status) {
+  Regulation reg;
+  BufferBuilder buf;
+  auto hdr = AppendHeader(*this, buf, NL80211_CMD_GET_REG);
+  hdr->nlmsg_len = buf.Size();
+  gn.netlink.Send(hdr, status);
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Couldn't send netlink message";
+    return reg;
+  }
+  gn.Receive(
+      [&](U8 cmd, Attrs attrs) {
+        if (cmd != NL80211_CMD_GET_REG) {
+          AppendErrorMessage(status) +=
+              "Expected NL80211_CMD_GET_REG but got " + CmdToStr(cmd);
+          return;
+        }
+        ParseRegulationAttrs(reg, attrs);
+      },
+      status);
+  if (!OK(status)) {
+    auto &err = AppendErrorMessage(status);
+    err += "Error in nl80211::";
+    err += __FUNCTION__;
+    return reg;
+  }
+  gn.netlink.ReceiveAck(status);
+  if (!OK(status)) {
+    auto &err = AppendErrorMessage(status);
+    err += "Error in nl80211::";
+    err += __FUNCTION__;
+    return reg;
+  }
+  return reg;
 }
 
 void Netlink::SetInterfaceType(Interface::Index if_index, Interface::Type type,
@@ -2198,6 +2339,20 @@ Str BssSelectAttrToStr(nl80211_bss_select_attr attr) {
   }
 }
 
+Str RegRuleAttrToStr(nl80211_reg_rule_attr attr) {
+  switch (attr) {
+    CASE(NL80211_ATTR_REG_RULE_FLAGS);
+    CASE(NL80211_ATTR_FREQ_RANGE_START);
+    CASE(NL80211_ATTR_FREQ_RANGE_END);
+    CASE(NL80211_ATTR_FREQ_RANGE_MAX_BW);
+    CASE(NL80211_ATTR_POWER_RULE_MAX_ANT_GAIN);
+    CASE(NL80211_ATTR_POWER_RULE_MAX_EIRP);
+    CASE(NL80211_ATTR_DFS_CAC_TIME);
+  default:
+    return f("NL80211_REG_RULE_ATTR_%d", attr);
+  }
+}
+
 Str DfsStateToStr(nl80211_dfs_state state) {
   switch (state) {
     CASE(NL80211_DFS_USABLE);
@@ -2228,6 +2383,17 @@ Str BandToStr(nl80211_band band) {
     CASE(NL80211_BAND_S1GHZ);
   default:
     return f("NL80211_BAND_%d", band);
+  }
+}
+
+Str DFSRegionToStr(nl80211_dfs_regions region) {
+  switch (region) {
+    CASE(NL80211_DFS_UNSET);
+    CASE(NL80211_DFS_FCC);
+    CASE(NL80211_DFS_ETSI);
+    CASE(NL80211_DFS_JP);
+  default:
+    return f("NL80211_DFS_%d", region);
   }
 }
 
