@@ -815,6 +815,17 @@ Regulation Netlink::GetRegulation(Status &status) {
   return reg;
 }
 
+void Netlink::RequestSetRegulation(Span<const char, 2> alpha2, Status &status) {
+  BufferBuilder buf;
+  auto hdr = AppendHeader(*this, buf, NL80211_CMD_REQ_SET_REG);
+  Arr<char, 3> alpha2_c_str;
+  alpha2_c_str[0] = alpha2[0];
+  alpha2_c_str[1] = alpha2[1];
+  alpha2_c_str[2] = '\0';
+  AppendAttrPrimitive(buf, NL80211_ATTR_REG_ALPHA2, alpha2_c_str);
+  SEND_WITH_ACK(buf, hdr, status);
+}
+
 void Netlink::SetInterfaceType(Interface::Index if_index, Interface::Type type,
                                Status &status) {
   struct SetInterfaceMessage {

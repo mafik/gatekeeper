@@ -413,6 +413,8 @@ struct Netlink {
 
   void SetStation(Interface::Index, MAC, Span<nl80211_sta_flags> set_flags,
                   Span<nl80211_sta_flags> clear_flags, Status &);
+
+  void RequestSetRegulation(Span<const char, 2> alpha2, Status &);
 };
 
 Str ChanWidthToStr(nl80211_chan_width);
