@@ -8,6 +8,7 @@
 
 #include "aes.hh"
 #include "buffer_builder.hh"
+#include "country.hh"
 #include "eap.hh"
 #include "expirable.hh"
 #include "hex.hh"
@@ -263,6 +264,11 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
                          StrView password, Status &status)
     : netlink(status) {
   RETURN_ON_ERROR(status);
+
+  if (auto *country = GetMachineCountry()) {
+    netlink.RequestSetRegulation(country->alpha2, status);
+    RETURN_ON_ERROR(status);
+  }
 
   RandomBytesSecure(gtk);
 #if DEBUG_WIFI
