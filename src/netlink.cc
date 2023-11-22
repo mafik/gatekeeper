@@ -216,14 +216,12 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
             if (a->nla_type <= NLMSGERR_ATTR_MAX) {
               err_attrs[a->nla_type] = a;
             }
-            buf_iter += a->nla_len;
+            buf_iter += (a->nla_len + 3) & ~3;
           }
           if (err_attrs[NLMSGERR_ATTR_MSG]) {
-            msg += " error message: ";
+            msg += " error message: \"";
             msg += (char *)(err_attrs[NLMSGERR_ATTR_MSG] + 1);
-            msg += " (";
-            msg += std::to_string(err_attrs[NLMSGERR_ATTR_MSG]->nla_len);
-            msg += " bytes)";
+            msg += "\"";
           }
           if (err_attrs[NLMSGERR_ATTR_OFFS]) {
             msg += " error offset: ";
@@ -233,7 +231,6 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
         }
 
         if (buf_iter != end) {
-
           status() += "Netlink error had " + std::to_string(end - buf_iter) +
                       " extra bytes at the end (header says " +
                       std::to_string(hdr->nlmsg_len) +
