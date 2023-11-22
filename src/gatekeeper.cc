@@ -227,6 +227,9 @@ Interface PickLANInterface(Status &status) {
   }
 
   systemd::MaskGuard wpa_supplicant_mask_guard("wpa_supplicant");
+  // Most IoT devices have 2.4GHz Wi-Fi only so it's critical that this band is
+  // covered.
+  bool needs_2GHz = true;
   for (int i = 0; i < candidates.size(); ++i) {
     auto &iface = candidates[i];
     if (iface.IsWireless()) {
@@ -234,15 +237,19 @@ Interface PickLANInterface(Status &status) {
           << "\".";
       StrView password = GetWifiPassword();
       Status wifi_status;
-      wifi_access_points.emplace_back(
-          new wifi::AccessPoint(iface, wifi::Band::kPrefer5GHz, etc::hostname,
-                                "password"sv, wifi_status));
+      wifi_access_points.emplace_back(new wifi::AccessPoint(
+          iface, needs_2GHz ? wifi::Band::kPrefer2GHz : wifi::Band::kPrefer5GHz,
+          etc::hostname, password, wifi_status));
       if (!OK(wifi_status)) {
         ERROR << "Couldn't configure Wi-Fi on interface " << iface.name << ". "
               << wifi_status;
         wifi_access_points.pop_back();
         candidates.erase(candidates.begin() + i);
         --i;
+      }
+
+      if (wifi_access_points.back()->iface.frequency_MHz < 3000) {
+        needs_2GHz = false;
       }
     }
   }

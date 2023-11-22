@@ -7,6 +7,7 @@
 namespace maf::wifi {
 
 enum class Band {
+  kPrefer2GHz,
   kPrefer5GHz,
 };
 

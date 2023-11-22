@@ -1,5 +1,6 @@
 #include "wifi.hh"
 
+#include <algorithm>
 #include <csignal>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
@@ -260,8 +261,8 @@ static void Stop(AccessPoint &ap) {
   }
 }
 
-AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
-                         StrView password, Status &status)
+AccessPoint::AccessPoint(const Interface &if_ctrl, Band band_preference,
+                         StrView ssid, StrView password, Status &status)
     : netlink(status) {
   RETURN_ON_ERROR(status);
 
@@ -269,6 +270,10 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
     netlink.RequestSetRegulation(country->alpha2, status);
     RETURN_ON_ERROR(status);
   }
+  netlink.RequestSetRegulationIndoor(true, status);
+  RETURN_ON_ERROR(status);
+
+  auto reg = netlink.GetRegulation(status);
 
   RandomBytesSecure(gtk);
 #if DEBUG_WIFI
@@ -280,24 +285,7 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
   Start(*this, status);
   RETURN_ON_ERROR(status);
 
-  auto wiphys = netlink.GetWiphys(status);
-  RETURN_ON_ERROR(status);
-
-  auto &wiphy = wiphys.front();
-
-  nl80211::Band *band = nullptr;
-  for (auto &band_it : wiphy.bands) {
-    if (band_it.nl80211_band == NL80211_BAND_5GHZ) {
-      band = &band_it;
-      break;
-    }
-  }
-  if (band == nullptr) {
-    AppendErrorMessage(status) += "No 5GHz band";
-    return;
-  }
-
-  {
+  { // Find interface
     auto interfaces = netlink.GetInterfaces(status);
     RETURN_ON_ERROR(status);
     bool found = false;
@@ -321,184 +309,263 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band, StrView ssid,
     iface.type = NL80211_IFTYPE_AP;
   }
 
-  U8 channel = 100;
-
-  BufferBuilder beacon_head;
-  BufferBuilder beacon_tail;
-  BufferBuilder ie;
-  BufferBuilder ie_probe_resp;
-  BufferBuilder ie_assoc_resp;
-
-  nl80211::BeaconHeader beacon_header(iface.mac);
-  beacon_head.AppendPrimitive(beacon_header);
-
-  AppendElementRange(beacon_head, nl80211::ElementID::SSID, ssid);
-  // TODO: compute supported rates
-  // See `hostapd_prepare_rates` from `hw_features.c` in hostapd
-  // See `hostapd_eid_supp_rates` from `iee802_11.c` in hostapd
-  AppendElementRange(
-      beacon_head, nl80211::ElementID::SUPPORTED_RATES,
-      Arr<U8, 8>{0x8c, 0x12, 0x98, 0x24, 0xb0, 0x48, 0x60, 0x6c});
-  AppendElementPrimitive(beacon_head, nl80211::ElementID::DSSS_PARAMETER_SET,
-                         (U8)channel);
-
-  beacon_tail.AppendPrimitive(kRSNE);
-
-  { // HT Capabilities
-    BufferBuilder ht_capabilities;
-    ht_capabilities.AppendPrimitive(band->ht->capa);
-    U8 a_mpdu_parameters = 0;
-    a_mpdu_parameters |= band->ht->ampdu_factor;
-    a_mpdu_parameters |= band->ht->ampdu_density << 2;
-    ht_capabilities.AppendPrimitive(a_mpdu_parameters);
-    ht_capabilities.AppendRange(band->ht->mcs_set);
-    ht_capabilities.AppendPrimitive((U16)0); // HT Extended Capabilities
-    ht_capabilities.AppendPrimitive(
-        (U32)0);                            // Transmit Beamforming Capabilities
-    ht_capabilities.AppendPrimitive((U8)0); // Antenna Selection Capabilities
-    AppendElementRange(beacon_tail, nl80211::ElementID::HT_CAPABILITIES,
-                       (Span<>)ht_capabilities);
-  }
-
-  { // HT Operation
-    BufferBuilder ht_operation;
-    ht_operation.AppendPrimitive((U8)channel);
-    ht_operation.AppendPrimitive(
-        (U8)0x5); // Secondary Channel Offset = 1, STA Channel Width = 1
-    ht_operation.AppendPrimitive((U32)0); // Everything else set to 0
-    // Blank Basic HT-MCS Set
-    ht_operation.buffer.insert(ht_operation.buffer.end(), 16, 0);
-    AppendElementRange(beacon_tail, nl80211::ElementID::HT_OPERATION,
-                       (Span<>)ht_operation);
-  }
-
-  { // Extended Capabilities
-    BufferBuilder extended_capabilities;
-    // See: `hostapd_eid_ext_capab`
-    extended_capabilities.AppendPrimitive((U8)0x00);
-    extended_capabilities.AppendPrimitive((U8)0x00);
-    extended_capabilities.AppendPrimitive((U8)0x00);
-    extended_capabilities.AppendPrimitive((U8)0x02); // SSID list
-    AppendElementRange(beacon_tail, nl80211::ElementID::EXTENDED_CAPABILITIES,
-                       (Span<>)extended_capabilities);
-    AppendElementRange(ie, nl80211::ElementID::EXTENDED_CAPABILITIES,
-                       (Span<>)extended_capabilities);
-    AppendElementRange(ie_probe_resp, nl80211::ElementID::EXTENDED_CAPABILITIES,
-                       (Span<>)extended_capabilities);
-    AppendElementRange(ie_assoc_resp, nl80211::ElementID::EXTENDED_CAPABILITIES,
-                       (Span<>)extended_capabilities);
-  }
-
-  { // VHT Capabilities
-    BufferBuilder vht_capabilities;
-    vht_capabilities.AppendPrimitive(band->vht->capa);
-    vht_capabilities.buffer.insert(vht_capabilities.buffer.end(),
-                                   band->vht->mcs_set.begin(),
-                                   band->vht->mcs_set.end());
-    AppendElementRange(beacon_tail, nl80211::ElementID::VHT_CAPABILITIES,
-                       (Span<>)vht_capabilities);
-  }
-
-  { // VHT Operation
-    BufferBuilder vht_operation;
-    vht_operation.AppendPrimitive(nl80211::VHTOperationInformation{
-        .channel_width = nl80211::VHTOperationInformation::
-            CHANNEL_WIDTH_80MHZ_160MHZ_80_80MHZ,
-        .channel_center_frequency_segment_0 = 0,
-        .channel_center_frequency_segment_1 = 0,
-    });
-    // Hardcode support for MCS 0-7 on 1 spatial stream.
-    // IIUC this only affects bandwidth between STAs (not between STA and AP).
-    vht_operation.AppendPrimitive(nl80211::VHT_MCS_NSS_Map{
-        .spatial_streams_1 = nl80211::VHT_MCS_NSS_Map::MCS_0_7,
-        .spatial_streams_2 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
-        .spatial_streams_3 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
-        .spatial_streams_4 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
-        .spatial_streams_5 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
-        .spatial_streams_6 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
-        .spatial_streams_7 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
-        .spatial_streams_8 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
-    });
-    AppendElementRange(beacon_tail, nl80211::ElementID::VHT_OPERATION,
-                       (Span<>)vht_operation);
-  }
-
-  { // TX Power Envelope
-    // TODO: Get this from the regulatory domain
-    BufferBuilder tx_power_envelope;
-    tx_power_envelope.AppendPrimitive((U8)2);   // 20 MHz, 40 MHz & 80 MHz
-    tx_power_envelope.AppendPrimitive((U8)127); // 20 MHz
-    tx_power_envelope.AppendPrimitive((U8)127); // 40 MHz
-    tx_power_envelope.AppendPrimitive((U8)127); // 80 MHz
-    AppendElementRange(beacon_tail, nl80211::ElementID::TRANSMIT_POWER_ENVELOPE,
-                       (Span<>)tx_power_envelope);
-  }
-
-  { // WMM
-    // See `hostapd_eid_wmm`
-    BufferBuilder wmm_parameter;
-    AppendBigEndian(wmm_parameter.buffer, (U24)0x0050F2);
-    wmm_parameter.AppendPrimitive((U8)2); // Type
-    wmm_parameter.AppendPrimitive((U8)1); // Subtype
-    wmm_parameter.AppendPrimitive((U8)1); // WMM version 1.0
-    wmm_parameter.AppendPrimitive(nl80211::wmm::QoS_Info_AP{
-        .edca_parameter_set_count = 1,
-        .q_ack = 0,
-        .queue_request = 0,
-        .txop_request = 0,
-        .uapsd = 0,
-    });
-    wmm_parameter.AppendPrimitive((U8)0); // Reserved
-    wmm_parameter.AppendPrimitive(nl80211::wmm::AC_Parameter{
-        .aifsn = 3,
-        .aci = nl80211::wmm::AC::BE,
-        .ecw_min = 4,
-        .ecw_max = 10,
-    });
-    wmm_parameter.AppendPrimitive(nl80211::wmm::AC_Parameter{
-        .aifsn = 7,
-        .aci = nl80211::wmm::AC::BK,
-        .ecw_min = 4,
-        .ecw_max = 10,
-    });
-    wmm_parameter.AppendPrimitive(nl80211::wmm::AC_Parameter{
-        .aifsn = 2,
-        .aci = nl80211::wmm::AC::VI,
-        .ecw_min = 3,
-        .ecw_max = 4,
-        .txop_limit = 94,
-    });
-    wmm_parameter.AppendPrimitive(nl80211::wmm::AC_Parameter{
-        .aifsn = 2,
-        .aci = nl80211::wmm::AC::VO,
-        .ecw_min = 2,
-        .ecw_max = 3,
-        .txop_limit = 47,
-    });
-    AppendElementRange(beacon_tail, nl80211::ElementID::VENDOR_SPECIFIC,
-                       (Span<>)wmm_parameter);
-  }
-
   if_ctrl.BringUp(status);
   RETURN_ON_ERROR(status);
 
-  // TODO: compute the frequencies
-  netlink.SetChannel(iface.index, 5500, NL80211_CHAN_WIDTH_80, 5530, status);
+  auto wiphys = netlink.GetWiphys(status);
   RETURN_ON_ERROR(status);
 
-  nl80211::AuthenticationKeyManagement akm_suites[] = {
-      nl80211::AuthenticationKeyManagement::PSK,
-  };
-  nl80211::CipherSuite ciphers[] = {
-      nl80211::CipherSuite::CCMP,
-  };
+  auto &wiphy = wiphys[iface.wiphy_index];
 
-  netlink.StartAP(iface.index, beacon_head, beacon_tail, 100, 2, ssid,
-                  NL80211_HIDDEN_SSID_NOT_IN_USE, true,
-                  NL80211_AUTHTYPE_OPEN_SYSTEM, NL80211_WPA_VERSION_2,
-                  akm_suites, ciphers, nl80211::CipherSuite::CCMP, ie,
-                  ie_probe_resp, ie_assoc_resp, true, status);
-  RETURN_ON_ERROR(status);
+  auto channels = wiphy.GetChannels(reg);
+
+  std::shuffle(channels.begin(), channels.end(), generator);
+
+  // Sort channels from widest to narrowest.
+  std::stable_sort(channels.begin(), channels.end(),
+                   [](const nl80211::Channel &a, const nl80211::Channel &b) {
+                     return a.width > b.width; // note that this is an enum!
+                   });
+
+  std::stable_sort(
+      channels.begin(), channels.end(),
+      (band_preference == Band::kPrefer2GHz
+           ? [](const nl80211::Channel &a,
+                const nl80211::Channel &b) { return a.GetBand() < b.GetBand(); }
+           : [](const nl80211::Channel &a, const nl80211::Channel &b) {
+               return a.GetBand() > b.GetBand();
+             }));
+
+  bool found_channel = false;
+  for (auto &channel : channels) {
+    U8 channel_number_u8 = channel.ChannelNumber();
+
+    BufferBuilder beacon_head;
+    BufferBuilder beacon_tail;
+    BufferBuilder ie;
+    BufferBuilder ie_probe_resp;
+    BufferBuilder ie_assoc_resp;
+
+    nl80211::BeaconHeader beacon_header(iface.mac);
+    beacon_head.AppendPrimitive(beacon_header);
+
+    AppendElementRange(beacon_head, nl80211::ElementID::SSID, ssid);
+    // TODO: compute supported rates
+    // See `hostapd_prepare_rates` from `hw_features.c` in hostapd
+    // See `hostapd_eid_supp_rates` from `iee802_11.c` in hostapd
+    AppendElementRange(
+        beacon_head, nl80211::ElementID::SUPPORTED_RATES,
+        Arr<U8, 8>{0x8c, 0x12, 0x98, 0x24, 0xb0, 0x48, 0x60, 0x6c});
+    AppendElementPrimitive(beacon_head, nl80211::ElementID::DSSS_PARAMETER_SET,
+                           channel_number_u8);
+
+    beacon_tail.AppendPrimitive(kRSNE);
+
+    if constexpr (false) { // Country Element
+      // This is disabled because it wasn't tested and is probably incomplete.
+      // See 9.4.2.9 of IEEE 802.11-2016 for more information.
+      BufferBuilder country_element;
+      country_element.AppendPrimitive(reg.alpha2);
+      country_element.AppendPrimitive('I');  // indoor
+      country_element.AppendPrimitive('\0'); // padding
+      AppendElementRange(beacon_tail, nl80211::ElementID::COUNTRY,
+                         (Span<>)country_element);
+    }
+
+    // Note that most of those elements can be removed and Linux still somehow
+    // makes it work!
+
+    if (channel.ht.has_value()) {
+      BufferBuilder ht_capabilities;
+      ht_capabilities.AppendPrimitive(channel.ht->capa);
+      U8 a_mpdu_parameters = 0;
+      a_mpdu_parameters |= channel.ht->ampdu_factor;
+      a_mpdu_parameters |= channel.ht->ampdu_density << 2;
+      ht_capabilities.AppendPrimitive(a_mpdu_parameters);
+      ht_capabilities.AppendRange(channel.ht->mcs_set);
+      ht_capabilities.AppendPrimitive((U16)0); // HT Extended Capabilities
+      ht_capabilities.AppendPrimitive(
+          (U32)0); // Transmit Beamforming Capabilities
+      ht_capabilities.AppendPrimitive((U8)0); // Antenna Selection Capabilities
+      AppendElementRange(beacon_tail, nl80211::ElementID::HT_CAPABILITIES,
+                         (Span<>)ht_capabilities);
+
+      // TODO: properly set up secondary channel offset
+      BufferBuilder ht_operation;
+      ht_operation.AppendPrimitive(channel_number_u8);
+      ht_operation.AppendPrimitive(
+          (U8)0x5); // Secondary Channel Offset = 1, STA Channel Width = 1
+      ht_operation.AppendPrimitive((U32)0); // Everything else set to 0
+      // Blank Basic HT-MCS Set
+      ht_operation.buffer.insert(ht_operation.buffer.end(), 16, 0);
+      AppendElementRange(beacon_tail, nl80211::ElementID::HT_OPERATION,
+                         (Span<>)ht_operation);
+    }
+
+    { // Extended Capabilities
+      BufferBuilder extended_capabilities;
+      // See: `hostapd_eid_ext_capab`
+      extended_capabilities.AppendPrimitive((U8)0x00);
+      extended_capabilities.AppendPrimitive((U8)0x00);
+      extended_capabilities.AppendPrimitive((U8)0x00);
+      extended_capabilities.AppendPrimitive((U8)0x02); // SSID list
+      AppendElementRange(beacon_tail, nl80211::ElementID::EXTENDED_CAPABILITIES,
+                         (Span<>)extended_capabilities);
+      AppendElementRange(ie, nl80211::ElementID::EXTENDED_CAPABILITIES,
+                         (Span<>)extended_capabilities);
+      AppendElementRange(ie_probe_resp,
+                         nl80211::ElementID::EXTENDED_CAPABILITIES,
+                         (Span<>)extended_capabilities);
+      AppendElementRange(ie_assoc_resp,
+                         nl80211::ElementID::EXTENDED_CAPABILITIES,
+                         (Span<>)extended_capabilities);
+    }
+
+    if (channel.vht.has_value()) {
+      BufferBuilder vht_capabilities;
+      vht_capabilities.AppendPrimitive(channel.vht->capa);
+      vht_capabilities.buffer.insert(vht_capabilities.buffer.end(),
+                                     channel.vht->mcs_set.begin(),
+                                     channel.vht->mcs_set.end());
+      AppendElementRange(beacon_tail, nl80211::ElementID::VHT_CAPABILITIES,
+                         (Span<>)vht_capabilities);
+
+      BufferBuilder vht_operation;
+      vht_operation.AppendPrimitive(nl80211::VHTOperationInformation{
+          .channel_width = nl80211::VHTOperationInformation::
+              CHANNEL_WIDTH_80MHZ_160MHZ_80_80MHZ,
+          .channel_center_frequency_segment_0 = 0,
+          .channel_center_frequency_segment_1 = 0,
+      });
+      // Hardcode support for MCS 0-7 on 1 spatial stream.
+      // IIUC this only affects bandwidth between STAs (not between STA and AP).
+      vht_operation.AppendPrimitive(nl80211::VHT_MCS_NSS_Map{
+          .spatial_streams_1 = nl80211::VHT_MCS_NSS_Map::MCS_0_7,
+          .spatial_streams_2 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
+          .spatial_streams_3 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
+          .spatial_streams_4 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
+          .spatial_streams_5 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
+          .spatial_streams_6 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
+          .spatial_streams_7 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
+          .spatial_streams_8 = nl80211::VHT_MCS_NSS_Map::NOT_SUPPORTED,
+      });
+      AppendElementRange(beacon_tail, nl80211::ElementID::VHT_OPERATION,
+                         (Span<>)vht_operation);
+    }
+
+    { // TX Power Envelope
+      // TODO: Set this up properly
+      BufferBuilder tx_power_envelope;
+      tx_power_envelope.AppendPrimitive((U8)2);   // 20 MHz, 40 MHz & 80 MHz
+      tx_power_envelope.AppendPrimitive((U8)127); // 20 MHz
+      tx_power_envelope.AppendPrimitive((U8)127); // 40 MHz
+      tx_power_envelope.AppendPrimitive((U8)127); // 80 MHz
+      AppendElementRange(beacon_tail,
+                         nl80211::ElementID::TRANSMIT_POWER_ENVELOPE,
+                         (Span<>)tx_power_envelope);
+    }
+
+    { // WMM
+      // See `hostapd_eid_wmm`
+      BufferBuilder wmm_parameter;
+      AppendBigEndian(wmm_parameter.buffer, (U24)0x0050F2);
+      wmm_parameter.AppendPrimitive((U8)2); // Type
+      wmm_parameter.AppendPrimitive((U8)1); // Subtype
+      wmm_parameter.AppendPrimitive((U8)1); // WMM version 1.0
+      wmm_parameter.AppendPrimitive(nl80211::wmm::QoS_Info_AP{
+          .edca_parameter_set_count = 1,
+          .q_ack = 0,
+          .queue_request = 0,
+          .txop_request = 0,
+          .uapsd = 0,
+      });
+      wmm_parameter.AppendPrimitive((U8)0); // Reserved
+      wmm_parameter.AppendPrimitive(nl80211::wmm::AC_Parameter{
+          .aifsn = 3,
+          .aci = nl80211::wmm::AC::BE,
+          .ecw_min = 4,
+          .ecw_max = 10,
+      });
+      wmm_parameter.AppendPrimitive(nl80211::wmm::AC_Parameter{
+          .aifsn = 7,
+          .aci = nl80211::wmm::AC::BK,
+          .ecw_min = 4,
+          .ecw_max = 10,
+      });
+      wmm_parameter.AppendPrimitive(nl80211::wmm::AC_Parameter{
+          .aifsn = 2,
+          .aci = nl80211::wmm::AC::VI,
+          .ecw_min = 3,
+          .ecw_max = 4,
+          .txop_limit = 94,
+      });
+      wmm_parameter.AppendPrimitive(nl80211::wmm::AC_Parameter{
+          .aifsn = 2,
+          .aci = nl80211::wmm::AC::VO,
+          .ecw_min = 2,
+          .ecw_max = 3,
+          .txop_limit = 47,
+      });
+      AppendElementRange(beacon_tail, nl80211::ElementID::VENDOR_SPECIFIC,
+                         (Span<>)wmm_parameter);
+    }
+
+    netlink.SetChannel(iface.index, channel, status);
+    if (!OK(status)) {
+      status.Reset();
+      continue;
+    }
+    iface.chan_width = channel.width;
+    iface.frequency_MHz = channel.frequency_MHz;
+    iface.center_frequency1 = channel.center_frequency1_MHz;
+    iface.center_frequency2 = channel.center_frequency2_MHz;
+
+    nl80211::AuthenticationKeyManagement akm_suites[] = {
+        nl80211::AuthenticationKeyManagement::PSK,
+    };
+    nl80211::CipherSuite ciphers[] = {
+        nl80211::CipherSuite::CCMP,
+    };
+
+    netlink.StartAP(iface.index, beacon_head, beacon_tail, 100, 2, ssid,
+                    NL80211_HIDDEN_SSID_NOT_IN_USE, true,
+                    NL80211_AUTHTYPE_OPEN_SYSTEM, NL80211_WPA_VERSION_2,
+                    akm_suites, ciphers, nl80211::CipherSuite::CCMP, ie,
+                    ie_probe_resp, ie_assoc_resp, true, status);
+    if (!OK(status)) {
+      status.Reset();
+      continue;
+    }
+
+    found_channel = true;
+    break;
+  }
+
+  if (!found_channel) {
+    AppendErrorMessage(status) += "No suitable channel found";
+    return;
+  }
+
+  Str wifi_type = "Wi-Fi";
+  switch (iface.chan_width) {
+  case NL80211_CHAN_WIDTH_20_NOHT:
+    if (iface.frequency_MHz > 3000) {
+      wifi_type = "Wi-Fi 2 (802.11a)";
+    } else {
+      wifi_type = "Wi-Fi 3 (802.11g)";
+    }
+  case NL80211_CHAN_WIDTH_20:
+  case NL80211_CHAN_WIDTH_40:
+    wifi_type = "Wi-Fi 4 (802.11n)";
+    break;
+  case NL80211_CHAN_WIDTH_80:
+  case NL80211_CHAN_WIDTH_160:
+    wifi_type = "Wi-Fi 5 (802.11ac)";
+    break;
+  default:
+    break;
+  }
+  LOG << "Started " << wifi_type << " access point";
 
   /* // SetBSS results in ENOTSUPP
   char basic_rates[] = {0x0c, 0x18, 0x30};

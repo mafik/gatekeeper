@@ -539,7 +539,8 @@ AppendHeader(Netlink &nl, BufferBuilder &buf, nl80211_commands cmd) {
   return hdr;
 }
 
-static void AppendAttrPrimitive(BufferBuilder &buf, int type, auto &primitive) {
+static void AppendAttrPrimitive(BufferBuilder &buf, int type,
+                                const auto &primitive) {
   buf.AlignTo<4>();
   buf.AppendPrimitive(nlattr{
       .nla_len = (U16)(sizeof(nlattr) + sizeof(primitive)),
@@ -549,7 +550,7 @@ static void AppendAttrPrimitive(BufferBuilder &buf, int type, auto &primitive) {
 }
 
 static void AppendAttrPrimitive(BufferBuilder &buf, nl80211_attrs type,
-                                auto &primitive) {
+                                const auto &primitive) {
   AppendAttrPrimitive(buf, (int)type, primitive);
 }
 
@@ -679,7 +680,7 @@ Vec<Interface> Netlink::GetInterfaces(Status &status) {
 }
 
 Str Regulation::Rule::Describe() const {
-  Str ret = f("%d - %d MHz:\n", start_kHz / 1000, end_kHz / 1000);
+  Str ret = f("%d - %d kHz:\n", start_kHz, end_kHz);
   ret += f("  max bandwidth: %d MHz\n", max_bandwidth_kHz / 1000);
   ret += f("  max antenna gain: %d dBi\n", max_antenna_gain_mBi / 100);
   ret += f("  max EIRP: %d dBm\n", max_eirp_mBm / 100);
@@ -826,6 +827,18 @@ void Netlink::RequestSetRegulation(Span<const char, 2> alpha2, Status &status) {
   SEND_WITH_ACK(buf, hdr, status);
 }
 
+void Netlink::RequestSetRegulationIndoor(bool indoor, Status &status) {
+  BufferBuilder buf;
+  auto hdr = AppendHeader(*this, buf, NL80211_CMD_REQ_SET_REG);
+
+  AppendAttrPrimitive(buf, NL80211_ATTR_USER_REG_HINT_TYPE,
+                      (U32)NL80211_USER_REG_HINT_INDOOR);
+  if (indoor) {
+    AppendAttrFlag(buf, NL80211_ATTR_REG_INDOOR);
+  }
+  SEND_WITH_ACK(buf, hdr, status);
+}
+
 void Netlink::SetInterfaceType(Interface::Index if_index, Interface::Type type,
                                Status &status) {
   struct SetInterfaceMessage {
@@ -935,15 +948,24 @@ void Netlink::DelStation(Interface::Index if_index, MAC *mac,
 }
 
 // See nl80211_parse_chandef in nl80211.c in Linux kernel source.
-void Netlink::SetChannel(Interface::Index ifindex, U32 frequency_MHz,
-                         nl80211_chan_width channel_width,
-                         U32 center_frequency1_MHz, Status &status) {
+void Netlink::SetChannel(Interface::Index ifindex, const Channel &channel,
+                         Status &status) {
   BufferBuilder buf(128);
   auto hdr = AppendHeader(*this, buf, NL80211_CMD_SET_CHANNEL);
   AppendAttrPrimitive(buf, NL80211_ATTR_IFINDEX, ifindex);
-  AppendAttrPrimitive(buf, NL80211_ATTR_WIPHY_FREQ, frequency_MHz);
-  AppendAttrPrimitive(buf, NL80211_ATTR_CHANNEL_WIDTH, channel_width);
-  AppendAttrPrimitive(buf, NL80211_ATTR_CENTER_FREQ1, center_frequency1_MHz);
+  AppendAttrPrimitive(buf, NL80211_ATTR_WIPHY_FREQ, channel.frequency_MHz);
+  AppendAttrPrimitive(buf, NL80211_ATTR_CHANNEL_WIDTH, channel.width);
+  if (channel.width == NL80211_CHAN_WIDTH_80 ||
+      channel.width == NL80211_CHAN_WIDTH_40 ||
+      channel.width == NL80211_CHAN_WIDTH_80P80 ||
+      channel.width == NL80211_CHAN_WIDTH_160) {
+    AppendAttrPrimitive(buf, NL80211_ATTR_CENTER_FREQ1,
+                        channel.center_frequency1_MHz);
+    if (channel.width == NL80211_CHAN_WIDTH_80P80) {
+      AppendAttrPrimitive(buf, NL80211_ATTR_CENTER_FREQ2,
+                          channel.center_frequency2_MHz);
+    }
+  }
   SEND_WITH_ACK(buf, hdr, status);
 }
 
@@ -979,6 +1001,13 @@ void Netlink::StartAP(Interface::Index ifindex, Span<> beacon_head,
   if (socket_owner) {
     AppendAttrFlag(buf, NL80211_ATTR_SOCKET_OWNER);
   }
+  SEND_WITH_ACK(buf, hdr, status);
+}
+
+void Netlink::StopAP(Interface::Index ifindex, Status &status) {
+  BufferBuilder buf;
+  auto hdr = AppendHeader(*this, buf, NL80211_CMD_STOP_AP);
+  AppendAttrPrimitive(buf, NL80211_ATTR_IFINDEX, ifindex);
   SEND_WITH_ACK(buf, hdr, status);
 }
 
@@ -1149,7 +1178,10 @@ Str Interface::Describe() const {
   body += "Channel type: " + ChannelTypeToStr(channel_type) + "\n";
   body += "Frequency offset: " + std::to_string(frequency_offset) + " kHz\n";
   body += "Channel width: " + ChanWidthToStr(chan_width) + "\n";
-  body += "Center frequency 1: " + std::to_string(center_frequency1) + " MHz\n";
+  if (center_frequency1) {
+    body +=
+        "Center frequency 1: " + std::to_string(center_frequency1) + " MHz\n";
+  }
   if (center_frequency2) {
     body +=
         "Center frequency 2: " + std::to_string(center_frequency2) + " MHz\n";
@@ -1287,6 +1319,211 @@ Str InterfaceCombination::Describe() const {
       ret += IftypeToStrShort(iftype);
     }
     ret += ")";
+  }
+  return ret;
+}
+
+Str Channel::Describe() const {
+  Str ret;
+  switch (width) {
+  case NL80211_CHAN_WIDTH_20_NOHT:
+    ret += "20 MHz";
+    break;
+  case NL80211_CHAN_WIDTH_20:
+    ret += "20 MHz HT";
+    break;
+  case NL80211_CHAN_WIDTH_40:
+    ret += "40 MHz HT";
+    break;
+  case NL80211_CHAN_WIDTH_80:
+    ret += "80 MHz VHT";
+    break;
+  case NL80211_CHAN_WIDTH_80P80:
+    ret += "80+80 MHz VHT";
+    break;
+  case NL80211_CHAN_WIDTH_160:
+    ret += "160 MHz VHT";
+    break;
+  default:
+    ret += f("NL80211_CHAN_WIDTH_NUMBER_%d", width);
+    break;
+  }
+  ret += " channel ";
+  ret += f("%d (%d MHz)", ChannelNumber(), frequency_MHz);
+  if (center_frequency1_MHz) {
+    ret += f(" (center frequency 1: %d MHz)", center_frequency1_MHz);
+  }
+  if (center_frequency2_MHz) {
+    ret += f(" (center frequency 2: %d MHz)", center_frequency2_MHz);
+  }
+  return ret;
+}
+
+U32 Channel::ChannelNumber() const {
+  // See: ieee80211_freq_khz_to_channel
+  U32 freq = frequency_MHz;
+  if (freq == 2484)
+    return 14;
+  else if (freq < 2484)
+    return (freq - 2407) / 5;
+  else if (freq >= 4910 && freq <= 4980)
+    return (freq - 4000) / 5;
+  else if (freq < 5925)
+    return (freq - 5000) / 5;
+  else if (freq == 5935)
+    return 2;
+  else if (freq <= 45000)
+    return (freq - 5950) / 5;
+  else if (freq >= 58320 && freq <= 70200)
+    return (freq - 56160) / 2160;
+  else
+    return 0;
+}
+
+nl80211_band Channel::GetBand() const {
+  if (frequency_MHz < 4000) {
+    return NL80211_BAND_2GHZ;
+  } else if (frequency_MHz < 6000) {
+    return NL80211_BAND_5GHZ;
+  } else {
+    return NL80211_BAND_60GHZ;
+  }
+}
+
+bool Regulation::Check(U32 center_MHz, U32 bandwidth_MHz) const {
+  U32 center_kHz = center_MHz * 1000;
+  U32 bandwidth_kHz = bandwidth_MHz * 1000;
+  U32 low_kHz = center_kHz - bandwidth_kHz / 2;
+  U32 high_kHz = center_kHz + bandwidth_kHz / 2;
+
+  // Find the rule that contains the lower frequency bound.
+  int a;
+  for (a = 0; a < rules.size(); ++a) {
+    if (rules[a].start_kHz <= low_kHz && rules[a].end_kHz >= low_kHz) {
+      break;
+    }
+  }
+  if (a == rules.size()) {
+    return false; // Lower bound of the frequency range is not regulated
+  }
+  // Find the rule that contains the higher frequency bound.
+  int b;
+  for (b = rules.size() - 1; b >= 0; --b) {
+    if (rules[b].start_kHz <= high_kHz && rules[b].end_kHz >= high_kHz) {
+      break;
+    }
+  }
+  if (b < 0) {
+    return false; // Upper bound of the frequency range is not regulated
+  }
+  for (int i = a; i <= b; ++i) {
+    // Check whether rules are contiguous.
+    if (i > a) {
+      if (rules[i].start_kHz != rules[i - 1].end_kHz) {
+        return false; // Unregulated region within the frequency range
+      }
+    }
+    auto &r = rules[i];
+    if (r.max_bandwidth_kHz < bandwidth_kHz) {
+      return false;
+    }
+  }
+  return true;
+}
+
+Vec<Channel> Wiphy::GetChannels(const Regulation &reg) const {
+  Vec<Channel> ret;
+  for (auto &band : bands) {
+    for (int freq_i = 0; freq_i < band.frequencies.size(); ++freq_i) {
+      auto &freq = band.frequencies[freq_i];
+      if (freq.disabled || freq.no_ir) {
+        continue;
+      }
+      if (!reg.Check(freq.frequency, 20)) {
+        continue;
+      }
+      ret.emplace_back(Channel{
+          .width = NL80211_CHAN_WIDTH_20_NOHT,
+          .frequency_MHz = freq.frequency,
+          .ht = std::nullopt,
+          .vht = std::nullopt,
+      });
+      if (band.ht.has_value()) {
+        ret.emplace_back(Channel{
+            .width = NL80211_CHAN_WIDTH_20,
+            .frequency_MHz = freq.frequency,
+            .ht = band.ht,
+            .vht = std::nullopt,
+        });
+        if (!freq.no_ht40_minus) {
+          if (reg.Check(freq.frequency - 10, 40)) {
+            ret.emplace_back(Channel{
+                .width = NL80211_CHAN_WIDTH_40,
+                .frequency_MHz = freq.frequency,
+                .center_frequency1_MHz = freq.frequency - 10,
+                .ht = band.ht,
+                .vht = std::nullopt,
+            });
+          }
+        }
+        if (!freq.no_ht40_plus) {
+          if (reg.Check(freq.frequency + 10, 40)) {
+            ret.emplace_back(Channel{
+                .width = NL80211_CHAN_WIDTH_40,
+                .frequency_MHz = freq.frequency,
+                .center_frequency1_MHz = freq.frequency + 10,
+                .ht = band.ht,
+                .vht = std::nullopt,
+            });
+          }
+        }
+        if (!freq.no_80mhz) {
+          for (auto off : {-30, -10, 10, 30}) {
+            U32 center_frequency1_MHz = freq.frequency + off;
+            if (!reg.Check(center_frequency1_MHz, 80)) {
+              continue;
+            }
+            ret.emplace_back(Channel{
+                .width = NL80211_CHAN_WIDTH_80,
+                .frequency_MHz = freq.frequency,
+                .center_frequency1_MHz = center_frequency1_MHz,
+                .ht = band.ht,
+                .vht = band.vht,
+            });
+            // Separation of 80 is not possible because then we should use 160
+            // MHz-wide channels. Minimum separation is therefore 85. It seems
+            // that everybody uses 20 MHz spacing though.
+            for (U32 center_frequency2_MHz = center_frequency1_MHz + 100;
+                 center_frequency2_MHz < band.frequencies.back().frequency;
+                 center_frequency2_MHz += 20) {
+              if (reg.Check(center_frequency2_MHz, 80)) {
+                ret.emplace_back(Channel{
+                    .width = NL80211_CHAN_WIDTH_80P80,
+                    .frequency_MHz = freq.frequency,
+                    .center_frequency1_MHz = center_frequency1_MHz,
+                    .center_frequency2_MHz = center_frequency2_MHz,
+                    .ht = band.ht,
+                    .vht = band.vht,
+                });
+              }
+            }
+          }
+        }
+        if (!freq.no_160mhz) {
+          for (auto off : {-70, -50, -30, -10, 10, 30, 50, 70}) {
+            if (reg.Check(freq.frequency + off, 160)) {
+              ret.emplace_back(Channel{
+                  .width = NL80211_CHAN_WIDTH_160,
+                  .frequency_MHz = freq.frequency,
+                  .center_frequency1_MHz = freq.frequency + off,
+                  .ht = band.ht,
+                  .vht = band.vht,
+              });
+            }
+          }
+        }
+      }
+    }
   }
   return ret;
 }

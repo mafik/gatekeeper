@@ -110,6 +110,40 @@ struct VendorCommand {
   U32 subcommand;
 };
 
+struct Channel {
+  nl80211_chan_width width;
+  U32 frequency_MHz;
+  U32 center_frequency1_MHz;
+  U32 center_frequency2_MHz;
+  Optional<Band::HighThroughput> ht;
+  Optional<Band::VeryHighThroughput> vht;
+
+  Str Describe() const;
+  U32 ChannelNumber() const;
+  nl80211_band GetBand() const;
+};
+
+struct Regulation {
+  Arr<char, 2> alpha2 = {'X', 'X'};
+  nl80211_dfs_regions dfs_region = NL80211_DFS_UNSET;
+
+  struct Rule {
+    std::bitset<32> flags;
+    U32 start_kHz;
+    U32 end_kHz;
+    U32 max_bandwidth_kHz;
+    U32 max_antenna_gain_mBi; // 100 * dBi
+    U32 max_eirp_mBm;         // 100 * dBm; Effective Isotropic Radiated Power
+    U32 dfs_cac_time_ms;      // Channel Availability Check time
+    Str Describe() const;
+  };
+
+  Vec<Rule> rules;
+
+  Str Describe() const;
+  bool Check(U32 center_MHz, U32 bandwidth_MHz) const;
+};
+
 struct Wiphy {
   int index;
   Str name;
@@ -165,6 +199,7 @@ struct Wiphy {
   Vec<nl80211_bss_select_attr> bss_select; // See NL80211_ATTR_BSS_SELECT
 
   Str Describe() const;
+  Vec<Channel> GetChannels(const Regulation &) const;
 };
 
 struct Interface {
@@ -184,26 +219,6 @@ struct Interface {
   U32 center_frequency2;
   nl80211_chan_width chan_width;
   Optional<I32> tx_power_level_mbm;
-
-  Str Describe() const;
-};
-
-struct Regulation {
-  Arr<char, 2> alpha2 = {'X', 'X'};
-  nl80211_dfs_regions dfs_region = NL80211_DFS_UNSET;
-
-  struct Rule {
-    std::bitset<32> flags;
-    U32 start_kHz;
-    U32 end_kHz;
-    U32 max_bandwidth_kHz;
-    U32 max_antenna_gain_mBi; // 100 * dBi
-    U32 max_eirp_mBm;         // 100 * dBm; Effective Isotropic Radiated Power
-    U32 dfs_cac_time_ms;      // Channel Availability Check time
-    Str Describe() const;
-  };
-
-  Vec<Rule> rules;
 
   Str Describe() const;
 };
@@ -301,7 +316,8 @@ enum class ElementID : U8 {
   CF_PARAMETER_SET = 4,          // See section 9.4.2.5 of IEEE 802.11-2016
   TIM = 5,                       // See section 9.4.2.6 of IEEE 802.11-2016
   IBSS_PARAMETER_SET = 6,        // See section 9.4.2.7 of IEEE 802.11-2016
-  HT_CAPABILITIES = 45,          // See section  9.4.2.56 of IEEE 802.11-2016
+  COUNTRY = 7,                   // See section 9.4.2.9 of IEEE 802.11-2016
+  HT_CAPABILITIES = 45,          // See section 9.4.2.56 of IEEE 802.11-2016
   RSN = 48,                      // See section 9.4.2.25 of IEEE 802.11-2016
   HT_OPERATION = 61,             // See section 9.4.2.57 of IEEE 802.11-2016
   EXTENDED_CAPABILITIES = 127,   // See section 9.4.2.27 of IEEE 802.11-2016
@@ -384,8 +400,7 @@ struct Netlink {
   void SetInterfaceType(Interface::Index, Interface::Type, Status &);
   void RegisterFrame(Interface::Index, U16 frame_type, Status &);
   void DelStation(Interface::Index, MAC *, DisconnectReason *, Status &);
-  void SetChannel(Interface::Index, U32 frequency_MHz, nl80211_chan_width,
-                  U32 center_frequency1_MHz, Status &);
+  void SetChannel(Interface::Index, const Channel &, Status &);
   void StartAP(Interface::Index, Span<> beacon_head, Span<> beacon_tail,
                U32 beacon_interval, U32 dtim_period, StrView ssid,
                nl80211_hidden_ssid, bool privacy, nl80211_auth_type,
@@ -393,6 +408,7 @@ struct Netlink {
                Span<CipherSuite> pairwise_ciphers, CipherSuite group_cipher,
                Span<> ie, Span<> ie_probe_resp, Span<> ie_assoc_resp,
                bool socket_owner, Status &);
+  void StopAP(Interface::Index, Status &);
   // Configure BSS parameters.
   //
   // `ht_opmode` is the second and third octet from `HT Operation Information`
@@ -415,6 +431,7 @@ struct Netlink {
                   Span<nl80211_sta_flags> clear_flags, Status &);
 
   void RequestSetRegulation(Span<const char, 2> alpha2, Status &);
+  void RequestSetRegulationIndoor(bool indoor, Status &);
 };
 
 Str ChanWidthToStr(nl80211_chan_width);
