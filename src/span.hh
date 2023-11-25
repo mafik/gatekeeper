@@ -26,7 +26,7 @@ struct Span : std::span<T, Extent> {
 
   template <Size ExtentRhs>
   inline Span &operator=(const std::span<T, ExtentRhs> &rhs) {
-    std::span<char, Extent>::operator=(rhs);
+    std::span<T, Extent>::operator=(rhs);
     return *this;
   }
 
@@ -40,10 +40,18 @@ struct Span : std::span<T, Extent> {
     return std::equal(prefix.begin(), prefix.end(), this->begin());
   }
 
-  template <typename U> U &As() {
-    assert(this->size() == sizeof(U));
+  template <typename U> U &As(Status &status) {
+    if (this->size() < sizeof(U)) {
+      AppendErrorMessage(status) +=
+          f("Span too small to contain %s (%x vs %x)", typeid(U).name(),
+            this->size(), sizeof(U));
+      // TODO: return nullptr
+    }
     return *(U *)this->data();
   }
+
+  // Unchecked version of As. Use only when you know the span is big enough.
+  template <typename U> U &As() { return *(U *)this->data(); }
 
   template <typename U> U &Consume(Status &status) {
     U &ret = *(U *)this->data();
@@ -52,11 +60,23 @@ struct Span : std::span<T, Extent> {
           f("Span too small to contain %s (%x vs %x)", typeid(U).name(),
             this->size(), sizeof(U));
       this->RemovePrefix(this->size());
+      // TODO: return nullptr
     } else {
       this->RemovePrefix(sizeof(U));
     }
     return ret;
   }
+
+  // Unchecked version of Consume. Use only when you know the span is big
+  // enough.
+  template <typename U> U &Consume() {
+    U *ret = (U *)this->data();
+    RemovePrefix(sizeof(U));
+    return *ret;
+  }
+
+  bool Empty() const { return this->size() == 0; }
+  bool Filled() const { return !this->empty(); }
 
   Span<> ConsumeSpan(Size n, Status &status) {
     Span<> ret = this->first(n);
