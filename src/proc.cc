@@ -6,43 +6,48 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#include "arr.hh"
 #include "fd.hh"
 #include "format.hh"
+#include "status.hh"
 #include "virtual_fs.hh"
 
 namespace maf {
 
-struct linux_dirent64 {
-  U64 d_ino;     /* 64-bit inode number */
-  U64 d_off;     /* 64-bit offset to next structure */
-  U16 d_reclen;  /* Size of this linux_dirent64 */
-  U8 d_type;     /* File type */
-  char d_name[]; /* Filename (null-terminated) */
-};
-
-Generator<U32> ScanProcesses(Status &status) {
-  FD proc(open("/proc", O_RDONLY | O_DIRECTORY));
-  if (proc < 0) {
-    status() += "Couldn't open /proc directory";
-    co_return;
-  }
-  while (true) {
-    U8 buf[4096];
-    SSize ret = syscall(SYS_getdents64, proc.fd, buf, sizeof(buf));
-    if (ret == 0) {
-      co_return;
-    }
-    for (linux_dirent64 *ent = (linux_dirent64 *)buf;
-         ent < (linux_dirent64 *)(buf + ret);
-         ent = (linux_dirent64 *)((U8 *)ent + ent->d_reclen)) {
-      if (ent->d_type == DT_DIR && ent->d_name[0] >= '0' &&
-          ent->d_name[0] <= '9') {
-        U32 pid = atoi(ent->d_name);
-        co_yield pid;
-      }
+static void SkipNonProcesses(ProcessScanner &scanner) {
+  for (auto &ent : scanner.dir_scanner) {
+    if (ent.d_type == DT_DIR && ent.d_name[0] >= '0' && ent.d_name[0] <= '9') {
+      scanner.pid = atoi(ent.d_name);
+      break;
     }
   }
 }
+
+ProcessScanner::ProcessScanner(Status &status) : dir_scanner("/proc", status) {
+  if (!OK(status)) {
+    AppendErrorMessage(status) += "Cannot scan /proc";
+    return;
+  }
+  SkipNonProcesses(*this);
+}
+
+ProcessScanner::Iterator::Iterator(ProcessScanner &scanner)
+    : scanner(scanner) {}
+
+bool ProcessScanner::Iterator::operator!=(ProcessScanner::EndIterator) const {
+  return scanner.dir_scanner.dir.Opened();
+}
+
+ProcessScanner::Iterator &ProcessScanner::Iterator::operator++() {
+  ++scanner.dir_scanner.begin();
+  SkipNonProcesses(scanner);
+  return *this;
+}
+
+U32 ProcessScanner::Iterator::operator*() const { return scanner.pid; }
+
+ProcessScanner::Iterator ProcessScanner::begin() { return Iterator(*this); }
+ProcessScanner::EndIterator ProcessScanner::end() { return {}; }
 
 Generator<std::pair<U32, StrView>> ScanOpenedFiles(U32 pid, Status &status) {
   Str dir = f("/proc/%d/fd", pid);

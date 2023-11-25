@@ -364,7 +364,9 @@ void KillConflictingProcesses(Status &status) {
       },
       status);
   RETURN_ON_ERROR(status);
-  for (U32 pid : ScanProcesses(status)) {
+  auto process_scanner = ProcessScanner(status);
+  RETURN_ON_ERROR(status);
+  for (U32 pid : process_scanner) {
     for (auto opened_inode : ScanOpenedSockets(pid, status)) {
       RETURN_ON_ERROR(status);
       if (inodes.contains(opened_inode)) {
