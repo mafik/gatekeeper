@@ -65,4 +65,6 @@ void FD::Close() {
   }
 }
 
+bool FD::Opened() const { return fd >= 0; }
+
 } // namespace maf

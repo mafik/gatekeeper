@@ -22,6 +22,8 @@ struct FD {
 
   void Close();
 
+  bool Opened() const;
+
   void SetNonBlocking(maf::Status &);
 
   // TODO: move those into another header (fd_net.hh ?)
