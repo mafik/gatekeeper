@@ -121,7 +121,7 @@ compiler = os.environ[
     'CXX'] = os.environ['CXX'] if 'CXX' in os.environ else 'clang++'
 
 default_compile_args = [
-    '-std=c++2b', '-fcolor-diagnostics', '-static', '-ffunction-sections',
+    '-std=c++2c', '-fcolor-diagnostics', '-static', '-ffunction-sections',
     '-fdata-sections', '-funsigned-char', '-D_FORTIFY_SOURCE=2', '-Wformat',
     '-Wformat-security', '-Werror=format-security', '-fno-plt', '-Wno-vla-extension',
     '--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/12/'
