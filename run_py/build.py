@@ -136,11 +136,9 @@ if not (TOOLCHAIN_DIR / 'lib' / 'gcc' / 'x86_64-linux-gnu' / '12').exists():
     (TOOLCHAIN_DIR / 'lib' / 'gcc' / 'x86_64-linux-gnu' / '12').symlink_to('/usr/lib/gcc/x86_64-linux-gnu/12')
 
 default_compile_args = [
-    '-std=gnu++2b', # switch to 2c when GitHub adds support for LLVM-18
-    '-fcolor-diagnostics', '-static', '-ffunction-sections',
+    '-std=gnu++2c', '-fcolor-diagnostics', '-static', '-ffunction-sections',
     '-fdata-sections', '-funsigned-char', '-D_FORTIFY_SOURCE=2', '-Wformat',
     '-Wformat-security', '-Werror=format-security', '-fno-plt', '-Wno-vla-extension',
-    '--gcc-toolchain=' + str(TOOLCHAIN_DIR)
 ]
 if 'CXXFLAGS' in os.environ:
     default_compile_args += os.environ['CXXFLAGS'].split()
