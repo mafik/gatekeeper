@@ -101,6 +101,7 @@ def run_systemd(env):
 def run_dhclient(namespace, interface):
     if not os.path.exists('./tests/dhclient'):
         shutil.copyfile('/sbin/dhclient', './tests/dhclient')
+        shutil.copymode('/sbin/dhclient', './tests/dhclient')
     subprocess.check_call(['ip', 'netns', 'exec', namespace, './tests/dhclient', '-1', '-cf', './tests/dhclient.conf', '-sf', './tests/dhclient-script', '-pf', './tests/dhclient.pid', interface])
     try:
         yield
