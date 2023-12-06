@@ -120,12 +120,27 @@ def plan(srcs) -> tuple[list[ObjectFile], list[Binary]]:
 compiler = os.environ[
     'CXX'] = os.environ['CXX'] if 'CXX' in os.environ else 'clang++'
 
+# Create a fake toolchain to prevent Clang from picking up GCC-13 headers. We only want GCC-12 headers to be present.
+TOOLCHAIN_DIR = fs_utils.build_dir / 'toolchain'
+TOOLCHAIN_DIR.mkdir(parents=True, exist_ok=True)
+
+if not (TOOLCHAIN_DIR / 'include').exists():
+    (TOOLCHAIN_DIR / 'include').symlink_to('/usr/include')
+
+if not (TOOLCHAIN_DIR / 'bin').exists():
+    (TOOLCHAIN_DIR / 'bin').symlink_to('/usr/bin')
+
+(TOOLCHAIN_DIR / 'lib' / 'gcc' / 'x86_64-linux-gnu').mkdir(parents=True, exist_ok=True)
+
+if not (TOOLCHAIN_DIR / 'lib' / 'gcc' / 'x86_64-linux-gnu' / '12').exists():
+    (TOOLCHAIN_DIR / 'lib' / 'gcc' / 'x86_64-linux-gnu' / '12').symlink_to('/usr/lib/gcc/x86_64-linux-gnu/12')
+
 default_compile_args = [
     '-std=gnu++2b', # switch to 2c when GitHub adds support for LLVM-18
     '-fcolor-diagnostics', '-static', '-ffunction-sections',
     '-fdata-sections', '-funsigned-char', '-D_FORTIFY_SOURCE=2', '-Wformat',
     '-Wformat-security', '-Werror=format-security', '-fno-plt', '-Wno-vla-extension',
-    # '--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/12/' # maybe add this after GitHub adds support for LLVM-18
+    '--gcc-toolchain=' + str(TOOLCHAIN_DIR)
 ]
 if 'CXXFLAGS' in os.environ:
     default_compile_args += os.environ['CXXFLAGS'].split()
