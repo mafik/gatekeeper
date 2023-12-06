@@ -20,6 +20,7 @@ jobs:
       with:
         version: "18"
         force-version: true
+        ubuntu-version: "22.04"
     - name: Update APT repositories
       run: sudo apt update
     - name: Install dependencies
