@@ -29,6 +29,7 @@
 #include "split.hh"
 #include "status.hh"
 #include "systemd.hh"
+#include "traffic_log.hh"
 #include "unique_ptr.hh"
 #include "update.hh"
 #include "webui.hh"
@@ -400,6 +401,7 @@ int main(int argc, char *argv[]) {
   Status status;
 
   Expirable::Init();
+  TrafficLog::Init();
   epoll::Init();
 
   systemd::Init();

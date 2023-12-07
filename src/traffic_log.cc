@@ -3,6 +3,7 @@
 #include <chrono>
 #include <set>
 
+#include "atexit.hh"
 #include "webui.hh"
 
 using namespace maf;
@@ -51,6 +52,16 @@ struct OrderByOldestEntry {
 
 set<TrafficLog *, OrderByHosts> traffic_logs;
 multiset<TrafficLog *, OrderByOldestEntry> traffic_log_expiration_queue;
+
+void TrafficLog::Init() {
+  AtExit([]() {
+    for (auto log : traffic_logs) {
+      delete log;
+    }
+    traffic_logs.clear();
+    traffic_log_expiration_queue.clear();
+  });
+}
 
 void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,
                    maf::U32 down) {
