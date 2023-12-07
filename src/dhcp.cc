@@ -757,7 +757,8 @@ IP ChooseInformIP(const PacketView &request, string &error) {
 Server server;
 
 Server::Entry::Entry(Server &server, IP ip, MAC mac, Str hostname)
-    : Expirable(), ip(ip), mac(mac), hostname(hostname) {
+    : Expirable(chrono::steady_clock::time_point::max()), ip(ip), mac(mac),
+      hostname(hostname) {
   server.entries_by_ip.insert(this);
   server.entries_by_mac.insert(this);
 }
@@ -928,8 +929,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     ERROR << "DHCP server received an INFORM packet with a mismatching "
              "source IP: "
           << source_ip.to_string() << " (source IP) vs "
-          << packet.client_ip.to_string() << " (DHCP client_ip)"
-          << "\n"
+          << packet.client_ip.to_string() << " (DHCP client_ip)" << "\n"
           << packet.to_string();
     return;
   }
