@@ -185,6 +185,7 @@ def test_e2e():
 
 
 def test_dhcp():
+    # This test seems to mess with the DHCP server used by Ubuntu's NetworkManager
     NS, A, B = setup_veth_namespace(0)
     subprocess.check_call(["ip", "netns", "exec", NS, "ip", "link", "set", B, "up"])
     with run_systemd({'LAN': A}):
@@ -196,7 +197,12 @@ def test_dhcp():
 
 
 def test_dns():
-    return make.Popen(['sudo', './tests/dns.sh'])
+    NS, A, B = setup_veth_namespace(0)
+    with run_systemd({'LAN': A}), run_dhclient(NS, B):
+        ip = get_ip_address(A)
+        # Start dnsblast
+        # 1000 queries at a rate of 100 QPS.
+        subprocess.check_call(['ip', 'netns', 'exec', NS, './tests/dnsblast.linux.amd64', ip, '1000', '100'])
 
 
 def test_tcp():
