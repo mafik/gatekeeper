@@ -62,6 +62,7 @@ def dogfood():
     sh('ssh root@protectli "mv /opt/gatekeeper/gatekeeper{,.old} && mv /opt/gatekeeper/gatekeeper{.new,} && systemctl restart gatekeeper"',
        check=True)
 
+
 @contextmanager
 def dns_blocker():
     '''
@@ -73,6 +74,7 @@ def dns_blocker():
         yield blocker
     finally:
         blocker.send_signal(signal.SIGTERM)
+
 
 @contextmanager
 def run_systemd(env):
@@ -100,6 +102,7 @@ def run_systemd(env):
     finally:
         subprocess.run(["systemctl", "stop", "gatekeeper-e2e"])
 
+
 @contextmanager
 def run_dhclient(namespace, interface):
     if not os.path.exists('./tests/dhclient'):
@@ -110,6 +113,7 @@ def run_dhclient(namespace, interface):
         yield
     finally:
         subprocess.call(['ip', 'netns', 'exec', namespace, './tests/dhclient', '-cf', './tests/dhclient.conf', '-sf', './tests/dhclient-script', '-pf', './tests/dhclient.pid', '-x', interface], stderr=subprocess.DEVNULL)
+
 
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -122,6 +126,7 @@ def get_ip_address(ifname):
     except OSError:
         return None
     
+
 def setup_veth_namespace(i):
     NS = f"ns{i}"
     A = f"veth{i}a"
@@ -143,6 +148,7 @@ def setup_veth_namespace(i):
     os.makedirs(f"/etc/netns/{NS}", exist_ok=True)
     Path(f"/etc/netns/{NS}/resolv.conf").touch()
     return NS, A, B
+
 
 def test_e2e():
     if os.geteuid() != 0:
@@ -218,9 +224,16 @@ def test_tcp():
         iperf.kill()
         
 
-
 def test_udp():
-    return make.Popen(['sudo', './tests/udp.sh'])
+    NS, A, B = setup_veth_namespace(0)
+    with run_systemd({'LAN': A}), run_dhclient(NS, B):
+        ip = get_ip_address(A)
+        # Start iperf server
+        iperf = subprocess.Popen(['iperf', '-s', '-u', '-e', '-B', f'{ip}%{A}'])
+        # Start iperf client
+        subprocess.check_call(['ip', 'netns', 'exec', NS, 'iperf', '-c', ip, '-u', '-b', '1000M', '-t', '10', '-e'])
+        # Stop iperf server
+        iperf.kill()
 
 
 def hook_final(srcs, objs, bins, recipe: make.Recipe):
