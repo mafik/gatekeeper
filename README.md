@@ -238,7 +238,7 @@ Install most recent LLVM & development tools with:
 
 ```bash
 sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-sudo apt install -y valgrind inotify-tools
+sudo apt install -y inotify-tools
 ```
 </details>
 
@@ -255,7 +255,7 @@ LAN=<interface> ./run gatekeeper --live
 
 There are three build variants of Gatekeeper: `gatekeeper`, `debug_gatekeeper` & `release_gatekeeper`. Use the default one (`gatekeeper`) for regular development since it's the fastest to build. When you need to debug crashes or memory leaks, `debug_gatekeeper` will offer you more debug information. Lastly `release_gatekeeper` is an optimized build with almost no debug information - this one is used for GitHub releases.
 
-In [src/dev_commands.py](src/dev_commands.py) there are some special targets such as `./run gdb` or `./run valgrind`. There is a bunch of tests in functions that start with `test_` that you might find interesting. Some of the targets in that file (`dogfood`, `net_reset`) are specific to my setup but should be fairly clear and pliable to customization.
+In [src/dev_commands.py](src/dev_commands.py) there are some special targets such as `./run gdb` or `./run test_e2e`. There is a bunch of tests in functions that start with `test_` that you might find interesting. Some of the targets in that file (`dogfood`, `net_reset`) are specific to my setup but should be fairly clear and pliable to customization.
 
 Run an end-to-end test. It sets up a virtual LAN & checks whether its properly managed by Gatekeeper.
 ```bash
