@@ -79,6 +79,7 @@ def run_systemd(env):
     '''
     Run Gatekeeper as a systemd service.
     '''
+    subprocess.check_call(["systemctl", "reset-failed"])
     args = ["systemd-run", "--service-type=notify", "--same-dir", "--unit=gatekeeper-e2e", "--quiet"]
     for k, v in env.items():
         args.append(f"--setenv={k}={v}")
@@ -118,33 +119,35 @@ def get_ip_address(ifname):
         )[20:24])
     except OSError:
         return None
+    
+def setup_veth_namespace(i):
+    NS = f"ns{i}"
+    A = f"veth{i}a"
+    B = f"veth{i}b"
+    if not os.path.exists(f"/run/netns/{NS}"):
+        subprocess.check_call(["ip", "netns", "add", NS])
+    if not os.path.exists(f"/sys/class/net/{A}"):
+        subprocess.check_call(["ip", "link", "add", A, "type", "veth", "peer", "name", B, "netns", NS])
+
+    subprocess.check_call(["ip", "addr", "flush", "dev", A])
+    subprocess.check_call(["ip", "link", "set", A, "down"])
+    subprocess.check_call(["ip", "netns", "exec", NS, "ip", "addr", "flush", "dev", B])
+    subprocess.check_call(["ip", "netns", "exec", NS, "ip", "link", "set", B, "down"])
+
+    # Setup fake resolv.conf for our network namespaces.
+    # See man ip-netns for reference.
+    # TL;DR is that empty file is enough for `ip netns` to bind mount it over /etc/resolv.conf
+    # This file will be filled by `test-dhclient-hook`
+    os.makedirs(f"/etc/netns/{NS}", exist_ok=True)
+    Path(f"/etc/netns/{NS}/resolv.conf").touch()
+    return NS, A, B
 
 def test_e2e():
     if os.geteuid() != 0:
         raise Exception("This script must be run as root")
     
     for i in range(4):
-        NS = f"ns{i}"
-        A = f"veth{i}a"
-        B = f"veth{i}b"
-        if not os.path.exists(f"/run/netns/{NS}"):
-            subprocess.check_call(["ip", "netns", "add", NS])
-        if not os.path.exists(f"/sys/class/net/{A}"):
-            subprocess.check_call(["ip", "link", "add", A, "type", "veth", "peer", "name", B, "netns", NS])
-
-        subprocess.check_call(["ip", "addr", "flush", "dev", A])
-        subprocess.check_call(["ip", "link", "set", A, "down"])
-        subprocess.check_call(["ip", "netns", "exec", NS, "ip", "addr", "flush", "dev", B])
-        subprocess.check_call(["ip", "netns", "exec", NS, "ip", "link", "set", B, "down"])
-
-        # Setup fake resolv.conf for our network namespaces.
-        # See man ip-netns for reference.
-        # TL;DR is that empty file is enough for `ip netns` to bind mount it over /etc/resolv.conf
-        # This file will be filled by `test-dhclient-hook`
-        os.makedirs(f"/etc/netns/{NS}", exist_ok=True)
-        Path(f"/etc/netns/{NS}/resolv.conf").touch()
-
-    subprocess.run(["systemctl", "reset-failed"], check=True)
+        setup_veth_namespace(i)
 
     # Start Gatekeeper
     env = {"LAN": " ".join([f"veth{i}a" for i in range(4)])}
@@ -182,7 +185,14 @@ def test_e2e():
 
 
 def test_dhcp():
-    return make.Popen(['sudo', './tests/dhcp.sh'])
+    NS, A, B = setup_veth_namespace(0)
+    subprocess.check_call(["ip", "netns", "exec", NS, "ip", "link", "set", B, "up"])
+    with run_systemd({'LAN': A}):
+        # Start dhammer
+        # 200 requests / second over 10 seconds
+        # Linux has limits for its ARP table size.
+        # See /proc/sys/net/ipv4/neigh/default/gc_thresh{1,2,3}.
+        subprocess.check_call(['ip', 'netns', 'exec', NS, './tests/dhammer.v2.0.0.linux.amd64', 'dhcpv4', '--interface', B, '--mac-count', '1000', '--rps', '200', '--maxlife', '10'])
 
 
 def test_dns():
