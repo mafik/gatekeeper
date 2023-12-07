@@ -136,7 +136,7 @@ if not (TOOLCHAIN_DIR / 'lib' / 'gcc' / 'x86_64-linux-gnu' / '12').exists():
     (TOOLCHAIN_DIR / 'lib' / 'gcc' / 'x86_64-linux-gnu' / '12').symlink_to('/usr/lib/gcc/x86_64-linux-gnu/12')
 
 default_compile_args = [
-    '-std=gnu++2c', '-fcolor-diagnostics', '-static', '-ffunction-sections',
+    '-std=gnu++2c', '-fcolor-diagnostics', '-ffunction-sections',
     '-fdata-sections', '-funsigned-char', '-D_FORTIFY_SOURCE=2', '-Wformat',
     '-Wformat-security', '-Werror=format-security', '-fno-plt', '-Wno-vla-extension',
 ]
@@ -144,24 +144,24 @@ if 'CXXFLAGS' in os.environ:
     default_compile_args += os.environ['CXXFLAGS'].split()
 
 release_compile_args = [
+    '-static',
     '-O3',
     '-DNDEBUG',
     '-flto',
     '-fstack-protector',
 ]
-# -gdwarf-4 is needed by valgrind (called by test_e2e.sh, during GitHub Actions CI)
-debug_compile_args = ['-O0', '-g', '-gdwarf-4', '-D_DEBUG']
+debug_compile_args = ['-O0', '-g', '-D_DEBUG', '-fsanitize=address', '-fsanitize-address-use-after-return=always', '-fno-omit-frame-pointer']
 
 default_link_args = [
-    '-fuse-ld=lld', '-static', '-Wl,--gc-sections', '-Wl,--build-id=none'
+    '-fuse-ld=lld', '-Wl,--gc-sections', '-Wl,--build-id=none'
 ]
 
 if 'LDFLAGS' in os.environ:
     for flag in os.environ['LDFLAGS'].split():
         default_link_args.append(f'-Wl,{flag}')
 
-release_link_args = ['-flto', '-Wl,--strip-all', '-Wl,-z,relro', '-Wl,-z,now']
-debug_link_args = []
+release_link_args = ['-static', '-flto', '-Wl,--strip-all', '-Wl,-z,relro', '-Wl,-z,now']
+debug_link_args = ['-fsanitize=address']
 
 if 'g++' in compiler and 'clang' not in compiler:
     # GCC doesn't support -fcolor-diagnostics

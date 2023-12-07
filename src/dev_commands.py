@@ -35,18 +35,6 @@ def gdb():
     return run('gdb build/debug_gatekeeper -q -ex run')
 
 
-def valgrind():
-    return run(
-        'valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt build/debug_gatekeeper'
-    )
-
-
-def massif():
-    return run(
-        'valgrind --tool=massif --stacks=yes --massif-out-file=massif-out.txt build/debug_gatekeeper'
-    )
-
-
 def net_reset():
     sh('sudo nft delete table gatekeeper')
     sh('sudo ip addr flush dev veth0a')
@@ -81,13 +69,13 @@ def run_systemd(env):
     '''
     Run Gatekeeper as a systemd service.
     '''
+    env['ASAN_OPTIONS'] = 'detect_leaks=1'
     # This seems to mess with the DHCP server used by Ubuntu's NetworkManager
     # TODO: figure out why this happens (Wireshark) & fix it
     subprocess.check_call(["systemctl", "reset-failed"])
     args = ["systemd-run", "--service-type=notify", "--same-dir", "--unit=gatekeeper-e2e", "--quiet"]
     for k, v in env.items():
         args.append(f"--setenv={k}={v}")
-    args += ["valgrind", "--leak-check=yes", "--track-origins=yes", "--log-file=valgrind.log"]
     args += ["build/debug_gatekeeper"]
     p = subprocess.run(args)
     p.invocation_id = subprocess.check_output(["systemctl", "show", "--value", "-p", "InvocationID", "gatekeeper-e2e"]).decode().strip()
@@ -240,8 +228,6 @@ def hook_final(srcs, objs, bins, recipe: make.Recipe):
     deps = ['build/debug_gatekeeper']
     recipe.add_step(debug, [], deps)
     recipe.add_step(gdb, [], deps)
-    recipe.add_step(valgrind, [], deps)
-    recipe.add_step(massif, [], deps)
     recipe.add_step(net_reset, [], deps)
     recipe.add_step(test_e2e, [], deps)
     recipe.add_step(test_dhcp, [], deps)
