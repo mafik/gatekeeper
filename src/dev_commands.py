@@ -69,7 +69,6 @@ def run_systemd(env):
     '''
     Run Gatekeeper as a systemd service.
     '''
-    env['ASAN_OPTIONS'] = 'detect_leaks=1'
     # This seems to mess with the DHCP server used by Ubuntu's NetworkManager
     # TODO: figure out why this happens (Wireshark) & fix it
     subprocess.check_call(["systemctl", "reset-failed"])
