@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_queue.h>
-#include <set>
 #include <sys/prctl.h>
 #include <unistd.h>
 
@@ -18,6 +17,7 @@
 
 #include "config.hh"
 #include "epoll.hh"
+#include "expirable.hh"
 #include "format.hh"
 #include "log.hh"
 #include "netfilter.hh"
@@ -288,7 +288,7 @@ FullConeNAT &FullConeNAT::Lookup(ProtocolID protocol, uint16_t local_port) {
   return nat_table[protocol_index][local_port];
 }
 
-struct SymmetricNAT {
+struct SymmetricNAT : Expirable {
   struct Key {
     IP remote_ip;
     uint16_t remote_port;
@@ -302,25 +302,6 @@ struct SymmetricNAT {
     size_t Hash() const { return *reinterpret_cast<const size_t *>(this); }
   } key;
   IP local_ip;
-  std::chrono::steady_clock::time_point last_used;
-
-  struct OrderByLastUsed {
-    using is_transparent = std::true_type;
-
-    bool operator()(const SymmetricNAT *a, const SymmetricNAT *b) const {
-      return a->last_used < b->last_used;
-    }
-
-    bool operator()(const SymmetricNAT *a,
-                    const std::chrono::steady_clock::time_point b) const {
-      return a->last_used < b;
-    }
-
-    bool operator()(const std::chrono::steady_clock::time_point a,
-                    const SymmetricNAT *b) const {
-      return a < b->last_used;
-    }
-  };
 
   struct HashByRemote {
     using is_transparent = std::true_type;
@@ -341,38 +322,15 @@ struct SymmetricNAT {
     }
   };
 
-  static std::multiset<SymmetricNAT *, OrderByLastUsed> expiration_queue;
   static std::unordered_set<SymmetricNAT *, HashByRemote, EqualByRemote> table;
 
-  void BumpExpiration() {
-    // First remove self from the expiration queue
-    auto [begin, end] = expiration_queue.equal_range(last_used);
-    for (auto it = begin; it != end; ++it) {
-      SymmetricNAT *exp = *it;
-      if (exp == this) {
-        expiration_queue.erase(it);
-        break;
-      }
-    }
-    // Then update the last_used time and re-insert
-    last_used = std::chrono::steady_clock::now();
-    expiration_queue.insert(this);
+  SymmetricNAT(Key key, IP local_ip)
+      : Expirable(30min), key(key), local_ip(local_ip) {
+    table.insert(this);
   }
-
-  static void ExpireOldEntries() {
-    auto cutoff = std::chrono::steady_clock::now() - std::chrono::minutes(30);
-    while (!expiration_queue.empty() &&
-           (*expiration_queue.begin())->last_used < cutoff) {
-      SymmetricNAT *entry = *expiration_queue.begin();
-      expiration_queue.erase(expiration_queue.begin());
-      table.erase(entry);
-      delete entry;
-    }
-  }
+  ~SymmetricNAT() { table.erase(this); }
 };
 
-std::multiset<SymmetricNAT *, SymmetricNAT::OrderByLastUsed>
-    SymmetricNAT::expiration_queue;
 std::unordered_set<SymmetricNAT *, SymmetricNAT::HashByRemote,
                    SymmetricNAT::EqualByRemote>
     SymmetricNAT::table;
@@ -496,7 +454,7 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
   auto &checksum = ip.proto == ProtocolID::TCP ? tcp.checksum : udp.checksum;
   int socket_type = ip.proto == ProtocolID::TCP ? SOCK_STREAM : SOCK_DGRAM;
 
-  SymmetricNAT::ExpireOldEntries();
+  Expirable::Expire();
 
   if (ip.destination_ip == wan_ip && !from_lan && has_ports) {
     // Packet coming to our WAN IP from outside of LAN.
@@ -506,8 +464,8 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     auto it = SymmetricNAT::table.find<SymmetricNAT::Key>(
         {ip.source_ip, inet.source_port, inet.destination_port});
     if (it != SymmetricNAT::table.end()) {
-      // Found a matching entry. Update the last_used time.
-      (*it)->BumpExpiration();
+      // Found a matching entry. Keep this entry for the next 30 minutes.
+      (*it)->UpdateExpiration(30min);
       // Mangle the destination IP to point at the LAN IP
       ip.destination_ip = (*it)->local_ip;
       packet_modified = true;
@@ -549,15 +507,12 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     auto it = SymmetricNAT::table.find<SymmetricNAT::Key>(
         {ip.destination_ip, inet.destination_port, inet.source_port});
     if (it == SymmetricNAT::table.end()) {
-      SymmetricNAT *e = new SymmetricNAT{
-          .key = {ip.destination_ip, inet.destination_port, inet.source_port},
-          .local_ip = ip.source_ip,
-          .last_used = std::chrono::steady_clock::now(),
-      };
-      SymmetricNAT::table.insert(e);
-      SymmetricNAT::expiration_queue.insert(e);
+      new SymmetricNAT(SymmetricNAT::Key{ip.destination_ip,
+                                         inet.destination_port,
+                                         inet.source_port},
+                       ip.source_ip);
     } else {
-      (*it)->BumpExpiration();
+      (*it)->UpdateExpiration(30min);
     }
     // Mangle the source IP to point back at our WAN IP
     ip.source_ip = wan_ip;
