@@ -403,7 +403,8 @@ void InjectAuthoritativeEntry(const Str &domain, IP ip) {
                  .question_count = htons(1),
                  .answer_count = htons(1)},
       .questions = {Question{.domain_name = domain}},
-      .answers = {Record{Question{.domain_name = domain}, nullopt,
+      .answers = {Record{Question{.domain_name = domain},
+                         std::chrono::steady_clock::time_point::max(),
                          (uint16_t)sizeof(ip.addr),
                          string((char *)&ip.addr, sizeof(ip.addr))}}};
   new CachedEntry(dummy_msg);
