@@ -399,6 +399,7 @@ void KillConflictingProcesses(Status &status) {
 int main(int argc, char *argv[]) {
   Status status;
 
+  Expirable::Init();
   epoll::Init();
 
   systemd::Init();

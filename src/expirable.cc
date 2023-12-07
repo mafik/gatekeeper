@@ -1,4 +1,5 @@
 #include "expirable.hh"
+#include "atexit.hh"
 
 #include <cmath>
 #include <set>
@@ -73,6 +74,14 @@ void Expirable::Expire() {
          (*expiration_queue.begin())->expiration < now) {
     delete *expiration_queue.begin();
   }
+}
+
+void Expirable::Init() {
+  AtExit([]() {
+    while (!expiration_queue.empty()) {
+      delete *expiration_queue.begin();
+    }
+  });
 }
 
 } // namespace maf
