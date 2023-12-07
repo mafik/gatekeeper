@@ -79,6 +79,8 @@ def run_systemd(env):
     '''
     Run Gatekeeper as a systemd service.
     '''
+    # This seems to mess with the DHCP server used by Ubuntu's NetworkManager
+    # TODO: figure out why this happens (Wireshark) & fix it
     subprocess.check_call(["systemctl", "reset-failed"])
     args = ["systemd-run", "--service-type=notify", "--same-dir", "--unit=gatekeeper-e2e", "--quiet"]
     for k, v in env.items():
@@ -185,7 +187,6 @@ def test_e2e():
 
 
 def test_dhcp():
-    # This test seems to mess with the DHCP server used by Ubuntu's NetworkManager
     NS, A, B = setup_veth_namespace(0)
     subprocess.check_call(["ip", "netns", "exec", NS, "ip", "link", "set", B, "up"])
     with run_systemd({'LAN': A}):
@@ -206,7 +207,16 @@ def test_dns():
 
 
 def test_tcp():
-    return make.Popen(['sudo', './tests/tcp.sh'])
+    NS, A, B = setup_veth_namespace(0)
+    with run_systemd({'LAN': A}), run_dhclient(NS, B):
+        ip = get_ip_address(A)
+        # Start iperf server
+        iperf = subprocess.Popen(['iperf', '-s', '-e', '-B', f'{ip}%{A}'])
+        # Start iperf client
+        subprocess.check_call(['ip', 'netns', 'exec', NS, 'iperf', '-c', ip, '-t', '10', '-e'])
+        # Stop iperf server
+        iperf.kill()
+        
 
 
 def test_udp():
