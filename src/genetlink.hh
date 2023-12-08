@@ -28,8 +28,6 @@ struct GenericNetlink {
     U32 op_id;
     U32 index;
     U32 flags;
-
-    Str LoggableString() const;
   };
   Vec<Cmd> cmds; // maps netlink command to index
   struct MulticastGroup {
@@ -49,5 +47,8 @@ struct GenericNetlink {
   // Receive a message without any fixed-size header.
   void Receive(Callback cb, Status &status);
 };
+
+Str ToStr(const GenericNetlink::Cmd &);
+static_assert(Stringer<GenericNetlink::Cmd>);
 
 } // namespace maf

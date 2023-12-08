@@ -34,8 +34,6 @@ struct Path {
 
   Path WithStem(StrView stem) const;
 
-  StrView LoggableString() const { return str; }
-
   operator Str() const { return str; }
   operator StrView() const { return str; }
   operator const char *() const { return str.c_str(); }

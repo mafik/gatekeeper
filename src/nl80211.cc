@@ -1168,7 +1168,7 @@ Str Interface::Describe() const {
   ret += f("Interface %d \"%s\":\n", index, name.c_str());
   Str body;
   body += "Type: " + IftypeToStrShort(type) + "\n";
-  body += "MAC: " + mac.to_string() + "\n";
+  body += "MAC: " + mac.ToStr() + "\n";
   body += "Wiphy: " + std::to_string(wiphy_index) + "\n";
   body += "Wireless device ID: " + std::to_string(wireless_device_id) + "\n";
   if (use_4addr) {
@@ -1798,7 +1798,7 @@ Str Wiphy::Describe() const {
     }
   }
   body += "\n";
-  body += "MAC address: " + mac.to_string();
+  body += "MAC address: " + mac.ToStr();
   if (!macs.empty()) {
     body += " (";
     bool first = false;
@@ -1808,7 +1808,7 @@ Str Wiphy::Describe() const {
       } else {
         body += ", ";
       }
-      body += mac.to_string();
+      body += mac.ToStr();
     }
     body += ")";
   }

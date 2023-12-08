@@ -31,253 +31,253 @@ const uint32_t kMagicCookie = 0x63825363;
 namespace options {
 
 // RFC 2132
-enum OptionCode : uint8_t {
-  OptionCode_Pad = 0,
-  OptionCode_SubnetMask = 1,
-  OptionCode_TimeOffset = 2,
-  OptionCode_Router = 3,
-  OptionCode_TimeServer = 4,
-  OptionCode_NameServer = 5,
-  OptionCode_DomainNameServer = 6,
-  OptionCode_LogServer = 7,
-  OptionCode_CookieServer = 8,
-  OptionCode_LPRServer = 9,
-  OptionCode_ImpressServer = 10,
-  OptionCode_ResourceLocationServer = 11,
-  OptionCode_HostName = 12,
-  OptionCode_BootFileSize = 13,
-  OptionCode_MeritDumpFile = 14,
-  OptionCode_DomainName = 15,
-  OptionCode_SwapServer = 16,
-  OptionCode_RootPath = 17,
-  OptionCode_ExtensionsPath = 18,
-  OptionCode_IPForwarding = 19,
-  OptionCode_NonLocalSourceRouting = 20,
-  OptionCode_PolicyFilter = 21,
-  OptionCode_MaximumDatagramReassemblySize = 22,
-  OptionCode_DefaultIPTimeToLive = 23,
-  OptionCode_PathMTUAgingTimeout = 24,
-  OptionCode_PathMTUPlateauTable = 25,
-  OptionCode_InterfaceMTU = 26,
-  OptionCode_AllSubnetsAreLocal = 27,
-  OptionCode_BroadcastAddress = 28,
-  OptionCode_PerformMaskDiscovery = 29,
-  OptionCode_MaskSupplier = 30,
-  OptionCode_PerformRouterDiscovery = 31,
-  OptionCode_RouterSolicitationAddress = 32,
-  OptionCode_StaticRoute = 33,
-  OptionCode_TrailerEncapsulation = 34,
-  OptionCode_ARPCacheTimeout = 35,
-  OptionCode_EthernetEncapsulation = 36,
-  OptionCode_TCPDefaultTTL = 37,
-  OptionCode_TCPKeepaliveInterval = 38,
-  OptionCode_TCPKeepaliveGarbage = 39,
-  OptionCode_NetworkInformationServiceDomain = 40,
-  OptionCode_NetworkInformationServers = 41,
-  OptionCode_NTPServers = 42,
-  OptionCode_VendorSpecificInformation = 43,
-  OptionCode_NetBIOSOverTCPIPNameServer = 44,
-  OptionCode_NetBIOSOverTCPIPDatagramDistributionServer = 45,
-  OptionCode_NetBIOSOverTCPIPNodeType = 46,
-  OptionCode_NetBIOSOverTCPIPScope = 47,
-  OptionCode_XWindowSystemFontServer = 48,
-  OptionCode_XWindowSystemDisplayManager = 49,
-  OptionCode_RequestedIPAddress = 50,
-  OptionCode_IPAddressLeaseTime = 51,
-  OptionCode_Overload = 52,
-  OptionCode_MessageType = 53,
-  OptionCode_ServerIdentifier = 54,
-  OptionCode_ParameterRequestList = 55,
-  OptionCode_Message = 56,
-  OptionCode_MaximumDHCPMessageSize = 57,
-  OptionCode_RenewalTimeValue = 58,
-  OptionCode_RebindingTimeValue = 59,
-  OptionCode_VendorClassIdentifier = 60,
-  OptionCode_ClientIdentifier = 61,
-  OptionCode_NetworkInformationServicePlusDomain = 64,
-  OptionCode_NetworkInformationServicePlusServers = 65,
-  OptionCode_TFTPServerName = 66,
-  OptionCode_BootfileName = 67,
-  OptionCode_MobileIPHomeAgent = 68,
-  OptionCode_SimpleMailTransportProtocol = 69,
-  OptionCode_PostOfficeProtocolServer = 70,
-  OptionCode_NetworkNewsTransportProtocol = 71,
-  OptionCode_DefaultWorldWideWebServer = 72,
-  OptionCode_DefaultFingerServer = 73,
-  OptionCode_DefaultInternetRelayChatServer = 74,
-  OptionCode_StreetTalkServer = 75,
-  OptionCode_StreetTalkDirectoryAssistance = 76,
-  OptionCode_DomainSearch = 119,
-  OptionCode_ClasslessStaticRoute = 121,
-  OptionCode_PrivateClasslessStaticRoute = 249,
-  OptionCode_PrivateProxyAutoDiscovery = 252,
-  OptionCode_End = 255,
+enum class OptionCode : uint8_t {
+  Pad = 0,
+  SubnetMask = 1,
+  TimeOffset = 2,
+  Router = 3,
+  TimeServer = 4,
+  NameServer = 5,
+  DomainNameServer = 6,
+  LogServer = 7,
+  CookieServer = 8,
+  LPRServer = 9,
+  ImpressServer = 10,
+  ResourceLocationServer = 11,
+  HostName = 12,
+  BootFileSize = 13,
+  MeritDumpFile = 14,
+  DomainName = 15,
+  SwapServer = 16,
+  RootPath = 17,
+  ExtensionsPath = 18,
+  IPForwarding = 19,
+  NonLocalSourceRouting = 20,
+  PolicyFilter = 21,
+  MaximumDatagramReassemblySize = 22,
+  DefaultIPTimeToLive = 23,
+  PathMTUAgingTimeout = 24,
+  PathMTUPlateauTable = 25,
+  InterfaceMTU = 26,
+  AllSubnetsAreLocal = 27,
+  BroadcastAddress = 28,
+  PerformMaskDiscovery = 29,
+  MaskSupplier = 30,
+  PerformRouterDiscovery = 31,
+  RouterSolicitationAddress = 32,
+  StaticRoute = 33,
+  TrailerEncapsulation = 34,
+  ARPCacheTimeout = 35,
+  EthernetEncapsulation = 36,
+  TCPDefaultTTL = 37,
+  TCPKeepaliveInterval = 38,
+  TCPKeepaliveGarbage = 39,
+  NetworkInformationServiceDomain = 40,
+  NetworkInformationServers = 41,
+  NTPServers = 42,
+  VendorSpecificInformation = 43,
+  NetBIOSOverTCPIPNameServer = 44,
+  NetBIOSOverTCPIPDatagramDistributionServer = 45,
+  NetBIOSOverTCPIPNodeType = 46,
+  NetBIOSOverTCPIPScope = 47,
+  XWindowSystemFontServer = 48,
+  XWindowSystemDisplayManager = 49,
+  RequestedIPAddress = 50,
+  IPAddressLeaseTime = 51,
+  Overload = 52,
+  MessageType = 53,
+  ServerIdentifier = 54,
+  ParameterRequestList = 55,
+  Message = 56,
+  MaximumDHCPMessageSize = 57,
+  RenewalTimeValue = 58,
+  RebindingTimeValue = 59,
+  VendorClassIdentifier = 60,
+  ClientIdentifier = 61,
+  NetworkInformationServicePlusDomain = 64,
+  NetworkInformationServicePlusServers = 65,
+  TFTPServerName = 66,
+  BootfileName = 67,
+  MobileIPHomeAgent = 68,
+  SimpleMailTransportProtocol = 69,
+  PostOfficeProtocolServer = 70,
+  NetworkNewsTransportProtocol = 71,
+  DefaultWorldWideWebServer = 72,
+  DefaultFingerServer = 73,
+  DefaultInternetRelayChatServer = 74,
+  StreetTalkServer = 75,
+  StreetTalkDirectoryAssistance = 76,
+  DomainSearch = 119,
+  ClasslessStaticRoute = 121,
+  PrivateClasslessStaticRoute = 249,
+  PrivateProxyAutoDiscovery = 252,
+  End = 255,
 };
 
-string OptionCodeToString(OptionCode code) {
+Str ToStr(OptionCode code) {
   switch (code) {
-  case OptionCode_Pad:
+  case OptionCode::Pad:
     return "Pad";
-  case OptionCode_SubnetMask:
+  case OptionCode::SubnetMask:
     return "Subnet Mask";
-  case OptionCode_TimeOffset:
+  case OptionCode::TimeOffset:
     return "Time Offset";
-  case OptionCode_Router:
+  case OptionCode::Router:
     return "Router";
-  case OptionCode_TimeServer:
+  case OptionCode::TimeServer:
     return "Time Server";
-  case OptionCode_NameServer:
+  case OptionCode::NameServer:
     return "Name Server";
-  case OptionCode_DomainNameServer:
+  case OptionCode::DomainNameServer:
     return "Domain Name Server";
-  case OptionCode_LogServer:
+  case OptionCode::LogServer:
     return "Log Server";
-  case OptionCode_CookieServer:
+  case OptionCode::CookieServer:
     return "Cookie Server";
-  case OptionCode_LPRServer:
+  case OptionCode::LPRServer:
     return "LPR Server";
-  case OptionCode_ImpressServer:
+  case OptionCode::ImpressServer:
     return "Impress Server";
-  case OptionCode_ResourceLocationServer:
+  case OptionCode::ResourceLocationServer:
     return "Resource Location Server";
-  case OptionCode_HostName:
+  case OptionCode::HostName:
     return "Host Name";
-  case OptionCode_BootFileSize:
+  case OptionCode::BootFileSize:
     return "Boot File Size";
-  case OptionCode_MeritDumpFile:
+  case OptionCode::MeritDumpFile:
     return "Merit Dump File";
-  case OptionCode_DomainName:
+  case OptionCode::DomainName:
     return "Domain Name";
-  case OptionCode_SwapServer:
+  case OptionCode::SwapServer:
     return "Swap Server";
-  case OptionCode_RootPath:
+  case OptionCode::RootPath:
     return "Root Path";
-  case OptionCode_ExtensionsPath:
+  case OptionCode::ExtensionsPath:
     return "Extensions Path";
-  case OptionCode_IPForwarding:
+  case OptionCode::IPForwarding:
     return "IP Forwarding Enable/Disable";
-  case OptionCode_NonLocalSourceRouting:
+  case OptionCode::NonLocalSourceRouting:
     return "Non-Local Source Routing Enable/Disable";
-  case OptionCode_PolicyFilter:
+  case OptionCode::PolicyFilter:
     return "Policy Filter";
-  case OptionCode_MaximumDatagramReassemblySize:
+  case OptionCode::MaximumDatagramReassemblySize:
     return "Maximum Datagram Reassembly Size";
-  case OptionCode_DefaultIPTimeToLive:
+  case OptionCode::DefaultIPTimeToLive:
     return "Default IP Time To Live";
-  case OptionCode_PathMTUAgingTimeout:
+  case OptionCode::PathMTUAgingTimeout:
     return "Path MTU Aging Timeout";
-  case OptionCode_PathMTUPlateauTable:
+  case OptionCode::PathMTUPlateauTable:
     return "Path MTU Plateau Table";
-  case OptionCode_InterfaceMTU:
+  case OptionCode::InterfaceMTU:
     return "Interface MTU";
-  case OptionCode_AllSubnetsAreLocal:
+  case OptionCode::AllSubnetsAreLocal:
     return "All Subnets Are Local";
-  case OptionCode_BroadcastAddress:
+  case OptionCode::BroadcastAddress:
     return "Broadcast Address";
-  case OptionCode_PerformMaskDiscovery:
+  case OptionCode::PerformMaskDiscovery:
     return "Perform Mask Discovery";
-  case OptionCode_MaskSupplier:
+  case OptionCode::MaskSupplier:
     return "Mask Supplier";
-  case OptionCode_PerformRouterDiscovery:
+  case OptionCode::PerformRouterDiscovery:
     return "Perform Router Discovery";
-  case OptionCode_RouterSolicitationAddress:
+  case OptionCode::RouterSolicitationAddress:
     return "Router Solicitation Address";
-  case OptionCode_StaticRoute:
+  case OptionCode::StaticRoute:
     return "Static Route";
-  case OptionCode_TrailerEncapsulation:
+  case OptionCode::TrailerEncapsulation:
     return "Trailer Encapsulation";
-  case OptionCode_ARPCacheTimeout:
+  case OptionCode::ARPCacheTimeout:
     return "ARP Cache Timeout";
-  case OptionCode_EthernetEncapsulation:
+  case OptionCode::EthernetEncapsulation:
     return "Ethernet Encapsulation";
-  case OptionCode_TCPDefaultTTL:
+  case OptionCode::TCPDefaultTTL:
     return "TCP Default TTL";
-  case OptionCode_TCPKeepaliveInterval:
+  case OptionCode::TCPKeepaliveInterval:
     return "TCP Keepalive Interval";
-  case OptionCode_TCPKeepaliveGarbage:
+  case OptionCode::TCPKeepaliveGarbage:
     return "TCP Keepalive Garbage";
-  case OptionCode_NetworkInformationServiceDomain:
+  case OptionCode::NetworkInformationServiceDomain:
     return "Network Information Service Domain";
-  case OptionCode_NetworkInformationServers:
+  case OptionCode::NetworkInformationServers:
     return "Network Information Servers";
-  case OptionCode_NTPServers:
+  case OptionCode::NTPServers:
     return "NTP Servers";
-  case OptionCode_VendorSpecificInformation:
+  case OptionCode::VendorSpecificInformation:
     return "Vendor Specific Information";
-  case OptionCode_NetBIOSOverTCPIPNameServer:
+  case OptionCode::NetBIOSOverTCPIPNameServer:
     return "NetBIOS over TCP/IP Name Server";
-  case OptionCode_NetBIOSOverTCPIPDatagramDistributionServer:
+  case OptionCode::NetBIOSOverTCPIPDatagramDistributionServer:
     return "NetBIOS over TCP/IP Datagram Distribution Server";
-  case OptionCode_NetBIOSOverTCPIPNodeType:
+  case OptionCode::NetBIOSOverTCPIPNodeType:
     return "NetBIOS over TCP/IP Node Type";
-  case OptionCode_NetBIOSOverTCPIPScope:
+  case OptionCode::NetBIOSOverTCPIPScope:
     return "NetBIOS over TCP/IP Scope";
-  case OptionCode_XWindowSystemFontServer:
+  case OptionCode::XWindowSystemFontServer:
     return "X Window System Font Server";
-  case OptionCode_XWindowSystemDisplayManager:
+  case OptionCode::XWindowSystemDisplayManager:
     return "X Window System Display Manager";
-  case OptionCode_RequestedIPAddress:
+  case OptionCode::RequestedIPAddress:
     return "Requested IP Address";
-  case OptionCode_IPAddressLeaseTime:
+  case OptionCode::IPAddressLeaseTime:
     return "IP Address Lease Time";
-  case OptionCode_Overload:
+  case OptionCode::Overload:
     return "Overload";
-  case OptionCode_MessageType:
+  case OptionCode::MessageType:
     return "Message Type";
-  case OptionCode_ServerIdentifier:
+  case OptionCode::ServerIdentifier:
     return "Server Identifier";
-  case OptionCode_ParameterRequestList:
+  case OptionCode::ParameterRequestList:
     return "Parameter Request List";
-  case OptionCode_Message:
+  case OptionCode::Message:
     return "Message";
-  case OptionCode_MaximumDHCPMessageSize:
+  case OptionCode::MaximumDHCPMessageSize:
     return "Maximum DHCP Message Size";
-  case OptionCode_RenewalTimeValue:
+  case OptionCode::RenewalTimeValue:
     return "Renewal (T1) Time Value";
-  case OptionCode_RebindingTimeValue:
+  case OptionCode::RebindingTimeValue:
     return "Rebinding (T2) Time Value";
-  case OptionCode_VendorClassIdentifier:
+  case OptionCode::VendorClassIdentifier:
     return "Vendor Class Identifier";
-  case OptionCode_ClientIdentifier:
+  case OptionCode::ClientIdentifier:
     return "Client Identifier";
-  case OptionCode_NetworkInformationServicePlusDomain:
+  case OptionCode::NetworkInformationServicePlusDomain:
     return "Network Information Service+ Domain";
-  case OptionCode_NetworkInformationServicePlusServers:
+  case OptionCode::NetworkInformationServicePlusServers:
     return "Network Information Service+ Servers";
-  case OptionCode_TFTPServerName:
+  case OptionCode::TFTPServerName:
     return "TFTP Server Name";
-  case OptionCode_BootfileName:
+  case OptionCode::BootfileName:
     return "Bootfile Name";
-  case OptionCode_MobileIPHomeAgent:
+  case OptionCode::MobileIPHomeAgent:
     return "Mobile IP Home Agent";
-  case OptionCode_SimpleMailTransportProtocol:
+  case OptionCode::SimpleMailTransportProtocol:
     return "Simple Mail Transport Protocol";
-  case OptionCode_PostOfficeProtocolServer:
+  case OptionCode::PostOfficeProtocolServer:
     return "Post Office Protocol Server";
-  case OptionCode_NetworkNewsTransportProtocol:
+  case OptionCode::NetworkNewsTransportProtocol:
     return "Network News Transport Protocol";
-  case OptionCode_DefaultWorldWideWebServer:
+  case OptionCode::DefaultWorldWideWebServer:
     return "Default World Wide Web Server";
-  case OptionCode_DefaultFingerServer:
+  case OptionCode::DefaultFingerServer:
     return "Default Finger Server";
-  case OptionCode_DefaultInternetRelayChatServer:
+  case OptionCode::DefaultInternetRelayChatServer:
     return "Default Internet Relay Chat Server";
-  case OptionCode_StreetTalkServer:
+  case OptionCode::StreetTalkServer:
     return "StreetTalk Server";
-  case OptionCode_StreetTalkDirectoryAssistance:
+  case OptionCode::StreetTalkDirectoryAssistance:
     return "StreetTalk Directory Assistance";
-  case OptionCode_DomainSearch:
+  case OptionCode::DomainSearch:
     return "Domain Search";
-  case OptionCode_ClasslessStaticRoute:
+  case OptionCode::ClasslessStaticRoute:
     return "Classless Static Route";
-  case OptionCode_PrivateClasslessStaticRoute:
+  case OptionCode::PrivateClasslessStaticRoute:
     return "Private/Classless Static Route (Microsoft)";
-  case OptionCode_PrivateProxyAutoDiscovery:
+  case OptionCode::PrivateProxyAutoDiscovery:
     return "Private/Proxy autodiscovery";
-  case OptionCode_End:
+  case OptionCode::End:
     return "End";
   default:
-    return "Unknown option code " + std::to_string(code);
+    return "Unknown option code " + ::ToStr((int)code);
   }
 }
 
@@ -285,11 +285,11 @@ struct __attribute__((__packed__)) Base {
   OptionCode code;
   uint8_t length;
   Base(OptionCode code, uint8_t length = 0) : code(code), length(length) {}
-  string to_string() const;
+  Str ToStr() const;
   size_t size() const {
     switch (code) {
-    case 0:
-    case 255:
+    case OptionCode::Pad:
+    case OptionCode::End:
       return 1;
     default:
       return sizeof(*this) + length;
@@ -302,16 +302,16 @@ struct __attribute__((__packed__)) Base {
 
 struct __attribute__((__packed__)) SubnetMask : Base {
   const IP ip;
-  SubnetMask(const IP &ip) : Base(OptionCode_SubnetMask, 4), ip(ip) {}
-  string to_string() const { return "SubnetMask(" + ip.to_string() + ")"; }
+  SubnetMask(const IP &ip) : Base(OptionCode::SubnetMask, 4), ip(ip) {}
+  Str ToStr() const { return "SubnetMask(" + ::ToStr(ip) + ")"; }
 };
 
 static_assert(sizeof(SubnetMask) == 6, "SubnetMask is not packed correctly");
 
 struct __attribute__((__packed__)) Router : Base {
   const IP ip;
-  Router(const IP &ip) : Base(OptionCode_Router, 4), ip(ip) {}
-  string to_string() const { return "Router(" + ip.to_string() + ")"; }
+  Router(const IP &ip) : Base(OptionCode::Router, 4), ip(ip) {}
+  Str ToStr() const { return "Router(" + ::ToStr(ip) + ")"; }
 };
 
 struct __attribute__((__packed__)) DomainNameServer : Base {
@@ -328,14 +328,14 @@ struct __attribute__((__packed__)) DomainNameServer : Base {
     }
     return r;
   }
-  string to_string() const {
+  Str ToStr() const {
     int n = length / 4;
-    string r = "DomainNameServer(";
+    Str r = "DomainNameServer(";
     for (int i = 0; i < n; ++i) {
       if (i > 0) {
         r += ", ";
       }
-      r += dns[i].to_string();
+      r += ::ToStr(dns[i]);
     }
     r += ")";
     return r;
@@ -343,19 +343,19 @@ struct __attribute__((__packed__)) DomainNameServer : Base {
 
 private:
   DomainNameServer(int dns_count)
-      : Base(OptionCode_DomainNameServer, 4 * dns_count) {}
+      : Base(OptionCode::DomainNameServer, 4 * dns_count) {}
 };
 
 struct __attribute__((__packed__)) HostName : Base {
-  static constexpr OptionCode kCode = OptionCode_HostName;
+  static constexpr OptionCode kCode = OptionCode::HostName;
   const uint8_t value[];
   HostName() = delete;
-  string to_string() const { return "HostName(" + hostname() + ")"; }
-  string hostname() const { return std::string((const char *)value, length); }
+  Str ToStr() const { return "HostName(" + hostname() + ")"; }
+  Str hostname() const { return std::string((const char *)value, length); }
 };
 
 struct __attribute__((__packed__)) DomainName : Base {
-  static constexpr OptionCode kCode = OptionCode_DomainName;
+  static constexpr OptionCode kCode = OptionCode::DomainName;
   const uint8_t value[];
   static unique_ptr<DomainName, FreeDeleter> Make(string domain_name) {
     int n = domain_name.size();
@@ -364,30 +364,26 @@ struct __attribute__((__packed__)) DomainName : Base {
     memcpy((void *)r->value, domain_name.data(), n);
     return r;
   }
-  string domain_name() const {
-    return std::string((const char *)value, length);
-  }
-  string to_string() const { return "DomainName(" + domain_name() + ")"; }
+  Str domain_name() const { return Str((const char *)value, length); }
+  Str ToStr() const { return "DomainName(" + domain_name() + ")"; }
 
 private:
   DomainName(int length) : Base(kCode, length) {}
 };
 
 struct __attribute__((__packed__)) RequestedIPAddress : Base {
-  static constexpr OptionCode kCode = OptionCode_RequestedIPAddress;
+  static constexpr OptionCode kCode = OptionCode::RequestedIPAddress;
   const IP ip;
   RequestedIPAddress(const IP &ip) : Base(kCode, 4), ip(ip) {}
-  string to_string() const {
-    return "RequestedIPAddress(" + ip.to_string() + ")";
-  }
+  Str ToStr() const { return "RequestedIPAddress(" + ::ToStr(ip) + ")"; }
 };
 
 struct __attribute__((__packed__)) IPAddressLeaseTime : Base {
   const uint32_t seconds;
   IPAddressLeaseTime(uint32_t seconds)
-      : Base(OptionCode_IPAddressLeaseTime, 4), seconds(htonl(seconds)) {}
-  string to_string() const {
-    return "IPAddressLeaseTime(" + std::to_string(ntohl(seconds)) + ")";
+      : Base(OptionCode::IPAddressLeaseTime, 4), seconds(htonl(seconds)) {}
+  Str ToStr() const {
+    return "IPAddressLeaseTime(" + ::ToStr(ntohl(seconds)) + ")";
   }
 };
 
@@ -422,10 +418,8 @@ struct __attribute__((__packed__)) MessageType : Base {
     return f("UNKNOWN(%d)", value);
   }
   const Value value;
-  MessageType(Value value) : Base(OptionCode_MessageType, 1), value(value) {}
-  string to_string() const {
-    return "MessageType(" + ValueToString(value) + ")";
-  }
+  MessageType(Value value) : Base(OptionCode::MessageType, 1), value(value) {}
+  Str ToStr() const { return "MessageType(" + ValueToString(value) + ")"; }
 };
 
 const char *MessageType::kValueNames[VALUE_COUNT] = {"UNKNOWN",
@@ -451,10 +445,8 @@ const char *MessageType::kValueNames[VALUE_COUNT] = {"UNKNOWN",
 struct __attribute__((__packed__)) ServerIdentifier : Base {
   const IP ip;
   ServerIdentifier(const IP &ip)
-      : Base(OptionCode_ServerIdentifier, 4), ip(ip) {}
-  string to_string() const {
-    return "ServerIdentifier(" + ip.to_string() + ")";
-  }
+      : Base(OptionCode::ServerIdentifier, 4), ip(ip) {}
+  Str ToStr() const { return "ServerIdentifier(" + ::ToStr(ip) + ")"; }
 };
 
 // RFC 2132, section 9.8
@@ -462,11 +454,11 @@ struct __attribute__((__packed__)) ParameterRequestList {
   const uint8_t code = 55;
   const uint8_t length;
   const OptionCode c[0];
-  string to_string() const {
-    string r = "ParameterRequestList(";
+  Str ToStr() const {
+    Str r = "ParameterRequestList(";
     for (int i = 0; i < length; ++i) {
       r += "\n  ";
-      r += OptionCodeToString(c[i]);
+      r += options::ToStr(c[i]);
     }
     r += ")";
     return r;
@@ -478,8 +470,8 @@ struct __attribute__((__packed__)) MaximumDHCPMessageSize {
   const uint8_t code = 57;
   const uint8_t length = 2;
   const uint16_t value = htons(1500);
-  string to_string() const {
-    return "MaximumDHCPMessageSize(" + std::to_string(ntohs(value)) + ")";
+  Str ToStr() const {
+    return "MaximumDHCPMessageSize(" + ::ToStr(ntohs(value)) + ")";
   }
 };
 
@@ -487,62 +479,61 @@ struct __attribute__((__packed__)) VendorClassIdentifier {
   const uint8_t code = 60;
   const uint8_t length;
   const uint8_t value[0];
-  string to_string() const {
-    return "VendorClassIdentifier(" + std::string((const char *)value, length) +
-           ")";
+  Str ToStr() const {
+    return "VendorClassIdentifier(" + Str((const char *)value, length) + ")";
   }
 };
 
 // RFC 2132, Section 9.14
 struct __attribute__((__packed__)) ClientIdentifier : Base {
-  static constexpr OptionCode kCode = OptionCode_ClientIdentifier;
+  static constexpr OptionCode kCode = OptionCode::ClientIdentifier;
   const uint8_t type = 1; // Hardware address
   const MAC hardware_address;
   ClientIdentifier(const MAC &hardware_address)
       : Base(kCode, 1 + 6), hardware_address(hardware_address) {}
-  string to_string() const {
-    string r = "ClientIdentifier(";
+  Str ToStr() const {
+    Str r = "ClientIdentifier(";
     r += rfc1700::HardwareTypeToString(type);
-    r += ", " + hardware_address.to_string() + ")";
+    r += ", " + hardware_address.ToStr() + ")";
     return r;
   }
 };
 
 struct __attribute__((__packed__)) End : Base {
-  End() : Base(OptionCode_End) {}
+  End() : Base(OptionCode::End) {}
 };
 
-string Base::to_string() const {
+Str Base::ToStr() const {
   switch (code) {
-  case OptionCode_SubnetMask:
-    return ((const options::SubnetMask *)this)->to_string();
-  case OptionCode_Router:
-    return ((const options::Router *)this)->to_string();
-  case OptionCode_DomainNameServer:
-    return ((const options::DomainNameServer *)this)->to_string();
-  case OptionCode_HostName:
-    return ((const options::HostName *)this)->to_string();
-  case OptionCode_DomainName:
-    return ((const options::DomainName *)this)->to_string();
-  case OptionCode_RequestedIPAddress:
-    return ((const options::RequestedIPAddress *)this)->to_string();
-  case OptionCode_IPAddressLeaseTime:
-    return ((const options::IPAddressLeaseTime *)this)->to_string();
-  case OptionCode_MessageType:
-    return ((const options::MessageType *)this)->to_string();
-  case OptionCode_ServerIdentifier:
-    return ((const options::ServerIdentifier *)this)->to_string();
-  case OptionCode_ParameterRequestList:
-    return ((const options::ParameterRequestList *)this)->to_string();
-  case OptionCode_MaximumDHCPMessageSize:
-    return ((const options::MaximumDHCPMessageSize *)this)->to_string();
-  case OptionCode_VendorClassIdentifier:
-    return ((const options::VendorClassIdentifier *)this)->to_string();
-  case OptionCode_ClientIdentifier:
-    return ((const options::ClientIdentifier *)this)->to_string();
+  case OptionCode::SubnetMask:
+    return ((const options::SubnetMask *)this)->ToStr();
+  case OptionCode::Router:
+    return ((const options::Router *)this)->ToStr();
+  case OptionCode::DomainNameServer:
+    return ((const options::DomainNameServer *)this)->ToStr();
+  case OptionCode::HostName:
+    return ((const options::HostName *)this)->ToStr();
+  case OptionCode::DomainName:
+    return ((const options::DomainName *)this)->ToStr();
+  case OptionCode::RequestedIPAddress:
+    return ((const options::RequestedIPAddress *)this)->ToStr();
+  case OptionCode::IPAddressLeaseTime:
+    return ((const options::IPAddressLeaseTime *)this)->ToStr();
+  case OptionCode::MessageType:
+    return ((const options::MessageType *)this)->ToStr();
+  case OptionCode::ServerIdentifier:
+    return ((const options::ServerIdentifier *)this)->ToStr();
+  case OptionCode::ParameterRequestList:
+    return ((const options::ParameterRequestList *)this)->ToStr();
+  case OptionCode::MaximumDHCPMessageSize:
+    return ((const options::MaximumDHCPMessageSize *)this)->ToStr();
+  case OptionCode::VendorClassIdentifier:
+    return ((const options::VendorClassIdentifier *)this)->ToStr();
+  case OptionCode::ClientIdentifier:
+    return ((const options::ClientIdentifier *)this)->ToStr();
   default:
     const char *data = (const char *)(this) + sizeof(*this);
-    return "\"" + OptionCodeToString(code) + "\" " + std::to_string(length) +
+    return "\"" + options::ToStr(code) + "\" " + ::ToStr(length) +
            " bytes: " + BytesToHex(Span<>(data, length));
   }
 }
@@ -571,22 +562,22 @@ struct __attribute__((__packed__)) Header {
   uint8_t boot_filename[128] = {};
   uint32_t magic_cookie = htonl(kMagicCookie);
 
-  string to_string() const {
+  Str ToStr() const {
     string s = "dhcp::Header {\n";
-    s += "  message_type: " + std::to_string(message_type) + "\n";
+    s += "  message_type: " + ::ToStr(message_type) + "\n";
     s += "  hardware_type: " + rfc1700::HardwareTypeToString(hardware_type) +
          "\n";
-    s += "  hardware_address_length: " +
-         std::to_string(hardware_address_length) + "\n";
-    s += "  hops: " + std::to_string(hops) + "\n";
+    s +=
+        "  hardware_address_length: " + ::ToStr(hardware_address_length) + "\n";
+    s += "  hops: " + ::ToStr(hops) + "\n";
     s += "  transaction_id: " + ValToHex(transaction_id) + "\n";
-    s += "  seconds_elapsed: " + std::to_string(seconds_elapsed) + "\n";
-    s += "  flags: " + std::to_string(ntohs(flags)) + "\n";
-    s += "  client_ip: " + client_ip.to_string() + "\n";
-    s += "  your_ip: " + your_ip.to_string() + "\n";
-    s += "  server_ip: " + server_ip.to_string() + "\n";
-    s += "  gateway_ip: " + gateway_ip.to_string() + "\n";
-    s += "  client_mac_address: " + client_mac_address.to_string() + "\n";
+    s += "  seconds_elapsed: " + ::ToStr(seconds_elapsed) + "\n";
+    s += "  flags: " + ::ToStr(ntohs(flags)) + "\n";
+    s += "  client_ip: " + ::ToStr(client_ip) + "\n";
+    s += "  your_ip: " + ::ToStr(your_ip) + "\n";
+    s += "  server_ip: " + ::ToStr(server_ip) + "\n";
+    s += "  gateway_ip: " + ::ToStr(gateway_ip) + "\n";
+    s += "  client_mac_address: " + client_mac_address.ToStr() + "\n";
     s += "  server_name: " + std::string((const char *)server_name) + "\n";
     s += "  boot_filename: " + std::string((const char *)boot_filename) + "\n";
     s += "  magic_cookie: " + ValToHex(magic_cookie) + "\n";
@@ -594,7 +585,7 @@ struct __attribute__((__packed__)) Header {
     return s;
   }
 
-  void write_to(string &buffer) {
+  void write_to(Str &buffer) {
     buffer.append((const char *)this, sizeof(*this));
   }
 };
@@ -615,7 +606,7 @@ struct __attribute__((__packed__)) PacketView : Header {
     while (true) {
       options::Base *opt = (options::Base *)p;
       p += opt->size();
-      if (opt->code == options::OptionCode_End) {
+      if (opt->code == options::OptionCode::End) {
         break;
       }
     }
@@ -627,14 +618,14 @@ struct __attribute__((__packed__)) PacketView : Header {
     }
     // Packets can be padded with 0s at the end - we can ignore them.
   }
-  string to_string() const {
-    string s = "dhcp::PacketView {\n";
-    s += IndentString(Header::to_string());
+  Str ToStr() const {
+    Str s = "dhcp::PacketView {\n";
+    s += IndentString(Header::ToStr());
     s += "\n  options:\n";
     const uint8_t *p = options;
     while (*p != 255) {
       const options::Base &opt = *(const options::Base *)p;
-      s += IndentString(opt.to_string(), 4) + "\n";
+      s += IndentString(opt.ToStr(), 4) + "\n";
       p += opt.size();
     }
     s += "}";
@@ -660,7 +651,7 @@ struct __attribute__((__packed__)) PacketView : Header {
   }
   options::MessageType::Value MessageType() const {
     if (options::MessageType *o = (options::MessageType *)FindOption(
-            options::OptionCode_MessageType)) {
+            options::OptionCode::MessageType)) {
       return o->value;
     }
     return options::MessageType::UNKNOWN;
@@ -881,7 +872,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   const IP chosen_ip =
       inform ? IP(0, 0, 0, 0) : ChooseIP(*this, packet, log_error);
   if (!log_error.empty()) {
-    ERROR << log_error << "\n" << packet.to_string();
+    ERROR << log_error << "\n" << packet.ToStr();
     return;
   }
 
@@ -928,17 +919,17 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   if (inform && source_ip != packet.client_ip && source_ip != IP(0, 0, 0, 0)) {
     ERROR << "DHCP server received an INFORM packet with a mismatching "
              "source IP: "
-          << source_ip.to_string() << " (source IP) vs "
-          << packet.client_ip.to_string() << " (DHCP client_ip)" << "\n"
-          << packet.to_string();
+          << ToStr(source_ip) << " (source IP) vs " << ToStr(packet.client_ip)
+          << " (DHCP client_ip)" << "\n"
+          << packet.ToStr();
     return;
   }
 
   IP response_ip = inform ? packet.client_ip : chosen_ip;
   if (!IsValidClientIP(response_ip)) {
     ERROR << "DHCP server received a packet with an invalid response IP: "
-          << response_ip.to_string() << "\n"
-          << packet.to_string();
+          << ToStr(response_ip) << "\n"
+          << packet.ToStr();
     return;
   }
 
@@ -960,7 +951,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
   }
 
   if (response_type == options::MessageType::UNKNOWN) {
-    LOG << "DHCP server received unknown DHCP message:\n" << packet.to_string();
+    LOG << "DHCP server received unknown DHCP message:\n" << packet.ToStr();
     return;
   }
 

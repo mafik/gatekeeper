@@ -59,48 +59,8 @@ void __attribute__((__constructor__)) InitDefaultLoggers() {
   loggers.emplace_back(DefaultLogger);
 }
 
-const LogEntry &operator<<(const LogEntry &logger, int i) {
-  logger.buffer += std::to_string(i);
-  return logger;
-}
-
-const LogEntry &operator<<(const LogEntry &logger, long i) {
-  logger.buffer += std::to_string(i);
-  return logger;
-}
-
-const LogEntry &operator<<(const LogEntry &logger, unsigned i) {
-  logger.buffer += std::to_string(i);
-  return logger;
-}
-
-const LogEntry &operator<<(const LogEntry &logger, unsigned long i) {
-  logger.buffer += std::to_string(i);
-  return logger;
-}
-
-const LogEntry &operator<<(const LogEntry &logger, unsigned long long i) {
-  logger.buffer += std::to_string(i);
-  return logger;
-}
-
-const LogEntry &operator<<(const LogEntry &logger, float f) {
-  logger.buffer += std::to_string(f);
-  return logger;
-}
-
-const LogEntry &operator<<(const LogEntry &logger, double d) {
-  logger.buffer += std::to_string(d);
-  return logger;
-}
-
-const LogEntry &operator<<(const LogEntry &logger, std::string_view s) {
+const LogEntry &operator<<(const LogEntry &logger, StrView s) {
   logger.buffer += s;
-  return logger;
-}
-
-const LogEntry &operator<<(const LogEntry &logger, const unsigned char *s) {
-  logger.buffer += (const char *)s;
   return logger;
 }
 

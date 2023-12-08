@@ -15,13 +15,13 @@ struct TrafficBytes {
 };
 
 struct TrafficLog {
-  MAC local_host;
+  maf::MAC local_host;
   maf::IP remote_ip;
   mutable std::map<std::chrono::system_clock::time_point, TrafficBytes> entries;
   static void Init();
 };
 
-void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,
+void RecordTraffic(maf::MAC local_host, maf::IP remote_ip, maf::U32 up,
                    maf::U32 down);
 
 void QueryTraffic(maf::Fn<void(const TrafficLog &)> callback);

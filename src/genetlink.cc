@@ -47,12 +47,12 @@ static void SendGetFamily(Netlink &nl, StrView family, Status &status) {
   }
 }
 
-Str GenericNetlink::Cmd::LoggableString() const {
-  Str ret = f("Cmd(%u", op_id);
-  if (flags & GENL_CMD_CAP_DO) {
+Str ToStr(const GenericNetlink::Cmd &cmd) {
+  Str ret = f("Cmd(%u", cmd.op_id);
+  if (cmd.flags & GENL_CMD_CAP_DO) {
     ret += ", DO";
   }
-  if (flags & GENL_CMD_CAP_DUMP) {
+  if (cmd.flags & GENL_CMD_CAP_DUMP) {
     ret += ", DUMP";
   }
   ret += ")";

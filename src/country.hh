@@ -13,9 +13,10 @@ struct Country {
   char alpha2[2];
   char alpha3[3];
   U16 numeric;
-
-  Str LoggableString() const { return Str(name); }
 };
+
+inline Str ToStr(const Country &c) { return Str(c.name); }
+static_assert(Stringer<iso3166::Country>);
 
 extern const Arr<Country, 249> kCountries;
 

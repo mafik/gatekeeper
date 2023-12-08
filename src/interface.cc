@@ -67,7 +67,7 @@ static void SetInterfaceIPv4(FD &fd, const Interface &iface, IP ip,
   addr->sin_addr.s_addr = ip.addr;
   if (ioctl(fd, SIOCSIFADDR, &ifr) < 0) {
     AppendErrorMessage(status) +=
-        "ioctl(SIOCSIFADDR, " + ip.to_string() + ") failed";
+        "ioctl(SIOCSIFADDR, " + ToStr(ip) + ") failed";
     return;
   }
 }
@@ -175,7 +175,7 @@ void Interface::Configure(::IP ip, ::Network network, Status &status) {
   // Assign netmask
   addr->sin_addr.s_addr = network.netmask.addr;
   if (ioctl(fd, SIOCSIFNETMASK, &ifr) < 0) {
-    status() += "Couldn't set netmask " + network.netmask.to_string() +
+    status() += "Couldn't set netmask " + ToStr(network.netmask) +
                 " on interface " + name +
                 " because ioctl(SIOCSIFNETMASK) failed";
     return;

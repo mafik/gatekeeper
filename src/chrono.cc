@@ -3,6 +3,8 @@
 using namespace std;
 using namespace std::chrono;
 
+namespace maf {
+
 string FormatDuration(optional<steady_clock::duration> d_opt,
                       const char *never) {
   if (!d_opt) {
@@ -13,7 +15,7 @@ string FormatDuration(optional<steady_clock::duration> d_opt,
   auto h = duration_cast<chrono::hours>(d);
   d -= h;
   if (h.count() != 0) {
-    r += to_string(h.count()) + "h";
+    r += ToStr(h.count()) + "h";
   }
   auto m = duration_cast<chrono::minutes>(d);
   d -= m;
@@ -21,7 +23,7 @@ string FormatDuration(optional<steady_clock::duration> d_opt,
     if (!r.empty()) {
       r += " ";
     }
-    r += to_string(m.count()) + "m";
+    r += ToStr(m.count()) + "m";
   }
   auto s = duration_cast<chrono::seconds>(d);
   d -= s;
@@ -29,7 +31,9 @@ string FormatDuration(optional<steady_clock::duration> d_opt,
     if (!r.empty()) {
       r += " ";
     }
-    r += to_string(s.count()) + "s";
+    r += ToStr(s.count()) + "s";
   }
   return r;
 }
+
+} // namespace maf

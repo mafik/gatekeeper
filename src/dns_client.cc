@@ -64,9 +64,11 @@ unordered_set<Entry *, Entry::QuestionHash, Entry::QuestionEqual> Entry::cache;
 
 struct HashByData {
   using is_transparent = std::true_type;
-  size_t operator()(const Record *r) const { return hash<StrView>()(r->data); }
+  size_t operator()(const Record *r) const { return hash<Span<>>()(r->data); }
   // Allow querying using IP address (for A records).
-  size_t operator()(const IP &ip) const { return hash<StrView>()(ip); }
+  size_t operator()(const IP &ip) const {
+    return hash<Span<>>()(SpanOfRef(ip));
+  }
 };
 
 struct EqualData {
@@ -75,10 +77,10 @@ struct EqualData {
     return a->data == b->data;
   }
   bool operator()(const Record *a, const IP &b) const {
-    return StrView(a->data) == StrView(b);
+    return Span<>(a->data) == SpanOfRef(b);
   }
   bool operator()(const IP &a, const Record *b) const {
-    return StrView(a) == StrView(b->data);
+    return SpanOfRef(a) == Span<>(b->data);
   }
 };
 
@@ -298,10 +300,10 @@ struct Client : UDPListener {
         if (!dns_servers.empty()) {
           dns_servers += " / ";
         }
-        dns_servers += server.to_string();
+        dns_servers += ToStr(server);
       }
       LOG << "DNS client received a packet from an unexpected source: "
-          << source_ip.to_string() << " (expected: " << dns_servers << ")";
+          << ToStr(source_ip) << " (expected: " << dns_servers << ")";
       return;
     }
     if (source_port != kServerPort) {

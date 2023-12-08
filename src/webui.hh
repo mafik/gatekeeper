@@ -59,7 +59,8 @@ void FlushAndClose();
 // Pushes a traffic notification to all connected websockets.
 //
 // This allows the web UI to update in real time.
-void RecordTraffic(std::chrono::system_clock::time_point time, MAC local_host,
-                   maf::IP remote_ip, maf::U32 up, maf::U32 down);
+void RecordTraffic(std::chrono::system_clock::time_point time,
+                   maf::MAC local_host, maf::IP remote_ip, maf::U32 up,
+                   maf::U32 down);
 
 } // namespace webui

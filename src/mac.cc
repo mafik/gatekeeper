@@ -21,7 +21,7 @@ MAC MAC::FromInterface(std::string_view interface_name) {
   return MAC(ifr.ifr_hwaddr.sa_data);
 }
 
-std::string MAC::to_string() const {
+std::string MAC::ToStr() const {
   return f("%02x:%02x:%02x:%02x:%02x:%02x", bytes[0], bytes[1], bytes[2],
            bytes[3], bytes[4], bytes[5]);
 }

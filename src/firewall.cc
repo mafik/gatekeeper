@@ -445,9 +445,8 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
                            ntohs(udp.destination_port));
     }
     uint32_t packet_id = ntohl(phdr.packet_id);
-    LOG << f("#%04x ", packet_id)
-        << f("%15s", ip.source_ip.LoggableString().c_str()) << " => "
-        << f("%-15s", ip.destination_ip.LoggableString().c_str()) << " ("
+    LOG << f("#%04x ", packet_id) << f("%15s", ToStr(ip.source_ip).c_str())
+        << " => " << f("%-15s", ToStr(ip.destination_ip).c_str()) << " ("
         << protocol_string << "): " << f("%4d", payload.size()) << " B";
   }
 

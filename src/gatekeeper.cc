@@ -530,7 +530,7 @@ int main(int argc, char *argv[]) {
   LOG << "Gatekeeper running at http://" << lan_ip << ":1337/";
   systemd::Ready();
   if (not systemd::IsRunningUnderSystemd()) {
-    Str url = f("http://%s:1337/", lan_ip.to_string().c_str());
+    Str url = f("http://%s:1337/", ToStr(lan_ip).c_str());
     Status status_ignored;
     xdg::Open(url, status_ignored);
   }

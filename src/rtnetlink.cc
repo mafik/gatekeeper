@@ -1,8 +1,5 @@
 #include "rtnetlink.hh"
 
-#include <cassert>
-#include <cstdint>
-
 namespace maf::rtnetlink {
 
 void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
@@ -32,7 +29,7 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
         for (auto &attr : attrs) {
           switch (attr.type) {
           case RTA_OIF:
-            route.oif = attr.As<uint32_t>();
+            route.oif = attr.As<U32>();
             break;
           case RTA_PREFSRC:
             route.prefsrc = attr.As<IP>();
@@ -45,7 +42,7 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
             assert(attr.As<int>() == RT_TABLE_MAIN);
             break;
           case RTA_PRIORITY:
-            route.priority = attr.As<uint32_t>();
+            route.priority = attr.As<U32>();
             break;
           case RTA_GATEWAY:
             route.gateway = attr.As<IP>();
@@ -57,13 +54,12 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
       status);
 }
 
-std::string Route::LoggableString() const {
-  return "Route{dst=" + dst.LoggableString() +
-         ", dst_mask=" + dst_mask.LoggableString() +
-         ", oif=" + (oif ? std::to_string(*oif) : "none") +
-         ", prefsrc=" + (prefsrc ? prefsrc->LoggableString() : "none") +
-         ", gateway=" + (gateway ? gateway->LoggableString() : "none") +
-         ", priority=" + (priority ? std::to_string(*priority) : "none") + "}";
+Str ToStr(const Route &r) {
+  return "Route{dst=" + ToStr(r.dst) + ", dst_mask=" + ToStr(r.dst_mask) +
+         ", oif=" + (r.oif ? maf::ToStr(*r.oif) : "none") +
+         ", prefsrc=" + (r.prefsrc ? maf::ToStr(*r.prefsrc) : "none") +
+         ", gateway=" + (r.gateway ? maf::ToStr(*r.gateway) : "none") +
+         ", priority=" + (r.priority ? maf::ToStr(*r.priority) : "none") + "}";
 }
 
 } // namespace maf::rtnetlink

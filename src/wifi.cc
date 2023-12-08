@@ -952,7 +952,7 @@ void EAPOLReceiver::NotifyRead(Status &epoll_status) {
       return;
     }
   } else {
-    ERROR << "Received EAPOL frame from unknown station " << mac.to_string();
+    ERROR << "Received EAPOL frame from unknown station " << mac;
     return;
   }
 }

@@ -327,9 +327,9 @@ struct ClientAliases {
     }
     if (aliases.empty()) {
       if (ip.has_value()) {
-        aliases.push_back(ip->to_string());
+        aliases.push_back(ToStr(*ip));
       } else {
-        aliases.push_back(mac.to_string());
+        aliases.push_back(mac.ToStr());
       }
     }
   }
@@ -347,10 +347,10 @@ struct ClientAliases {
   // Return a non-interactive HTML tag that represents the given MAC address.
   Str GetSPAN() const {
     Str span = "<span class=client title=\"MAC=";
-    span += mac.to_string();
+    span += mac.ToStr();
     if (ip.has_value()) {
       span += " IP=";
-      span += ip->to_string();
+      span += ToStr(*ip);
     }
     span += "\">";
     span += GetTEXT();
@@ -364,7 +364,7 @@ Str RemoteAlias(IP ip) {
   if (name != nullptr) {
     return *name; // copy
   }
-  return ip.to_string();
+  return ToStr(ip);
 }
 
 struct DevicesTable : Table {
@@ -481,11 +481,11 @@ struct DevicesTable : Table {
     const Row &r = rows[row];
     switch (col) {
     case 0:
-      out = r.ip.to_string();
+      out = ToStr(r.ip);
       break;
     case 1:
       if (r.mac) {
-        out = r.mac->to_string();
+        out = r.mac->ToStr();
       }
       break;
     case 2:
@@ -525,10 +525,10 @@ struct ConfigTable : Table {
       out = kLocalDomain;
       break;
     case 2:
-      out = lan_ip.to_string();
+      out = ToStr(lan_ip);
       break;
     case 3:
-      out = lan_network.LoggableString();
+      out = ToStr(lan_network);
       break;
     case 4:
       out = etc::hostname;
@@ -538,7 +538,7 @@ struct ConfigTable : Table {
         if (!out.empty()) {
           out += " ";
         }
-        out += ip.to_string();
+        out += ToStr(ip);
       }
       break;
     }
@@ -616,14 +616,14 @@ struct TrafficGraph {
     Str id = "traffic";
     vector<pair<Str, Str>> ws_params;
     if (opts.local_mac.has_value()) {
-      ws_params.push_back(make_pair("local", opts.local_mac->to_string()));
+      ws_params.push_back(make_pair("local", opts.local_mac->ToStr()));
       id += "-";
-      id += opts.local_mac->to_string();
+      id += opts.local_mac->ToStr();
     }
     if (opts.remote_ip.has_value()) {
-      ws_params.push_back(make_pair("remote", opts.remote_ip->to_string()));
+      ws_params.push_back(make_pair("remote", ToStr(*opts.remote_ip)));
       id += "-";
-      id += opts.remote_ip->to_string();
+      id += ToStr(*opts.remote_ip);
     }
     Str params = "";
     bool first_param = true;
@@ -636,7 +636,7 @@ struct TrafficGraph {
     }
 
     Str ws_url = "ws://";
-    ws_url += lan_ip.to_string();
+    ws_url += ToStr(lan_ip);
     ws_url += ":1337/traffic";
     ws_url += params;
 
@@ -708,7 +708,7 @@ Table::RenderOptions Table::RenderOptions::FromQuery(Request &request) {
 static const void RenderHEADER(std::string &html) {
   html += "<header>";
   html += "<h1><a href=http://";
-  html += lan_ip.to_string();
+  html += ToStr(lan_ip);
   html += ":";
   html += to_string(kPort);
   html += " hx-boost=true hx-target=main hx-select=main hx-ext=morphdom-swap"

@@ -21,8 +21,6 @@ union __attribute__((__packed__)) IP {
   static IP NetmaskFromInterface(std::string_view interface_name,
                                  Status &status);
   static IP NetmaskFromPrefixLength(int prefix_length);
-  Str to_string() const;
-  Str LoggableString() const { return to_string(); }
   auto operator<=>(const IP &other) const {
     return (int32_t)ntohl(addr) <=> (int32_t)ntohl(other.addr);
   }
@@ -36,7 +34,6 @@ union __attribute__((__packed__)) IP {
     addr = htonl(ntohl(addr) + 1);
     return *this;
   }
-  operator StrView() const { return StrView((char *)bytes, 4); }
   bool TryParse(const char *cp) {
     return sscanf(cp, "%hhu.%hhu.%hhu.%hhu", bytes, bytes + 1, bytes + 2,
                   bytes + 3) == 4;
@@ -45,6 +42,9 @@ union __attribute__((__packed__)) IP {
   const static IP kZero;
 };
 
+Str ToStr(IP);
+static_assert(Stringer<IP>);
+
 struct Network {
   IP ip;
   IP netmask;
@@ -52,8 +52,10 @@ struct Network {
   bool Contains(IP ip) const { return (ip & netmask) == this->ip; }
   int Ones() const { return std::popcount(netmask.addr); }
   int Zeros() const { return 32 - Ones(); }
-  Str LoggableString() const;
 };
+
+Str ToStr(const Network &);
+static_assert(Stringer<Network>);
 
 } // namespace maf
 

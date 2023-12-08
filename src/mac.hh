@@ -2,9 +2,11 @@
 
 #include <cstdint>
 #include <cstring>
-#include <string>
-#include <string_view>
 #include <unordered_set>
+
+#include "str.hh"
+
+namespace maf {
 
 struct MAC {
   uint8_t bytes[6];
@@ -14,9 +16,9 @@ struct MAC {
   MAC(char s[6])
       : bytes{(uint8_t)s[0], (uint8_t)s[1], (uint8_t)s[2],
               (uint8_t)s[3], (uint8_t)s[4], (uint8_t)s[5]} {}
-  static MAC FromInterface(std::string_view interface_name);
+  static MAC FromInterface(StrView interface_name);
   static MAC Broadcast() { return MAC(0xff, 0xff, 0xff, 0xff, 0xff, 0xff); }
-  std::string to_string() const;
+  Str ToStr() const;
   uint8_t &operator[](int i) { return bytes[i]; }
   bool TryParse(const char *cp) {
     return sscanf(cp, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &bytes[0], &bytes[1],
@@ -34,8 +36,10 @@ struct MAC {
   bool IsGloballyUnique() const { return (bytes[0] & 0x02) == 0; }
 };
 
-template <> struct std::hash<MAC> {
-  std::size_t operator()(const MAC &mac) const {
+} // namespace maf
+
+template <> struct std::hash<maf::MAC> {
+  std::size_t operator()(const maf::MAC &mac) const {
     return std::hash<uint64_t>()((uint64_t)mac.bytes[5] << 40 |
                                  (uint64_t)mac.bytes[4] << 32 |
                                  mac.bytes[3] << 24 | mac.bytes[2] << 16 |

@@ -46,12 +46,12 @@ IP IP::NetmaskFromPrefixLength(int prefix_length) {
   return IP(htonl(mask));
 }
 
-std::string IP::to_string() const {
-  return f("%d.%d.%d.%d", bytes[0], bytes[1], bytes[2], bytes[3]);
+Str ToStr(IP ip) {
+  return f("%d.%d.%d.%d", ip.bytes[0], ip.bytes[1], ip.bytes[2], ip.bytes[3]);
 }
 
-std::string Network::LoggableString() const {
-  return ip.to_string() + "/" + std::to_string(std::countr_one(netmask.addr));
+Str ToStr(const Network &n) {
+  return ToStr(n.ip) + "/" + ToStr(std::countr_one(n.netmask.addr));
 }
 
 } // namespace maf

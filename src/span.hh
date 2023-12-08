@@ -2,6 +2,7 @@
 
 #include <compare>
 #include <span>
+#include <string_view>
 
 #include "format.hh"
 #include "int.hh"
@@ -118,8 +119,14 @@ constexpr inline Span<char, sizeof(T)> SpanOfRef(const T &x) {
   return Span<char, sizeof(T)>((char *)&x, sizeof(T));
 }
 
-inline StrView StrViewOf(Span<char> span) {
+inline StrView StrViewOf(Span<> span) {
   return StrView(span.data(), span.size());
 }
 
 } // namespace maf
+
+template <> struct std::hash<maf::Span<>> {
+  std::size_t operator()(maf::Span<> span) const {
+    return std::hash<std::string_view>()(StrViewOf(span));
+  }
+};

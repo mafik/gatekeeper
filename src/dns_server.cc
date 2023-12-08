@@ -104,8 +104,7 @@ struct Server : UDPListener {
                      uint16_t source_port) override {
     if (!lan_network.Contains(source_ip)) {
       LOG << "DNS server received a packet from an unexpected source: "
-          << source_ip.to_string() << " (expected network " << lan_network
-          << ")";
+          << ToStr(source_ip) << " (expected network " << lan_network << ")";
       return;
     }
     Message msg;
