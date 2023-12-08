@@ -454,7 +454,7 @@ void Server::Listen(Config config, Status &status) {
   }
 
   sockaddr_in address = {.sin_family = AF_INET,
-                         .sin_port = htons(config.port),
+                         .sin_port = Big(config.port).big_endian,
                          .sin_addr = {.s_addr = config.ip.addr}};
   if (int r = bind(fd, (sockaddr *)&address, sizeof(address)); r < 0) {
     AppendErrorMessage(status) += "bind() failed";

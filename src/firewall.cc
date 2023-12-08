@@ -190,31 +190,31 @@ Str ToStr(ProtocolID proto) {
 }
 
 struct IP_Header {
-  uint8_t version_ihl;
-  uint8_t tos;
-  uint16_t total_length;
-  uint16_t frag_id;
-  uint16_t frag_offset;
-  uint8_t ttl;
+  U8 version_ihl;
+  U8 tos;
+  U16 total_length;
+  U16 frag_id;
+  U16 frag_offset;
+  U8 ttl;
   ProtocolID proto;
-  uint16_t checksum;
+  U16 checksum;
   IP source_ip;
   IP destination_ip;
 
-  size_t HeaderLength() const { return (version_ihl & 0xf) * 4; }
+  Size HeaderLength() const { return (version_ihl & 0xf) * 4; }
 
   void UpdateChecksum() {
     checksum = 0;
-    uint32_t sum = 0;
-    uint16_t *p = (uint16_t *)this;
-    uint16_t *end = (uint16_t *)((char *)this + HeaderLength());
+    U32 sum = 0;
+    U16 *p = (U16 *)this;
+    U16 *end = (U16 *)((char *)this + HeaderLength());
     for (; p < end; ++p) {
-      sum += ntohs(*p);
+      sum += Big(*p).big_endian;
     }
     while (sum >> 16) {
       sum = (sum & 0xffff) + (sum >> 16);
     }
-    checksum = htons(~sum);
+    checksum = Big<U16>(~sum).big_endian;
   }
 };
 
@@ -247,20 +247,20 @@ struct UDP_Header : INET_Header {
 
 static_assert(sizeof(UDP_Header) == 8, "UDP_Header should have 8 bytes");
 
-void UpdateLayer4Checksum(IP_Header &ip, uint16_t &checksum) {
+void UpdateLayer4Checksum(IP_Header &ip, U16 &checksum) {
   checksum = 0;
-  uint32_t sum = 0;
-  uint16_t header_len = ip.HeaderLength();
-  uint16_t data_len = ntohs(ip.total_length) - header_len;
+  U32 sum = 0;
+  U16 header_len = ip.HeaderLength();
+  U16 data_len = ntohs(ip.total_length) - header_len;
   sum += ntohs(ip.source_ip.halves[0]);
   sum += ntohs(ip.source_ip.halves[1]);
   sum += ntohs(ip.destination_ip.halves[0]);
   sum += ntohs(ip.destination_ip.halves[1]);
   sum += data_len;
-  sum += (uint16_t)ip.proto;
-  uint8_t *buff = (uint8_t *)&ip + header_len;
+  sum += (U16)ip.proto;
+  U8 *buff = (U8 *)&ip + header_len;
   for (int i = 0; i < (data_len / 2); i++) {
-    sum += ntohs((buff[i * 2 + 1] << 8) | buff[i * 2]);
+    sum += Big<U16>((buff[i * 2 + 1] << 8) | buff[i * 2]).big_endian;
   }
   if ((data_len % 2) == 1) {
     sum += buff[data_len - 1] << 8;
@@ -269,7 +269,7 @@ void UpdateLayer4Checksum(IP_Header &ip, uint16_t &checksum) {
     sum = (sum & 0xFFFF) + (sum >> 16);
   }
   sum = ~sum;
-  checksum = htons((uint16_t)sum);
+  checksum = Big<U16>(sum).big_endian;
 }
 
 struct FullConeNAT {

@@ -158,7 +158,7 @@ void Header::write_to(string &buffer) {
 
 Str Header::ToStr() const {
   Str r = "dns::Header {\n";
-  r += "  id: " + f("0x%04hx", ntohs(id)) + "\n";
+  r += "  id: " + f("0x%04hx", id) + "\n";
   r += "  reply: " + ::ToStr(reply) + "\n";
   r += "  opcode: " + Str(dns::ToStr(opcode)) + "\n";
   r += "  authoritative: " + ::ToStr(authoritative) + "\n";
@@ -175,17 +175,17 @@ Str Header::ToStr() const {
 }
 
 struct SOA {
-  string primary_name_server;
-  string mailbox;
-  uint32_t serial_number;
-  uint32_t refresh_interval;
-  uint32_t retry_interval;
-  uint32_t expire_limit;
-  uint32_t minimum_ttl;
+  Str primary_name_server;
+  Str mailbox;
+  U32 serial_number;
+  U32 refresh_interval;
+  U32 retry_interval;
+  U32 expire_limit;
+  U32 minimum_ttl;
 
-  size_t LoadFrom(const char *ptr, size_t len, size_t offset) {
-    size_t start_offset = offset;
-    size_t loaded_size;
+  Size LoadFrom(const char *ptr, Size len, Size offset) {
+    Size start_offset = offset;
+    Size loaded_size;
     tie(primary_name_server, loaded_size) = LoadDomainName(ptr, len, offset);
     if (loaded_size == 0) {
       return 0;
@@ -199,34 +199,34 @@ struct SOA {
     if (offset + 20 > len) {
       return 0;
     }
-    serial_number = ntohl(*(uint32_t *)(ptr + offset));
+    serial_number = Big(*(U32 *)(ptr + offset)).big_endian;
     offset += 4;
-    refresh_interval = ntohl(*(uint32_t *)(ptr + offset));
+    refresh_interval = Big(*(U32 *)(ptr + offset)).big_endian;
     offset += 4;
-    retry_interval = ntohl(*(uint32_t *)(ptr + offset));
+    retry_interval = Big(*(U32 *)(ptr + offset)).big_endian;
     offset += 4;
-    expire_limit = ntohl(*(uint32_t *)(ptr + offset));
+    expire_limit = Big(*(U32 *)(ptr + offset)).big_endian;
     offset += 4;
-    minimum_ttl = ntohl(*(uint32_t *)(ptr + offset));
+    minimum_ttl = Big(*(U32 *)(ptr + offset)).big_endian;
     offset += 4;
     return offset - start_offset;
   }
   void write_to(string &buffer) const {
     buffer += EncodeDomainName(primary_name_server);
     buffer += EncodeDomainName(mailbox);
-    uint32_t serial_number_big_endian = htonl(serial_number);
+    U32 serial_number_big_endian = Big(serial_number).big_endian;
     buffer.append((char *)&serial_number_big_endian,
                   sizeof(serial_number_big_endian));
-    uint32_t refresh_interval_big_endian = htonl(refresh_interval);
+    U32 refresh_interval_big_endian = Big(refresh_interval).big_endian;
     buffer.append((char *)&refresh_interval_big_endian,
                   sizeof(refresh_interval_big_endian));
-    uint32_t retry_interval_big_endian = htonl(retry_interval);
+    U32 retry_interval_big_endian = Big(retry_interval).big_endian;
     buffer.append((char *)&retry_interval_big_endian,
                   sizeof(retry_interval_big_endian));
-    uint32_t expire_limit_big_endian = htonl(expire_limit);
+    U32 expire_limit_big_endian = Big(expire_limit).big_endian;
     buffer.append((char *)&expire_limit_big_endian,
                   sizeof(expire_limit_big_endian));
-    uint32_t minimum_ttl_big_endian = htonl(minimum_ttl);
+    U32 minimum_ttl_big_endian = Big(minimum_ttl).big_endian;
     buffer.append((char *)&minimum_ttl_big_endian,
                   sizeof(minimum_ttl_big_endian));
   }
@@ -249,12 +249,12 @@ size_t Question::LoadFrom(const char *ptr, size_t len, size_t offset) {
   offset += 2;
   return offset - start_offset;
 }
-void Question::write_to(string &buffer) const {
-  string encoded = EncodeDomainName(domain_name);
+void Question::write_to(Str &buffer) const {
+  Str encoded = EncodeDomainName(domain_name);
   buffer.append(encoded);
-  uint16_t type_big_endian = htons((uint16_t)type);
+  U16 type_big_endian = Big((U16)type).big_endian;
   buffer.append((char *)&type_big_endian, 2);
-  uint16_t class_big_endian = htons((uint16_t)class_);
+  U16 class_big_endian = Big((U16)class_).big_endian;
   buffer.append((char *)&class_big_endian, 2);
 }
 string Question::ToStr() const {
@@ -316,14 +316,14 @@ size_t Record::LoadFrom(const char *ptr, size_t len, size_t offset) {
 }
 void Record::write_to(string &buffer) const {
   Question::write_to(buffer);
-  uint32_t ttl_big_endian = htonl(ttl());
+  U32 ttl_big_endian = Big(ttl()).big_endian;
   buffer.append((char *)&ttl_big_endian, sizeof(ttl_big_endian));
-  uint16_t data_length_big_endian = htons(data_length);
+  U16 data_length_big_endian = Big(data_length).big_endian;
   buffer.append((char *)&data_length_big_endian,
                 sizeof(data_length_big_endian));
   buffer.append(data);
 }
-uint32_t Record::ttl() const {
+U32 Record::ttl() const {
   if (expiration.has_value()) {
     auto d = duration_cast<chrono::seconds>(*expiration -
                                             chrono::steady_clock::now())

@@ -79,7 +79,7 @@ struct EAPOLReceiver : epoll::Listener {
   EAPOLReceiver(Status &status)
       : epoll::Listener(socket(AF_PACKET,
                                SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
-                               htons(ETH_P_PAE))) {
+                               Big<U16>(ETH_P_PAE).big_endian)) {
     if (fd == -1) {
       AppendErrorMessage(status) += "socket(AF_PACKET, SOCK_DGRAM, ETH_P_PAE)";
       return;
@@ -624,7 +624,7 @@ static void PTK(Span<char, 48> ptk, Span<char, 32> psk, MAC ap_mac, MAC sta_mac,
 
 static void SendEAPOL(U32 ifindex, MAC mac, Span<> eapol, Status &status) {
   sockaddr_ll sockaddr = {.sll_family = AF_PACKET,
-                          .sll_protocol = htons(ETH_P_PAE),
+                          .sll_protocol = Big<U16>(ETH_P_PAE).big_endian,
                           .sll_ifindex = static_cast<int>(ifindex),
                           .sll_hatype = 0,  // not used for outgoing packets
                           .sll_pkttype = 0, // not used for outgoing packets
@@ -905,15 +905,15 @@ void OnNewStation(nl80211::Interface::Index ifindex, MAC mac, Status &status) {
       .key_ack = 1,
   };
   eapol.AppendPrimitive(key_information);
-  eapol.AppendPrimitive((U16)htons(16)); // Key Length
+  eapol.AppendPrimitive(Big<U16>(16)); // Key Length
   Big<U64> replay_ctr = 1;
   eapol.AppendPrimitive(replay_ctr);
   eapol.AppendRange(h->anonce);
-  eapol.AppendZeroes(16);               // Key IV
-  eapol.AppendZeroes(8);                // Key RSC
-  eapol.AppendZeroes(8);                // Key ID
-  eapol.AppendZeroes(16);               // Key MIC
-  eapol.AppendPrimitive((U16)htons(0)); // Key Data Length
+  eapol.AppendZeroes(16);             // Key IV
+  eapol.AppendZeroes(8);              // Key RSC
+  eapol.AppendZeroes(8);              // Key ID
+  eapol.AppendZeroes(16);             // Key MIC
+  eapol.AppendPrimitive(Big<U16>(0)); // Key Data Length
 
   length_big_endian->Set(eapol.Size() - 4);
   SendEAPOL(ifindex, mac, eapol, status);

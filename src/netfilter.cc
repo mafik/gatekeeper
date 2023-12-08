@@ -68,9 +68,8 @@ void NewTable(Netlink &netlink, Family family, const char *name,
         .nlmsg_seq = netlink.seq++,
     };
     ptr += sizeof(nlmsghdr);
-    new (ptr) nfgenmsg{.nfgen_family = (uint8_t)family,
-                       .version = NFNETLINK_V0,
-                       .res_id = htons(0)};
+    new (ptr) nfgenmsg{
+        .nfgen_family = (uint8_t)family, .version = NFNETLINK_V0, .res_id = 0};
     ptr += sizeof(nfgenmsg);
     new (ptr) nlattr{
         .nla_len = (uint16_t)(sizeof(nlattr) + name_len),
@@ -120,9 +119,8 @@ void DelTable(Netlink &netlink, Family family, const char *name,
         .nlmsg_seq = netlink.seq++,
     };
     ptr += sizeof(nlmsghdr);
-    new (ptr) nfgenmsg{.nfgen_family = (uint8_t)family,
-                       .version = NFNETLINK_V0,
-                       .res_id = htons(0)};
+    new (ptr) nfgenmsg{
+        .nfgen_family = (uint8_t)family, .version = NFNETLINK_V0, .res_id = 0};
     ptr += sizeof(nfgenmsg);
     new (ptr) nlattr{
         .nla_len = (uint16_t)(sizeof(nlattr) + name_len),

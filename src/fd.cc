@@ -35,7 +35,7 @@ void FD::SetNonBlocking(Status &status) {
 void FD::Bind(IP local_ip, U16 local_port, Status &status) {
   sockaddr_in addr = {
       .sin_family = AF_INET,
-      .sin_port = htons(local_port),
+      .sin_port = Big(local_port).big_endian,
       .sin_addr = {.s_addr = local_ip.addr},
   };
 
@@ -48,7 +48,7 @@ void FD::Bind(IP local_ip, U16 local_port, Status &status) {
 void FD::SendTo(IP remote_ip, U16 remote_port, StrView buffer, Str &error) {
   sockaddr_in remote_addr = {
       .sin_family = AF_INET,
-      .sin_port = htons(remote_port),
+      .sin_port = Big(remote_port).big_endian,
       .sin_addr = {.s_addr = remote_ip.addr},
   };
   if (sendto(fd, buffer.data(), buffer.size(), 0,

@@ -120,7 +120,7 @@ void Connection::Connect(Config config) {
   }
 
   sockaddr_in address = {.sin_family = AF_INET,
-                         .sin_port = htons(config.remote_port),
+                         .sin_port = Big(config.remote_port).big_endian,
                          .sin_addr = {.s_addr = config.remote_ip.addr}};
   if (int r = connect(fd, (sockaddr *)&address, sizeof(address)); r < 0) {
     if (errno != EINPROGRESS) {

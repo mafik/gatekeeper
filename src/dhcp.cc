@@ -383,9 +383,7 @@ struct __attribute__((__packed__)) IPAddressLeaseTime : Base {
   const Big<U32> seconds;
   IPAddressLeaseTime(U32 seconds)
       : Base(OptionCode::IPAddressLeaseTime, 4), seconds(seconds) {}
-  Str ToStr() const {
-    return "IPAddressLeaseTime(" + ::ToStr(ntohl(seconds)) + ")";
-  }
+  Str ToStr() const { return "IPAddressLeaseTime(" + ::ToStr(seconds) + ")"; }
 };
 
 struct __attribute__((__packed__)) MessageType : Base {
@@ -570,7 +568,7 @@ struct __attribute__((__packed__)) Header {
   uint8_t hops = 0;
   uint32_t transaction_id = random<uint32_t>();
   uint16_t seconds_elapsed = 0;
-  uint16_t flags = 0;
+  Big<U16> flags = 0;
   IP client_ip = {0, 0, 0, 0};  // ciaddr
   IP your_ip = {0, 0, 0, 0};    // yiaddr
   IP server_ip = {0, 0, 0, 0};  // siaddr (Next server IP)
@@ -592,7 +590,7 @@ struct __attribute__((__packed__)) Header {
     s += "  hops: " + ::ToStr(hops) + "\n";
     s += "  transaction_id: " + ValToHex(transaction_id) + "\n";
     s += "  seconds_elapsed: " + ::ToStr(seconds_elapsed) + "\n";
-    s += "  flags: " + ::ToStr(ntohs(flags)) + "\n";
+    s += "  flags: " + ::ToStr(flags) + "\n";
     s += "  client_ip: " + ::ToStr(client_ip) + "\n";
     s += "  your_ip: " + ::ToStr(your_ip) + "\n";
     s += "  server_ip: " + ::ToStr(server_ip) + "\n";

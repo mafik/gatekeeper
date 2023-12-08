@@ -25,11 +25,11 @@ static int server_i = 0;
 // Use privileged port for DNS client - to reduce the chance of NAT collision.
 static constexpr U16 kClientPort = 338;
 
-U16 AllocateRequestId() {
+Big<U16> AllocateRequestId() {
   // Randomize initial request ID
   static Big<U16> request_id = random<U16>();
   // Subsequent request IDs are incremented by 1
-  ++request_id.big_endian;
+  request_id.Set(request_id + 1);
   return request_id;
 }
 
@@ -89,9 +89,9 @@ struct EqualData {
 unordered_multiset<const Record *, HashByData, EqualData> cache_reverse;
 
 struct PendingEntry : Expirable, Entry {
-  U16 id;
+  Big<U16> id;
   Vec<LookupBase *> in_progress;
-  PendingEntry(Question question, U16 id, LookupBase *lookup);
+  PendingEntry(Question question, Big<U16> id, LookupBase *lookup);
   ~PendingEntry() override {
     for (auto *lookup : in_progress) {
       lookup->in_progress = false;
@@ -206,7 +206,7 @@ void LookupBase::Start(Str domain, U16 type) {
     // We don't have anything in the cache.
     // Send a new request to the upstream DNS server.
     in_progress = true;
-    U16 id = AllocateRequestId();
+    Big<U16> id = AllocateRequestId();
     new PendingEntry(question, id, this);
   } else if (PendingEntry *pending = dynamic_cast<PendingEntry *>(*entry_it)) {
     // We already have a pending request for this domain.
@@ -379,7 +379,7 @@ struct Client : UDPListener {
 
 Client client;
 
-PendingEntry::PendingEntry(Question question, U16 id, LookupBase *lookup)
+PendingEntry::PendingEntry(Question question, Big<U16> id, LookupBase *lookup)
     : Expirable(kPendingTTL), Entry(question), id(id), in_progress({lookup}) {
   string buffer;
   Header{.id = id, .recursion_desired = true, .question_count = 1}.write_to(

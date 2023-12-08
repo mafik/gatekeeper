@@ -9,7 +9,7 @@
 namespace maf::netfilter {
 
 // Number of the nfqueue used to intercept messages.
-constexpr uint16_t kQueueNumber = 1337;
+constexpr Big<U16> kQueueNumber = 1337;
 
 // All netlink structures are manually padded. Any compiler-injected padding
 // shold be treated as an error.
@@ -28,7 +28,7 @@ struct Bind : nlmsghdr {
         }) {}
   nfgenmsg msg{.nfgen_family = (uint8_t)Family::UNSPEC,
                .version = NFNETLINK_V0,
-               .res_id = htons(kQueueNumber)};
+               .res_id = kQueueNumber.big_endian};
   nlattr cmd_attr{
       .nla_len = sizeof(cmd_attr) + sizeof(cmd),
       .nla_type = NFQA_CFG_CMD,
@@ -49,7 +49,7 @@ struct CopyPacket : nlmsghdr {
         }) {}
   nfgenmsg msg{.nfgen_family = AF_UNSPEC,
                .version = NFNETLINK_V0,
-               .res_id = htons(kQueueNumber)};
+               .res_id = kQueueNumber.big_endian};
   nlattr params_attr{
       .nla_len = sizeof(params_attr) + sizeof(params),
       .nla_type = NFQA_CFG_PARAMS,
@@ -67,12 +67,12 @@ public:
       .nla_len = sizeof(flags_attr) + sizeof(flags),
       .nla_type = NFQA_CFG_FLAGS,
   };
-  uint32_t flags = htonl(NFQA_CFG_F_GSO);
+  Big<U32> flags = NFQA_CFG_F_GSO;
   nlattr mask_attr{
       .nla_len = sizeof(mask_attr) + sizeof(mask),
       .nla_type = NFQA_CFG_MASK,
   };
-  uint32_t mask = htonl(NFQA_CFG_F_GSO);
+  Big<U32> mask = NFQA_CFG_F_GSO;
 };
 
 struct Verdict : nlmsghdr {
@@ -86,18 +86,18 @@ struct Verdict : nlmsghdr {
             .nlmsg_seq = 0,
         }),
         verdict({
-            .verdict = htonl(accept ? NF_ACCEPT : NF_DROP),
+            .verdict = Big<U32>(accept ? NF_ACCEPT : NF_DROP).big_endian,
             .id = packet_id_be32,
         }) {}
   nfgenmsg msg{.nfgen_family = AF_UNSPEC,
                .version = NFNETLINK_V0,
-               .res_id = htons(kQueueNumber)};
+               .res_id = kQueueNumber.big_endian};
   nlattr verdict_attr{
       .nla_len = sizeof(verdict_attr) + sizeof(verdict),
       .nla_type = NFQA_VERDICT_HDR,
   };
   nfqnl_msg_verdict_hdr verdict{
-      .verdict = htonl(NF_ACCEPT),
+      .verdict = Big<U32>(NF_ACCEPT).big_endian,
       .id = 0,
   };
 };

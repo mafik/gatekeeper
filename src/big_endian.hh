@@ -20,6 +20,7 @@ template <typename T> struct Big {
   T big_endian;
 
   Big() = default;
+  constexpr Big(const Big<T> &other) = default;
   constexpr Big(T host_value) : big_endian(std::byteswap(host_value)) {}
 
   constexpr static Big<T> FromBig(T big_endian) {

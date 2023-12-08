@@ -82,7 +82,7 @@ struct __attribute__((__packed__)) Header {
     UPDATE = 5,
   };
 
-  U16 id; // big endian
+  Big<U16> id;
 
   // order swapped to match the order in the packet
   bool recursion_desired : 1;
