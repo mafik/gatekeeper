@@ -192,7 +192,7 @@ Str ToStr(ProtocolID proto) {
 struct IP_Header {
   U8 version_ihl;
   U8 tos;
-  U16 total_length;
+  Big<U16> total_length;
   U16 frag_id;
   U16 frag_offset;
   U8 ttl;
@@ -222,8 +222,8 @@ static_assert(sizeof(IP_Header) == 20, "IP_Header should have 20 bytes");
 
 // Base class for TCP & UDP headers
 struct INET_Header {
-  uint16_t source_port;
-  uint16_t destination_port;
+  Big<U16> source_port;
+  Big<U16> destination_port;
 };
 
 struct TCP_Header : INET_Header {
@@ -251,11 +251,11 @@ void UpdateLayer4Checksum(IP_Header &ip, U16 &checksum) {
   checksum = 0;
   U32 sum = 0;
   U16 header_len = ip.HeaderLength();
-  U16 data_len = ntohs(ip.total_length) - header_len;
-  sum += ntohs(ip.source_ip.halves[0]);
-  sum += ntohs(ip.source_ip.halves[1]);
-  sum += ntohs(ip.destination_ip.halves[0]);
-  sum += ntohs(ip.destination_ip.halves[1]);
+  U16 data_len = ip.total_length - header_len;
+  sum += ip.source_ip.halves[0];
+  sum += ip.source_ip.halves[1];
+  sum += ip.destination_ip.halves[0];
+  sum += ip.destination_ip.halves[1];
   sum += data_len;
   sum += (U16)ip.proto;
   U8 *buff = (U8 *)&ip + header_len;
@@ -278,12 +278,12 @@ struct FullConeNAT {
   // not that much of a saving anyway so let's keep things simple.
   IP lan_host_ip;
 
-  static FullConeNAT &Lookup(ProtocolID protocol, uint16_t local_port);
+  static FullConeNAT &Lookup(ProtocolID protocol, U16 local_port);
 };
 
 static FullConeNAT nat_table[2][65536];
 
-FullConeNAT &FullConeNAT::Lookup(ProtocolID protocol, uint16_t local_port) {
+FullConeNAT &FullConeNAT::Lookup(ProtocolID protocol, U16 local_port) {
   int protocol_index = protocol == ProtocolID::TCP ? 0 : 1;
   return nat_table[protocol_index][local_port];
 }
@@ -291,23 +291,23 @@ FullConeNAT &FullConeNAT::Lookup(ProtocolID protocol, uint16_t local_port) {
 struct SymmetricNAT : Expirable {
   struct Key {
     IP remote_ip;
-    uint16_t remote_port;
-    uint16_t local_port;
+    U16 remote_port;
+    U16 local_port;
 
     bool operator==(const Key &other) const {
       return remote_ip == other.remote_ip && remote_port == other.remote_port &&
              local_port == other.local_port;
     }
 
-    size_t Hash() const { return *reinterpret_cast<const size_t *>(this); }
+    Size Hash() const { return *reinterpret_cast<const size_t *>(this); }
   } key;
   IP local_ip;
 
   struct HashByRemote {
     using is_transparent = std::true_type;
 
-    size_t operator()(const SymmetricNAT *n) const { return n->key.Hash(); }
-    size_t operator()(const Key &key) const { return key.Hash(); }
+    Size operator()(const SymmetricNAT *n) const { return n->key.Hash(); }
+    Size operator()(const Key &key) const { return key.Hash(); }
   };
 
   struct EqualByRemote {
@@ -436,15 +436,15 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
   UDP_Header &udp = *(UDP_Header *)(&inet);
 
   if constexpr (kLogPackets) {
-    std::string protocol_string = ToStr(ip.proto);
+    Str protocol_string = ToStr(ip.proto);
     if (ip.proto == ProtocolID::TCP) {
-      protocol_string += f(" %5d -> %-5d", ntohs(tcp.source_port),
-                           ntohs(tcp.destination_port));
+      protocol_string +=
+          f(" %5d -> %-5d", tcp.source_port, tcp.destination_port);
     } else if (ip.proto == ProtocolID::UDP) {
-      protocol_string += f(" %5d -> %-5d", ntohs(udp.source_port),
-                           ntohs(udp.destination_port));
+      protocol_string +=
+          f(" %5d -> %-5d", udp.source_port, udp.destination_port);
     }
-    uint32_t packet_id = ntohl(phdr.packet_id);
+    U32 packet_id = Big(phdr.packet_id).big_endian;
     LOG << f("#%04x ", packet_id) << f("%15s", ToStr(ip.source_ip).c_str())
         << " => " << f("%-15s", ToStr(ip.destination_ip).c_str()) << " ("
         << protocol_string << "): " << f("%4d", payload.size()) << " B";

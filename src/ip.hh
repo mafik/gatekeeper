@@ -14,7 +14,7 @@ union __attribute__((__packed__)) IP {
   U32 addr; // network byte order
   Big<U32> addr_big_endian;
   U8 bytes[4];
-  U16 halves[2];
+  Big<U16> halves[2];
   IP() : addr(0) {}
   IP(U8 a, U8 b, U8 c, U8 d) : bytes{a, b, c, d} {}
   // Constructor for address in network byte order

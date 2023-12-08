@@ -243,9 +243,9 @@ size_t Question::LoadFrom(const char *ptr, size_t len, size_t offset) {
   if (offset + 4 > len) {
     return 0;
   }
-  type = Type(ntohs(*(uint16_t *)(ptr + offset)));
+  type = Type(Big(*(U16 *)(ptr + offset)).big_endian);
   offset += 2;
-  class_ = Class(ntohs(*(uint16_t *)(ptr + offset)));
+  class_ = Class(Big(*(U16 *)(ptr + offset)).big_endian);
   offset += 2;
   return offset - start_offset;
 }
@@ -276,10 +276,10 @@ size_t Record::LoadFrom(const char *ptr, size_t len, size_t offset) {
     return 0;
   }
   expiration = chrono::steady_clock::now() +
-               chrono::seconds(ntohl(*(uint32_t *)(ptr + offset))) +
+               chrono::seconds(Big(*(U32 *)(ptr + offset)).big_endian) +
                chrono::milliseconds(500);
   offset += 4;
-  data_length = ntohs(*(uint16_t *)(ptr + offset));
+  data_length = Big(*(U16 *)(ptr + offset)).big_endian;
   offset += 2;
   if (offset + data_length > len) {
     return 0;

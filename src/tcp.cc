@@ -80,7 +80,7 @@ void Server::NotifyRead(Status &epoll_status) {
       return;
     }
     NotifyAcceptedTCP(std::move(conn_fd), IP(addr.sin_addr.s_addr),
-                      ntohs(addr.sin_port));
+                      Big(addr.sin_port).big_endian);
   }
 }
 

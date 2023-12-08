@@ -75,9 +75,9 @@ static void ScanInternetSockets(U8 protocol,
       [&](inet_diag_msg &msg, Netlink::Attrs attributes) {
         InternetSocketDescription desc{
             .local_ip = IP(msg.id.idiag_src[0]),
-            .local_port = ntohs(msg.id.idiag_sport),
+            .local_port = Big<U16>(msg.id.idiag_sport).big_endian,
             .remote_ip = IP(msg.id.idiag_dst[0]),
-            .remote_port = ntohs(msg.id.idiag_dport),
+            .remote_port = Big<U16>(msg.id.idiag_dport).big_endian,
             .inode = msg.idiag_inode,
             .uid = msg.idiag_uid,
             .interface = msg.id.idiag_if,
