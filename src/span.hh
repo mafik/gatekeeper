@@ -1,6 +1,7 @@
 #pragma once
 
 #include <compare>
+#include <cstring>
 #include <span>
 #include <string_view>
 
@@ -23,7 +24,9 @@ struct Span : std::span<T, Extent> {
       : std::span<T, Extent>(const_cast<T *>(arr), n) {}
   inline Span(const Str &s) : Span(s.data(), s.size() / sizeof(T)) {}
   inline Span(StrView s) : Span(s.data(), s.size() / sizeof(T)) {}
-  inline Span(std::span<T, Extent> s) : std::span<T, Extent>(s) {}
+
+  template <Size ExtentRhs>
+  inline Span(std::span<T, ExtentRhs> s) : std::span<T, Extent>(s) {}
 
   template <Size ExtentRhs>
   inline Span &operator=(const std::span<T, ExtentRhs> &rhs) {
@@ -31,7 +34,10 @@ struct Span : std::span<T, Extent> {
     return *this;
   }
 
-  void RemovePrefix(Size n) { *this = this->subspan(n); }
+  auto RemovePrefix(Size n) {
+    *this = this->subspan(n);
+    return *this;
+  }
 
   template <Size ExtentRhs>
   constexpr inline bool StartsWith(Span<T, ExtentRhs> prefix) {
@@ -74,6 +80,10 @@ struct Span : std::span<T, Extent> {
     U *ret = (U *)this->data();
     RemovePrefix(sizeof(U));
     return *ret;
+  }
+
+  template <typename U> void PutRef(const U &ref) {
+    memcpy(this->data(), &ref, sizeof(U));
   }
 
   bool Empty() const { return this->size() == 0; }

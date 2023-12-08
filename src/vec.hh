@@ -1,5 +1,7 @@
 #pragma once
 
+#include "span.hh"
+
 #include <vector>
 
 namespace maf {
@@ -7,6 +9,8 @@ namespace maf {
 template <typename T = char> struct Vec : std::vector<T> {
   using std::vector<T>::vector;
   using iterator = typename std::vector<T>::iterator;
+
+  Span<> Span() { return {this->data(), this->size()}; }
 
   // Returns true if the vector contains the given value.
   //

@@ -95,7 +95,9 @@ struct RecordWrapper {
     Size tag_begin = buf.size();
     buf.insert(buf.end(), 16, 0); // Poly1305 tag
     Size tag_end = buf.size();
-    PutBigEndian<U16>(buf, record_length_offset, tag_end - record_begin);
+    buf.Span()
+        .RemovePrefix(record_length_offset)
+        .PutRef(Big<U16>(tag_end - record_begin));
     XorIV(iv, counter);
     auto data = Span<>(buf.begin() + record_begin, buf.begin() + record_end);
     auto aad = Span<>(buf.begin() + header_begin, buf.begin() + header_end);
@@ -554,12 +556,15 @@ struct Phase1 : Phase {
     send_tcp.insert(send_tcp.end(), client_public.bytes.begin(),
                     client_public.bytes.end());
 
-    PutBigEndian<U16>(send_tcp, extensions_length_offset,
-                      send_tcp.size() - extensions_begin);
-    PutBigEndian<U24>(send_tcp, handshake_length_offset,
-                      send_tcp.size() - handshake_begin);
-    PutBigEndian<U16>(send_tcp, record_length_offset,
-                      send_tcp.size() - record_begin);
+    send_tcp.Span()
+        .RemovePrefix(extensions_length_offset)
+        .PutRef(Big<U16>(send_tcp.size() - extensions_begin));
+    send_tcp.Span()
+        .RemovePrefix(handshake_length_offset)
+        .PutRef(Big<U24>(send_tcp.size() - handshake_begin));
+    send_tcp.Span()
+        .RemovePrefix(record_length_offset)
+        .PutRef(Big<U16>(send_tcp.size() - record_begin));
 
     sha_builder.Update(Span<>((char *)&send_tcp[record_begin],
                               send_tcp.size() - record_begin));
