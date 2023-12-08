@@ -32,14 +32,14 @@ enum class Type : uint16_t {
   ANY = 255,
 };
 
-Str TypeToString(Type);
+Str ToStr(Type);
 
 enum class Class : uint16_t {
   IN = 1,
   ANY = 255,
 };
 
-Str ClassToString(Class);
+Str ToStr(Class);
 
 struct Question {
   Str domain_name = "";
@@ -47,7 +47,7 @@ struct Question {
   Class class_ = Class::IN;
   Size LoadFrom(const char *ptr, Size len, Size offset);
   void write_to(Str &buffer) const;
-  Str to_string() const;
+  Str ToStr() const;
   Str to_html() const;
   auto operator<=>(const Question &other) const = default;
 };
@@ -61,7 +61,7 @@ enum class ResponseCode {
   REFUSED = 5,
 };
 
-const char *ResponseCodeToString(ResponseCode);
+const char *ToStr(ResponseCode);
 
 // Convert a domain name from "www.google.com" to "\3www\6google\3com\0".
 Str EncodeDomainName(const Str &domain_name);
@@ -73,14 +73,13 @@ std::pair<Str, Size> LoadDomainName(const char *dns_message_base,
                                     Size dns_message_len, Size offset);
 
 struct __attribute__((__packed__)) Header {
-  enum OperationCode {
+  enum class OperationCode {
     QUERY = 0,
     IQUERY = 1,
     STATUS = 2,
     NOTIFY = 4,
     UPDATE = 5,
   };
-  static Str OperationCodeToString(OperationCode code);
 
   U16 id; // big endian
 
@@ -100,8 +99,10 @@ struct __attribute__((__packed__)) Header {
   U16 authority_count;  // big endian
   U16 additional_count; // big endian
   void write_to(Str &buffer);
-  Str to_string() const;
+  Str ToStr() const;
 };
+
+Str ToStr(Header::OperationCode code);
 
 static_assert(sizeof(Header) == 12, "dns::Header is not packed correctly");
 
@@ -113,7 +114,7 @@ struct Record : public Question {
   Size LoadFrom(const char *ptr, Size len, Size offset);
   void write_to(Str &buffer) const;
   U32 ttl() const;
-  Str to_string() const;
+  Str ToStr() const;
   Str pretty_value() const;
   Str to_html() const;
 };
@@ -126,7 +127,7 @@ struct Message {
   Vec<Record> additional;
 
   void Parse(const char *ptr, Size len, Str &err);
-  Str to_string() const;
+  Str ToStr() const;
   void ForEachRecord(Fn<void(const Record &)> f) const;
 };
 

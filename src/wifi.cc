@@ -115,7 +115,7 @@ static void EpollCallback(GenericNetlink::Command cmd, Netlink::Attrs attrs) {
       case NL80211_ATTR_MAC:
         mac = &attr.As<MAC>();
 #if DEBUG_WIFI
-        LOG << "  MAC: " << mac->to_string();
+        LOG << "  MAC: " << mac->ToStr();
 #endif
         break;
       case NL80211_ATTR_IFINDEX:
@@ -166,7 +166,7 @@ static void EpollCallback(GenericNetlink::Command cmd, Netlink::Attrs attrs) {
       }
     }
 #if DEBUG_WIFI
-    LOG << "Del station: " << (mac ? mac->to_string() : "??");
+    LOG << "Del station: " << (mac ? mac->ToStr() : "??");
 #endif
     break;
   }
@@ -300,7 +300,7 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band band_preference,
     }
     if (!found) {
       AppendErrorMessage(status) +=
-          "Wireless interface " + std::to_string(if_ctrl.index) + " not found";
+          "Wireless interface " + ToStr(if_ctrl.index) + " not found";
       return;
     }
   }
@@ -758,7 +758,7 @@ struct Handshake : Expirable, HashableByMAC<Handshake> {
     UpdateExpiration(1s);
 
 #if DEBUG_WIFI
-    LOG << "Successfully validated Handshake 2/4 for " << mac.to_string();
+    LOG << "Successfully validated Handshake 2/4 for " << mac.ToStr();
 #endif
     AES aes_kek(kek);
 
@@ -850,7 +850,7 @@ struct Handshake : Expirable, HashableByMAC<Handshake> {
     }
 
 #if DEBUG_WIFI
-    LOG << "Successfully validated Handshake 4/4 for " << mac.to_string();
+    LOG << "Successfully validated Handshake 4/4 for " << mac.ToStr();
 #endif
 
     ap.netlink.NewKey(ap.iface.index, &mac, tk, nl80211::CipherSuite::CCMP, 0,
@@ -877,7 +877,7 @@ void OnNewStation(nl80211::Interface::Index ifindex, MAC mac, Status &status) {
     AppendErrorMessage(status) +=
         "Received NL80211_CMD_NEW_STATION for wireless interface without "
         "active Access Point index " +
-        std::to_string(ifindex);
+        ToStr(ifindex);
     return;
   }
   nl80211_sta_flags clear_flags[] = {
@@ -923,7 +923,7 @@ void OnNewStation(nl80211::Interface::Index ifindex, MAC mac, Status &status) {
     return;
   }
 #if DEBUG_WIFI
-  LOG << "Sent Handshake 1/4 to " << mac.to_string();
+  LOG << "Sent Handshake 1/4 to " << mac.ToStr();
 #endif
 }
 
@@ -941,7 +941,7 @@ void EAPOLReceiver::NotifyRead(Status &epoll_status) {
   MAC mac(addr.sll_addr[0], addr.sll_addr[1], addr.sll_addr[2],
           addr.sll_addr[3], addr.sll_addr[4], addr.sll_addr[5]);
 #if DEBUG_WIFI
-  LOG << "Received " << bytes_received << " bytes from " << mac.to_string();
+  LOG << "Received " << bytes_received << " bytes from " << mac.ToStr();
 #endif
   Span<> eapol(buf, bytes_received);
   if (auto h = Handshake::Find(mac); h != nullptr) {

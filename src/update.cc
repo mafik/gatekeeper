@@ -202,7 +202,7 @@ void Start() {
     timer->handler = Check;
     timer->Arm(config.first_check_delay_s, config.check_interval_s);
     if (not OK(timer->status)) {
-      AppendErrorMessage(status) += timer->status.ToString();
+      AppendErrorMessage(status) += timer->status.ToStr();
     }
   } else {
     Check();

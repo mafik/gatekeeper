@@ -1,14 +1,17 @@
 #include "dns_utils.hh"
 
+#include <netinet/in.h>
+
 #include "format.hh"
 #include "hex.hh"
-#include <netinet/in.h>
+
+using namespace maf;
 
 namespace maf::dns {
 
 using namespace std;
 
-Str TypeToString(Type t) {
+Str ToStr(Type t) {
   switch (t) {
   case Type::A:
     return "A";
@@ -37,7 +40,7 @@ Str TypeToString(Type t) {
   }
 }
 
-Str ClassToString(Class c) {
+Str ToStr(Class c) {
   switch (c) {
   case Class::IN:
     return "IN";
@@ -48,7 +51,7 @@ Str ClassToString(Class c) {
   }
 }
 
-const char *ResponseCodeToString(ResponseCode code) {
+const char *ToStr(ResponseCode code) {
   switch (code) {
   case ResponseCode::NO_ERROR:
     return "NO_ERROR";
@@ -132,17 +135,17 @@ pair<Str, Size> LoadDomainName(const char *dns_message_base,
   }
 }
 
-string Header::OperationCodeToString(OperationCode code) {
+Str ToStr(Header::OperationCode code) {
   switch (code) {
-  case QUERY:
+  case Header::OperationCode::QUERY:
     return "QUERY";
-  case IQUERY:
+  case Header::OperationCode::IQUERY:
     return "IQUERY";
-  case STATUS:
+  case Header::OperationCode::STATUS:
     return "STATUS";
-  case NOTIFY:
+  case Header::OperationCode::NOTIFY:
     return "NOTIFY";
-  case UPDATE:
+  case Header::OperationCode::UPDATE:
     return "UPDATE";
   default:
     return f("UNKNOWN(%d)", code);
@@ -153,20 +156,20 @@ void Header::write_to(string &buffer) {
   buffer.append((const char *)this, sizeof(*this));
 }
 
-string Header::to_string() const {
-  string r = "dns::Header {\n";
+Str Header::ToStr() const {
+  Str r = "dns::Header {\n";
   r += "  id: " + f("0x%04hx", ntohs(id)) + "\n";
-  r += "  reply: " + std::to_string(reply) + "\n";
-  r += "  opcode: " + string(OperationCodeToString(opcode)) + "\n";
-  r += "  authoritative: " + std::to_string(authoritative) + "\n";
-  r += "  truncated: " + std::to_string(truncated) + "\n";
-  r += "  recursion_desired: " + std::to_string(recursion_desired) + "\n";
-  r += "  recursion_available: " + std::to_string(recursion_available) + "\n";
-  r += "  response_code: " + string(ResponseCodeToString(response_code)) + "\n";
-  r += "  question_count: " + std::to_string(ntohs(question_count)) + "\n";
-  r += "  answer_count: " + std::to_string(ntohs(answer_count)) + "\n";
-  r += "  authority_count: " + std::to_string(ntohs(authority_count)) + "\n";
-  r += "  additional_count: " + std::to_string(ntohs(additional_count)) + "\n";
+  r += "  reply: " + ::ToStr(reply) + "\n";
+  r += "  opcode: " + Str(dns::ToStr(opcode)) + "\n";
+  r += "  authoritative: " + ::ToStr(authoritative) + "\n";
+  r += "  truncated: " + ::ToStr(truncated) + "\n";
+  r += "  recursion_desired: " + ::ToStr(recursion_desired) + "\n";
+  r += "  recursion_available: " + ::ToStr(recursion_available) + "\n";
+  r += "  response_code: " + string(dns::ToStr(response_code)) + "\n";
+  r += "  question_count: " + ::ToStr(ntohs(question_count)) + "\n";
+  r += "  answer_count: " + ::ToStr(ntohs(answer_count)) + "\n";
+  r += "  authority_count: " + ::ToStr(ntohs(authority_count)) + "\n";
+  r += "  additional_count: " + ::ToStr(ntohs(additional_count)) + "\n";
   r += "}";
   return r;
 }
@@ -254,12 +257,12 @@ void Question::write_to(string &buffer) const {
   uint16_t class_big_endian = htons((uint16_t)class_);
   buffer.append((char *)&class_big_endian, 2);
 }
-string Question::to_string() const {
-  return "dns::Question(" + domain_name + ", type=" + TypeToString(type) +
-         ", class=" + string(ClassToString(class_)) + ")";
+string Question::ToStr() const {
+  return "dns::Question(" + domain_name + ", type=" + dns::ToStr(type) +
+         ", class=" + Str(dns::ToStr(class_)) + ")";
 }
 string Question::to_html() const {
-  return "<code class=dns-question>" + domain_name + " " + TypeToString(type) +
+  return "<code class=dns-question>" + domain_name + " " + dns::ToStr(type) +
          "</code>";
 }
 size_t Record::LoadFrom(const char *ptr, size_t len, size_t offset) {
@@ -330,18 +333,15 @@ uint32_t Record::ttl() const {
     return (uint32_t)duration_cast<chrono::seconds>(kAuthoritativeTTL).count();
   }
 }
-string Record::to_string() const {
-  return "dns::Record(" + Question::to_string() +
-         ", ttl=" + std::to_string(ttl()) + ", data=\"" + BytesToHex(data) +
-         "\")";
+Str Record::ToStr() const {
+  return "dns::Record(" + Question::ToStr() + ", ttl=" + ::ToStr(ttl()) +
+         ", data=\"" + BytesToHex(data) + "\")";
 }
-string Record::pretty_value() const {
+Str Record::pretty_value() const {
   if (type == Type::A) {
     if (data.size() == 4) {
-      return std::to_string((uint8_t)data[0]) + "." +
-             std::to_string((uint8_t)data[1]) + "." +
-             std::to_string((uint8_t)data[2]) + "." +
-             std::to_string((uint8_t)data[3]);
+      return ::ToStr((uint8_t)data[0]) + "." + ::ToStr((uint8_t)data[1]) + "." +
+             ::ToStr((uint8_t)data[2]) + "." + ::ToStr((uint8_t)data[3]);
     }
   } else if (type == Type::CNAME) {
     auto [loaded_name, loaded_size] =
@@ -360,15 +360,15 @@ string Record::pretty_value() const {
   }
   return BytesToHex(data);
 }
-string Record::to_html() const {
-  return "<code class=dns-record title=TTL=" + std::to_string(ttl()) +
+Str Record::to_html() const {
+  return "<code class=dns-record title=TTL=" + ::ToStr(ttl()) +
          "s style=display:inline-block>" + domain_name + " " +
-         TypeToString(type) + " " + pretty_value() + "</code>";
+         dns::ToStr(type) + " " + pretty_value() + "</code>";
 }
 
 void Message::Parse(const char *ptr, size_t len, string &err) {
   if (len < sizeof(Header)) {
-    err = "DNS message buffer is too short: " + std::to_string(len) +
+    err = "DNS message buffer is too short: " + ::ToStr(len) +
           " bytes. DNS header requires at least 12 bytes. Hex-escaped "
           "buffer: " +
           BytesToHex(ptr, len);
@@ -395,7 +395,7 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
       } else {
         v.pop_back();
         err = "Failed to load a record from DNS message. Loaded part: \n" +
-              this->to_string() + "\nFull message:\n" + BytesToHex(ptr, len) +
+              this->ToStr() + "\nFull message:\n" + BytesToHex(ptr, len) +
               "\nFailed when parsing:\n" +
               BytesToHex(ptr + offset, len - offset);
         return;
@@ -413,20 +413,20 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
   if (!err.empty())
     return;
 }
-string Message::to_string() const {
+string Message::ToStr() const {
   string r = "dns::Message {\n";
-  r += IndentString(header.to_string()) + "\n";
+  r += IndentString(header.ToStr()) + "\n";
   for (auto &q : questions) {
-    r += "  " + q.to_string() + "\n";
+    r += "  " + q.ToStr() + "\n";
   }
   for (const Record &a : answers) {
-    r += "  " + a.to_string() + "\n";
+    r += "  " + a.ToStr() + "\n";
   }
   for (const Record &a : authority) {
-    r += "  " + a.to_string() + "\n";
+    r += "  " + a.ToStr() + "\n";
   }
   for (const Record &a : additional) {
-    r += "  " + a.to_string() + "\n";
+    r += "  " + a.ToStr() + "\n";
   }
   r += "}";
   return r;

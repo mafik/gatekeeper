@@ -65,7 +65,7 @@ const LogEntry &operator<<(const LogEntry &logger, StrView s) {
 }
 
 const LogEntry &operator<<(const LogEntry &logger, Status &status) {
-  logger.buffer += status.ToString();
+  logger.buffer += status.ToStr();
   logger.errsv = status.errsv;
   return logger;
 }

@@ -220,7 +220,7 @@ void Interface::CheckName(StrView name, Status &status) {
   }
   if (name.size() >= IFNAMSIZ) {
     AppendErrorMessage(status) += "Interface name cannot be longer than " +
-                                  std::to_string(IFNAMSIZ - 1) + " characters";
+                                  ToStr(IFNAMSIZ - 1) + " characters";
     return;
   }
   for (auto c : name) {

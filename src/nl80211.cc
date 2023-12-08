@@ -1169,25 +1169,23 @@ Str Interface::Describe() const {
   Str body;
   body += "Type: " + IftypeToStrShort(type) + "\n";
   body += "MAC: " + mac.ToStr() + "\n";
-  body += "Wiphy: " + std::to_string(wiphy_index) + "\n";
-  body += "Wireless device ID: " + std::to_string(wireless_device_id) + "\n";
+  body += "Wiphy: " + ToStr(wiphy_index) + "\n";
+  body += "Wireless device ID: " + ToStr(wireless_device_id) + "\n";
   if (use_4addr) {
     body += "4-address frames: enabled\n";
   }
-  body += "Frequency: " + std::to_string(frequency_MHz) + " MHz\n";
+  body += "Frequency: " + ToStr(frequency_MHz) + " MHz\n";
   body += "Channel type: " + ChannelTypeToStr(channel_type) + "\n";
-  body += "Frequency offset: " + std::to_string(frequency_offset) + " kHz\n";
+  body += "Frequency offset: " + ToStr(frequency_offset) + " kHz\n";
   body += "Channel width: " + ChanWidthToStr(chan_width) + "\n";
   if (center_frequency1) {
-    body +=
-        "Center frequency 1: " + std::to_string(center_frequency1) + " MHz\n";
+    body += "Center frequency 1: " + ToStr(center_frequency1) + " MHz\n";
   }
   if (center_frequency2) {
-    body +=
-        "Center frequency 2: " + std::to_string(center_frequency2) + " MHz\n";
+    body += "Center frequency 2: " + ToStr(center_frequency2) + " MHz\n";
   }
   if (tx_power_level_mbm.has_value()) {
-    body += "TX power level: " + std::to_string(*tx_power_level_mbm) + " mBm\n";
+    body += "TX power level: " + ToStr(*tx_power_level_mbm) + " mBm\n";
   }
   ret += Indent(body);
   return ret;
@@ -1195,7 +1193,7 @@ Str Interface::Describe() const {
 
 Str Frequency::Describe() const {
   Str ret;
-  ret += std::to_string(frequency) + " MHz";
+  ret += ToStr(frequency) + " MHz";
   if (offset) {
     ret += f(" (+%d kHz)", offset);
   }
@@ -1281,9 +1279,9 @@ Str Band::Describe() const {
     body += " capabilities=";
     body += f("%04hx", ht->capa);
     body += ", A-MPDU factor=";
-    body += std::to_string(ht->ampdu_factor);
+    body += ToStr(ht->ampdu_factor);
     body += ", A-MPDU density=";
-    body += std::to_string(ht->ampdu_density);
+    body += ToStr(ht->ampdu_density);
     body += ", MCS set=";
     body += BytesToHex(Span<>((char *)ht->mcs_set.begin(), 16));
     body += "\n";
@@ -1307,7 +1305,7 @@ Str InterfaceCombination::Describe() const {
   }
   for (auto &limit : limits) {
     ret += ", (";
-    ret += std::to_string(limit.max);
+    ret += ToStr(limit.max);
     ret += " ";
     bool first = false;
     for (auto iftype : limit.iftypes) {
@@ -1537,27 +1535,25 @@ Str Wiphy::Describe() const {
     auto band_desc = band.Describe();
     body += Indent(band_desc);
   }
-  body += "Retry limits: " + std::to_string(retry_short_limit) + " short, " +
-          std::to_string(retry_long_limit) + " long\n";
+  body += "Retry limits: " + ToStr(retry_short_limit) + " short, " +
+          ToStr(retry_long_limit) + " long\n";
   if (fragmentation_threshold.has_value()) {
     body +=
-        "Fragmentation threshold: " + std::to_string(*fragmentation_threshold) +
-        "\n";
+        "Fragmentation threshold: " + ToStr(*fragmentation_threshold) + "\n";
   }
   if (rts_threshold.has_value()) {
-    body += "RTS threshold: " + std::to_string(*rts_threshold) + "\n";
+    body += "RTS threshold: " + ToStr(*rts_threshold) + "\n";
   }
-  body += "Coverage class: " + std::to_string(coverage_class) + "\n";
-  body += "Scan limits: max " + std::to_string(max_scan_ssids) + " SSIDs, " +
-          std::to_string(max_scan_ie_len) + " bytes max IEs length\n";
+  body += "Coverage class: " + ToStr(coverage_class) + "\n";
+  body += "Scan limits: max " + ToStr(max_scan_ssids) + " SSIDs, " +
+          ToStr(max_scan_ie_len) + " bytes max IEs length\n";
   if (max_sched_scan_ssids) {
-    body += "Scheduled scans: max " + std::to_string(max_sched_scan_ssids) +
-            " SSIDs, " + std::to_string(max_sched_scan_ie_len) +
-            " bytes max IEs length, " +
-            std::to_string(max_sched_scan_match_sets) + " match sets, " +
-            std::to_string(max_num_sched_scan_plans) + " plans, " +
-            std::to_string(max_scan_plan_interval) + " s max interval, " +
-            std::to_string(max_scan_plan_iterations) + " max iterations\n";
+    body += "Scheduled scans: max " + ToStr(max_sched_scan_ssids) + " SSIDs, " +
+            ToStr(max_sched_scan_ie_len) + " bytes max IEs length, " +
+            ToStr(max_sched_scan_match_sets) + " match sets, " +
+            ToStr(max_num_sched_scan_plans) + " plans, " +
+            ToStr(max_scan_plan_interval) + " s max interval, " +
+            ToStr(max_scan_plan_iterations) + " max iterations\n";
   }
   if (roam_support) {
     body += "Roaming supported\n";
@@ -1575,12 +1571,12 @@ Str Wiphy::Describe() const {
     }
   }
   body += "\n";
-  body += "Max PMKIDs: " + std::to_string(max_num_pmkids) + "\n";
+  body += "Max PMKIDs: " + ToStr(max_num_pmkids) + "\n";
   if (antenna_avail_tx) {
     body += "Configurable TX antennas:";
     for (int i = 0; i < 32; ++i) {
       if (antenna_avail_tx & (1 << i)) {
-        body += " " + std::to_string(i);
+        body += " " + ToStr(i);
       }
     }
     body += "\n";
@@ -1589,7 +1585,7 @@ Str Wiphy::Describe() const {
     body += "Configurable RX antennas:";
     for (int i = 0; i < 32; ++i) {
       if (antenna_avail_rx & (1 << i)) {
-        body += " " + std::to_string(i);
+        body += " " + ToStr(i);
       }
     }
     body += "\n";
@@ -1634,8 +1630,8 @@ Str Wiphy::Describe() const {
     body += "\n";
   }
   body += "Max remain-on-channel duration: " +
-          std::to_string(max_remain_on_channel_duration) + " ms\n";
-  body += "Off-channel TX ok: " + std::to_string(offchannel_tx_ok) + "\n";
+          ToStr(max_remain_on_channel_duration) + " ms\n";
+  body += "Off-channel TX ok: " + ToStr(offchannel_tx_ok) + "\n";
   if (!wowlan_triggers.empty()) {
     body += "WoWLAN triggers:";
     for (auto trigger : wowlan_triggers) {
@@ -1643,13 +1639,12 @@ Str Wiphy::Describe() const {
     }
     body += "\n";
     if (wowlan_pattern_support.has_value()) {
-      body += "WoWLAN pattern support: max " +
-              std::to_string(wowlan_pattern_support->max_patterns) +
-              " patterns, length " +
-              std::to_string(wowlan_pattern_support->min_pattern_len) + ".." +
-              std::to_string(wowlan_pattern_support->max_pattern_len) +
-              ", max pkt offset " +
-              std::to_string(wowlan_pattern_support->max_pkt_offset) + "\n";
+      body +=
+          "WoWLAN pattern support: max " +
+          ToStr(wowlan_pattern_support->max_patterns) + " patterns, length " +
+          ToStr(wowlan_pattern_support->min_pattern_len) + ".." +
+          ToStr(wowlan_pattern_support->max_pattern_len) + ", max pkt offset " +
+          ToStr(wowlan_pattern_support->max_pkt_offset) + "\n";
     }
   }
   body += "Interface combinations:\n";
@@ -1819,7 +1814,7 @@ Str Wiphy::Describe() const {
       body += "  OUI " +
               f("%02x:%02x:%02x", (cmd.vendor_id >> 16) & 0xff,
                 (cmd.vendor_id >> 8) & 0xff, cmd.vendor_id & 0xff) +
-              ", subcommand " + std::to_string(cmd.subcommand) + "\n";
+              ", subcommand " + ToStr(cmd.subcommand) + "\n";
     }
   }
   body += "BSS select strategies:";

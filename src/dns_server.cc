@@ -115,7 +115,7 @@ struct Server : UDPListener {
       return;
     }
 
-    if (msg.header.opcode == Header::STATUS) {
+    if (msg.header.opcode == Header::OperationCode::STATUS) {
       // maf's Samsung S10e was observed to send a malformed DNS query for
       // "google.com" with opcode=STATUS & ID=0x0002.
       //
@@ -125,7 +125,7 @@ struct Server : UDPListener {
       return;
     }
 
-    if (msg.header.opcode == Header::IQUERY) {
+    if (msg.header.opcode == Header::OperationCode::IQUERY) {
       // Similarly to the STATUS opcode above, that Android device was also
       // sending IQUERY requests with ID=0x000a & 0x000b for 216.58.202.4 (a
       // Google IP address).
@@ -136,10 +136,10 @@ struct Server : UDPListener {
       return;
     }
 
-    if (msg.header.opcode != Header::QUERY) {
+    if (msg.header.opcode != Header::OperationCode::QUERY) {
       LOG << "DNS server received a packet with an unsupported opcode: "
-          << Header::OperationCodeToString(msg.header.opcode)
-          << ". Source: " << source_ip << ". DNS message: " << msg.to_string();
+          << ToStr(msg.header.opcode) << ". Source: " << source_ip
+          << ". DNS message: " << msg.ToStr();
       SendError(ResponseCode::NOT_IMPLEMENTED, msg, source_ip, source_port,
                 err);
       return;
@@ -148,7 +148,7 @@ struct Server : UDPListener {
     if (msg.questions.size() != 1) {
       LOG << "DNS server expected a packet with exactly one question. "
              "Received: "
-          << msg.to_string();
+          << msg.ToStr();
       SendError(ResponseCode::NOT_IMPLEMENTED, msg, source_ip, source_port,
                 err);
       return;
@@ -174,7 +174,7 @@ void ProxyLookup::OnAnswer(const Message &msg) {
       .recursion_desired = true,
       .truncated = false,
       .authoritative = false,
-      .opcode = Header::QUERY,
+      .opcode = Header::OperationCode::QUERY,
       .reply = true,
       .response_code = msg.header.response_code,
       .reserved = 0,

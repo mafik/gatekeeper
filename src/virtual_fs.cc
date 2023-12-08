@@ -145,10 +145,10 @@ void OverlayFS::Map(const Path &path, Fn<void(StrView)> callback,
     if (OK(layer_status)) {
       return;
     } else {
-      all_layers_status() += layer_status.ToString();
+      all_layers_status() += layer_status.ToStr();
     }
   }
-  status() += all_layers_status.ToString();
+  status() += all_layers_status.ToStr();
 }
 
 Str OverlayFS::Read(const Path &path, Status &status) {
@@ -159,10 +159,10 @@ Str OverlayFS::Read(const Path &path, Status &status) {
     if (OK(layer_status)) {
       return ret;
     } else {
-      all_layers_status() += layer_status.ToString();
+      all_layers_status() += layer_status.ToStr();
     }
   }
-  status() += all_layers_status.ToString();
+  status() += all_layers_status.ToStr();
   return "";
 }
 
@@ -175,10 +175,10 @@ void OverlayFS::Write(const Path &path, StrView contents, Status &status,
     if (OK(layer_status)) {
       return;
     } else {
-      all_layers_status() += layer_status.ToString();
+      all_layers_status() += layer_status.ToStr();
     }
   }
-  status() += all_layers_status.ToString();
+  status() += all_layers_status.ToStr();
 }
 
 void Map(VirtualFS &fs, const Path &path, Fn<void(StrView)> callback,

@@ -39,8 +39,8 @@ void Add(Listener *listener, Status &status) {
   }
   epoll_event ev = MakeEpollEvent(listener);
   if (int r = epoll_ctl(fd, EPOLL_CTL_ADD, listener->fd, &ev); r == -1) {
-    status() += "epoll_ctl(EPOLL_CTL_ADD) epfd=" + std::to_string(fd) +
-                " fd=" + std::to_string(listener->fd);
+    status() += "epoll_ctl(EPOLL_CTL_ADD) epfd=" + ToStr(fd) +
+                " fd=" + ToStr(listener->fd);
     return;
   }
   ++listener_count;

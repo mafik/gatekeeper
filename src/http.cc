@@ -117,7 +117,7 @@ void Response::WriteHeader(std::string_view key, std::string_view value) {
 }
 
 void Response::Write(std::string_view data) {
-  WriteHeader("Content-Length", std::to_string(data.size()));
+  WriteHeader("Content-Length", ToStr(data.size()));
   buffer.append("\r\n", 2);
   buffer.append(data);
 }

@@ -28,8 +28,8 @@ MaskGuard::MaskGuard(StrView unit) : unit(unit) {
     Str command = f("systemctl mask --now --runtime %s", this->unit.c_str());
     int ret = system(command.c_str());
     if (ret) {
-      AppendErrorMessage(status) += "Failed to mask " + this->unit +
-                                    " (exit code " + std::to_string(ret) + ")";
+      AppendErrorMessage(status) +=
+          "Failed to mask " + this->unit + " (exit code " + ToStr(ret) + ")";
     }
   }
 }
@@ -101,14 +101,14 @@ static void StructuredLog(const LogEntry &log_entry) {
   message += log_entry.location.file_name();
   message += '\n';
   message += "CODE_LINE=";
-  message += std::to_string(log_entry.location.line());
+  message += ToStr(log_entry.location.line());
   message += '\n';
   message += "CODE_FUNC=";
   message += log_entry.location.function_name();
   message += '\n';
   if (log_entry.errsv) {
     message += "ERRNO=";
-    message += std::to_string(log_entry.errsv);
+    message += ToStr(log_entry.errsv);
     message += '\n';
   }
   send(*journal_socket, message.data(), message.size(), MSG_NOSIGNAL);

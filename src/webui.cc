@@ -82,12 +82,12 @@ string TableBeginA(Table &t, Table::RenderOptions opts) {
   html += "<a href=/";
   html += t.id;
   html += ".html?offset=";
-  html += to_string(opts.row_offset);
+  html += ToStr(opts.row_offset);
   html += "&limit=";
-  html += to_string(opts.row_limit);
+  html += ToStr(opts.row_limit);
   if (opts.sort_column) {
     html += "&sort=";
-    html += to_string(*opts.sort_column);
+    html += ToStr(*opts.sort_column);
     if (opts.sort_descending) {
       html += "&desc";
     }
@@ -157,21 +157,21 @@ void Table::RenderTFOOT(std::string &html, RenderOptions &opts) {
   int n = end - begin;
   html += "<tfoot><tr class=round-bottom>";
   html += "<td colspan=";
-  html += to_string(columns.size());
+  html += ToStr(columns.size());
   html += ">";
   if (n == 0) {
     html += "No rows";
   } else if (n == 1) {
     html += "Row ";
-    html += to_string(begin + 1);
+    html += ToStr(begin + 1);
   } else {
     html += "Rows ";
-    html += to_string(begin + 1);
+    html += ToStr(begin + 1);
     html += "-";
-    html += to_string(end);
+    html += ToStr(end);
   }
   html += " of ";
-  html += to_string(s);
+  html += ToStr(s);
   html += " ";
   if (begin > 0) {
     RenderOptions prev = opts;
@@ -710,7 +710,7 @@ static const void RenderHEADER(std::string &html) {
   html += "<h1><a href=http://";
   html += ToStr(lan_ip);
   html += ":";
-  html += to_string(kPort);
+  html += ToStr(kPort);
   html += " hx-boost=true hx-target=main hx-select=main hx-ext=morphdom-swap"
           " hx-swap=\"morphdom outerHTML transition:true\">";
   html += "<img src=/gatekeeper.webp id=knight>Gatekeeper</a></h1>";
@@ -771,13 +771,13 @@ void RenderTrafficCSV(Response &response, Request &request) {
   auto aggregated = opts.Aggregate();
   string csv = "Time,Bytes Sent,Bytes Downloaded\r\n";
   for (auto &[time, bytes] : aggregated) {
-    csv += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
-                         time.time_since_epoch())
-                         .count());
+    csv += ToStr(std::chrono::duration_cast<std::chrono::milliseconds>(
+                     time.time_since_epoch())
+                     .count());
     csv += ",";
-    csv += to_string(bytes.up);
+    csv += ToStr(bytes.up);
     csv += ",";
-    csv += to_string(bytes.down);
+    csv += ToStr(bytes.down);
     csv += "\r\n";
   }
   response.Write(csv);
@@ -792,13 +792,13 @@ void RenderTrafficJSON(Response &response, Request &request) {
       json += ",\n";
     }
     json += "[";
-    json += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
-                          time.time_since_epoch())
-                          .count());
+    json += ToStr(std::chrono::duration_cast<std::chrono::milliseconds>(
+                      time.time_since_epoch())
+                      .count());
     json += ",";
-    json += to_string(bytes.up);
+    json += ToStr(bytes.up);
     json += ",";
-    json += to_string(bytes.down);
+    json += ToStr(bytes.down);
     json += "]";
   }
   json += "]";
@@ -973,13 +973,13 @@ void RecordTraffic(chrono::system_clock::time_point time, MAC local_host,
     for (auto it = begin; it != end; ++it) {
       auto &c = *it->second;
       string msg = "[";
-      msg += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
-                           time.time_since_epoch())
-                           .count());
+      msg += ToStr(std::chrono::duration_cast<std::chrono::milliseconds>(
+                       time.time_since_epoch())
+                       .count());
       msg += ",";
-      msg += to_string(up);
+      msg += ToStr(up);
       msg += ",";
-      msg += to_string(down);
+      msg += ToStr(down);
       msg += "]";
       c.SendText(msg);
     }
@@ -1002,13 +1002,13 @@ void OnWebsocketOpen(Connection &c, Request &req) {
     for (auto &[time, bytes] : aggregated | views::reverse) {
       msg.clear();
       msg += "[";
-      msg += to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
-                           time.time_since_epoch())
-                           .count());
+      msg += ToStr(std::chrono::duration_cast<std::chrono::milliseconds>(
+                       time.time_since_epoch())
+                       .count());
       msg += ",";
-      msg += to_string(bytes.up);
+      msg += ToStr(bytes.up);
       msg += ",";
-      msg += to_string(bytes.down);
+      msg += ToStr(bytes.down);
       msg += "]";
       c.SendText(msg, false);
     }
@@ -1084,7 +1084,7 @@ You can now go back to the <a href="/">main page</a>.
       FlushAndClose();
     } else {
       response.WriteStatus("500 Internal Server Error");
-      Str msg = status.ToString();
+      Str msg = status.ToStr();
       ReplaceAll(msg, "\n", "<br>\n");
       response.Write("<!doctype html>" + msg);
     }

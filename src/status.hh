@@ -25,12 +25,12 @@ struct Status {
                       std::source_location::current());
 
   bool Ok() const;
-  Str ToString() const;
+  Str ToStr() const;
   void Reset();
 } __attribute__((packed));
 
 inline bool OK(const Status &status) { return status.Ok(); }
-inline Str ErrorMessage(const Status &s) { return s.ToString(); }
+inline Str ErrorMessage(const Status &s) { return s.ToStr(); }
 inline Str &AppendErrorMessage(
     Status &status,
     const std::source_location location_arg = std::source_location::current()) {

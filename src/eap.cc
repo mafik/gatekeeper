@@ -5,16 +5,15 @@ namespace maf::eap {
 void KeyInformation::Validate(KeyInformation expected, Status &status) const {
 
   if (key_descriptor_version != expected.key_descriptor_version) {
-    AppendErrorMessage(status) += "Unknown key descriptor version " +
-                                  std::to_string(key_descriptor_version);
+    AppendErrorMessage(status) +=
+        "Unknown key descriptor version " + ToStr(key_descriptor_version);
   }
   if (key_type_pairwise != expected.key_type_pairwise) {
     AppendErrorMessage(status) +=
-        "Key Type not set to " + std::to_string(key_type_pairwise);
+        "Key Type not set to " + ToStr(key_type_pairwise);
   }
   if (key_index != expected.key_index) {
-    AppendErrorMessage(status) +=
-        "Key Index set to " + std::to_string(key_index);
+    AppendErrorMessage(status) += "Key Index set to " + ToStr(key_index);
   }
   if (key_ack != expected.key_ack) {
     AppendErrorMessage(status) +=

@@ -29,13 +29,12 @@ struct RecordHeader {
 
   void Validate(Status &status) {
     if (version_major != 3) {
-      status() += "TLS Record Header major version is " +
-                  std::to_string(version_major) + " but expected 3";
+      status() += "TLS Record Header major version is " + ToStr(version_major) +
+                  " but expected 3";
       return;
     }
     if (version_minor != 1 && version_minor != 3 && version_minor != 4) {
-      status() += "TLS Record Header minor version is " +
-                  std::to_string(version_minor) +
+      status() += "TLS Record Header minor version is " + ToStr(version_minor) +
                   " but expected 3 (TLS 1.2) or 4 (TLS 1.3)";
       return;
     }
@@ -123,7 +122,7 @@ struct RecordWrapper {
   }
 };
 
-StrView AlertLevelToString(U8 level) {
+StrView AlertLevelToStr(U8 level) {
   switch (level) {
   case 1:
     return "warning";
@@ -134,7 +133,7 @@ StrView AlertLevelToString(U8 level) {
   }
 }
 
-StrView AlertDescriptionToString(U8 desc) {
+StrView AlertDescriptionToStr(U8 desc) {
   switch (desc) {
   case 0:
     return "close_notify";
@@ -256,9 +255,9 @@ struct Phase3 : Phase {
         U8 description = data[1];
         Str &msg = AppendErrorMessage(conn);
         msg += "Received ";
-        msg += AlertLevelToString(level);
+        msg += AlertLevelToStr(level);
         msg += " TLS Alert: ";
-        msg += AlertDescriptionToString(description);
+        msg += AlertDescriptionToStr(description);
         return;
       }
     } else if (true_type == 22) { // Handshake
@@ -597,9 +596,8 @@ struct Phase1 : Phase {
     U16 extensions_length = ConsumeBigEndian<U16>(server_hello);
     if (extensions_length != server_hello.size()) {
       AppendErrorMessage(conn) +=
-          "Server hello extensions_length is " +
-          std::to_string((U32)extensions_length) + " but there are still " +
-          std::to_string(server_hello.size()) + " bytes left";
+          "Server hello extensions_length is " + ToStr((U32)extensions_length) +
+          " but there are still " + ToStr(server_hello.size()) + " bytes left";
       return;
     }
 

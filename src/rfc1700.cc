@@ -1,5 +1,7 @@
 #include "rfc1700.hh"
 
+using namespace maf;
+
 namespace rfc1700 {
 
 const char *kHardwareTypeNames[] = {"Not hardware address",
@@ -25,11 +27,11 @@ const char *kHardwareTypeNames[] = {"Not hardware address",
                                     "Serial Line",
                                     "Asynchronous Transmission Mode (ATM)"};
 
-std::string HardwareTypeToString(uint8_t type) {
+Str HardwareTypeToStr(uint8_t type) {
   if (type < sizeof(kHardwareTypeNames) / sizeof(kHardwareTypeNames[0])) {
     return kHardwareTypeNames[type];
   }
-  return "Unknown hardware type " + std::to_string(type);
+  return "Unknown hardware type " + ToStr(type);
 }
 
 } // namespace rfc1700

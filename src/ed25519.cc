@@ -3602,7 +3602,7 @@ Private Private::FromHex(std::string_view hex, Status &status) {
   Private result = {};
   if (hex.size() != 64) {
     status() += "Private key in Ed25519 should have 64 hex digits but got " +
-                std::to_string(hex.size());
+                ToStr(hex.size());
     return result;
   }
   HexToBytesUnchecked(hex, result.bytes);
@@ -3630,7 +3630,7 @@ Public Public::FromHex(std::string_view hex, Status &status) {
   Public result = {};
   if (hex.size() != 64) {
     status() += "Public key in Ed25519 should have 64 hex digits but got " +
-                std::to_string(hex.size());
+                ToStr(hex.size());
     return result;
   }
   HexToBytesUnchecked(hex, result.bytes);
@@ -3675,7 +3675,7 @@ Signature Signature::FromHex(std::string_view hex, Status &status) {
   Signature result = {};
   if (hex.size() != 128) {
     status() += "Signature in Ed25519 should have 128 hex digits but got " +
-                std::to_string(hex.size());
+                ToStr(hex.size());
     return result;
   }
   HexToBytesUnchecked(hex, result.bytes);
@@ -3687,12 +3687,12 @@ Signature Signature::FromHexRS(std::string_view R_hex, std::string_view S_hex,
   Signature result = {};
   if (R_hex.size() != 64) {
     status() += "R in Ed25519 signature should have 64 hex digits but got " +
-                std::to_string(R_hex.size());
+                ToStr(R_hex.size());
     return result;
   }
   if (S_hex.size() != 64) {
     status() += "S in Ed25519 signature should have 64 hex digits but got " +
-                std::to_string(S_hex.size());
+                ToStr(S_hex.size());
     return result;
   }
   HexToBytesUnchecked(R_hex, result.R);
@@ -3782,7 +3782,7 @@ static void TestVector(std::string_view secret_key, std::string_view public_key,
   }
   if (!expected_signature.Verify(message, pk)) {
     status() += "Expected signature didn't verify correctly message_len=" +
-                std::to_string(message.size());
+                ToStr(message.size());
     return;
   }
 }

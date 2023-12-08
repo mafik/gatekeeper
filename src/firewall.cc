@@ -177,7 +177,7 @@ enum class ProtocolID : uint8_t {
   UDP = 17,
 };
 
-std::string ProtocolIDToString(ProtocolID proto) {
+Str ToStr(ProtocolID proto) {
   switch (proto) {
   case ProtocolID::ICMP:
     return "ICMP";
@@ -186,7 +186,7 @@ std::string ProtocolIDToString(ProtocolID proto) {
   case ProtocolID::UDP:
     return "UDP";
   }
-  return f("%d", (int)proto);
+  return f("ProtocolID(%d)", (int)proto);
 }
 
 struct IP_Header {
@@ -436,7 +436,7 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
   UDP_Header &udp = *(UDP_Header *)(&inet);
 
   if constexpr (kLogPackets) {
-    std::string protocol_string = ProtocolIDToString(ip.proto);
+    std::string protocol_string = ToStr(ip.proto);
     if (ip.proto == ProtocolID::TCP) {
       protocol_string += f(" %5d -> %-5d", ntohs(tcp.source_port),
                            ntohs(tcp.destination_port));

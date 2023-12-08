@@ -26,7 +26,7 @@ void AppendErrorAdvice(Status &status, StrView advice) {
 
 bool Status::Ok() const { return errsv == 0 && entry == nullptr; }
 
-Str Status::ToString() const {
+Str Status::ToStr() const {
   Str ret;
   for (Entry *i = entry.get(); i != nullptr; i = i->next.get()) {
     if (!ret.empty()) {

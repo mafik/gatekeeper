@@ -143,23 +143,22 @@ struct CachedEntry : Expirable, Entry {
   Vec<Record> authority;
   Vec<Record> additional;
 
-  Str to_string() const {
-    string r = "CachedEntry(" + string(ResponseCodeToString(response_code));
+  Str ToStr() const {
+    Str r = "CachedEntry(" + Str(dns::ToStr(response_code));
     for (const Record &a : answers) {
-      r += "  " + a.to_string();
+      r += "  " + a.ToStr();
     }
     for (const Record &a : authority) {
-      r += "  " + a.to_string();
+      r += "  " + a.ToStr();
     }
     for (const Record &a : additional) {
-      r += "  " + a.to_string();
+      r += "  " + a.ToStr();
     }
     r += ")";
     return r;
   }
   Str to_html() const {
-    string r =
-        "<code>" + string(ResponseCodeToString(response_code)) + "</code>";
+    string r = "<code>" + string(dns::ToStr(response_code)) + "</code>";
     for (const Record &a : answers) {
       r += " " + a.to_html();
     }
@@ -222,7 +221,7 @@ void LookupBase::Start(Str domain, U16 type) {
                            .recursion_desired = true,
                            .truncated = false,
                            .authoritative = true,
-                           .opcode = Header::QUERY,
+                           .opcode = Header::OperationCode::QUERY,
                            .reply = true,
                            .response_code = cached->response_code,
                            .recursion_available = true,
@@ -319,29 +318,28 @@ struct Client : UDPListener {
       return;
     }
 
-    if (msg.header.opcode != Header::QUERY) {
+    if (msg.header.opcode != Header::OperationCode::QUERY) {
       LOG << "DNS client received a packet with an unsupported opcode: "
-          << Header::OperationCodeToString(msg.header.opcode)
-          << ". Full query: " << msg.header.to_string();
+          << ToStr(msg.header.opcode) << ". Full query: " << msg.header.ToStr();
       return;
     }
 
     if (!msg.header.reply) {
       LOG << "DNS client received a packet that is not a reply: "
-          << msg.header.to_string();
+          << msg.header.ToStr();
       return;
     }
 
     if (msg.questions.size() != 1) {
       LOG << "DNS client expected a packet with one question. Received: "
-          << msg.to_string();
+          << msg.ToStr();
       return;
     }
 
     auto entry_it = Entry::cache.find(msg.questions.front());
     if (entry_it == Entry::cache.end()) {
       LOG << "DNS client received a reply to a question that it didn't ask: "
-          << msg.questions.front().to_string();
+          << msg.questions.front().ToStr();
       return;
     }
     Entry *entry = *entry_it;
@@ -398,7 +396,7 @@ void InjectAuthoritativeEntry(const Str &domain, IP ip) {
                  .recursion_desired = true,
                  .truncated = false,
                  .authoritative = true,
-                 .opcode = Header::QUERY,
+                 .opcode = Header::OperationCode::QUERY,
                  .reply = true,
                  .response_code = ResponseCode::NO_ERROR,
                  .recursion_available = true,
@@ -511,7 +509,7 @@ std::string Table::RowID(int row) const {
     }
   }
   id += '-';
-  id += TypeToString((Type)rows[row].type);
+  id += ToStr((Type)rows[row].type);
   return id;
 }
 

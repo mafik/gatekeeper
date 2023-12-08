@@ -68,7 +68,7 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
   if (num_keys != 1) {
     AppendErrorMessage(status) += "Key at " + Str(path) +
                                   " should have exactly one key, got " +
-                                  std::to_string(num_keys);
+                                  ToStr(num_keys);
     return {};
   }
   for (int i_key = 0; i_key < num_keys; ++i_key) {
@@ -85,7 +85,7 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
       if (pub0.size() != 32) {
         AppendErrorMessage(status) +=
             "Public key for Ed25519 key at " + Str(path) +
-            " should be 32 bytes long, got " + std::to_string(pub0.size());
+            " should be 32 bytes long, got " + ToStr(pub0.size());
         return {};
       }
       memcpy(k.public_key.bytes, pub0.data(), 32);
@@ -93,7 +93,7 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
       if (priv0.size() != 64) {
         AppendErrorMessage(status) +=
             "Private key for Ed25519 key at " + Str(path) +
-            " should be 64 bytes long, got " + std::to_string(priv0.size());
+            " should be 64 bytes long, got " + ToStr(priv0.size());
         return {};
       }
       // The private key is actually a concatenation of private+public. Each of

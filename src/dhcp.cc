@@ -388,7 +388,7 @@ struct __attribute__((__packed__)) IPAddressLeaseTime : Base {
 };
 
 struct __attribute__((__packed__)) MessageType : Base {
-  enum Value : uint8_t {
+  enum class Value : uint8_t {
     UNKNOWN = 0,
     DISCOVER = 1,
     OFFER = 2,
@@ -410,37 +410,59 @@ struct __attribute__((__packed__)) MessageType : Base {
     TLS = 18,
     VALUE_COUNT = 19,
   };
-  static const char *kValueNames[VALUE_COUNT];
-  static string ValueToString(Value value) {
-    if (value < VALUE_COUNT) {
-      return kValueNames[value];
-    }
-    return f("UNKNOWN(%d)", value);
-  }
   const Value value;
   MessageType(Value value) : Base(OptionCode::MessageType, 1), value(value) {}
-  Str ToStr() const { return "MessageType(" + ValueToString(value) + ")"; }
+  Str ToStr() const;
 };
 
-const char *MessageType::kValueNames[VALUE_COUNT] = {"UNKNOWN",
-                                                     "DISCOVER",
-                                                     "OFFER",
-                                                     "REQUEST",
-                                                     "DECLINE",
-                                                     "ACK",
-                                                     "NAK",
-                                                     "RELEASE",
-                                                     "INFORM",
-                                                     "FORCERENEW",
-                                                     "LEASEQUERY",
-                                                     "LEASEUNASSIGNED",
-                                                     "LEASEUNKNOWN",
-                                                     "LEASEACTIVE",
-                                                     "BULKLEASEQUERY",
-                                                     "LEASEQUERYDONE",
-                                                     "ACTIVELEASEQUERY",
-                                                     "LEASEQUERYSTATUS",
-                                                     "TLS"};
+Str ToStr(MessageType::Value value) {
+  switch (value) {
+  case MessageType::Value::UNKNOWN:
+    return "UNKNOWN";
+  case MessageType::Value::DISCOVER:
+    return "DISCOVER";
+  case MessageType::Value::OFFER:
+    return "OFFER";
+  case MessageType::Value::REQUEST:
+    return "REQUEST";
+  case MessageType::Value::DECLINE:
+    return "DECLINE";
+  case MessageType::Value::ACK:
+    return "ACK";
+  case MessageType::Value::NAK:
+    return "NAK";
+  case MessageType::Value::RELEASE:
+    return "RELEASE";
+  case MessageType::Value::INFORM:
+    return "INFORM";
+  case MessageType::Value::FORCERENEW:
+    return "FORCERENEW";
+  case MessageType::Value::LEASEQUERY:
+    return "LEASEQUERY";
+  case MessageType::Value::LEASEUNASSIGNED:
+    return "LEASEUNASSIGNED";
+  case MessageType::Value::LEASEUNKNOWN:
+    return "LEASEUNKNOWN";
+  case MessageType::Value::LEASEACTIVE:
+    return "LEASEACTIVE";
+  case MessageType::Value::BULKLEASEQUERY:
+    return "BULKLEASEQUERY";
+  case MessageType::Value::LEASEQUERYDONE:
+    return "LEASEQUERYDONE";
+  case MessageType::Value::ACTIVELEASEQUERY:
+    return "ACTIVELEASEQUERY";
+  case MessageType::Value::LEASEQUERYSTATUS:
+    return "LEASEQUERYSTATUS";
+  case MessageType::Value::TLS:
+    return "TLS";
+  default:
+    return ::ToStr((int)value);
+  }
+}
+
+Str MessageType::ToStr() const {
+  return "MessageType(" + options::ToStr(value) + ")";
+}
 
 struct __attribute__((__packed__)) ServerIdentifier : Base {
   const IP ip;
@@ -493,7 +515,7 @@ struct __attribute__((__packed__)) ClientIdentifier : Base {
       : Base(kCode, 1 + 6), hardware_address(hardware_address) {}
   Str ToStr() const {
     Str r = "ClientIdentifier(";
-    r += rfc1700::HardwareTypeToString(type);
+    r += rfc1700::HardwareTypeToStr(type);
     r += ", " + hardware_address.ToStr() + ")";
     return r;
   }
@@ -565,8 +587,7 @@ struct __attribute__((__packed__)) Header {
   Str ToStr() const {
     string s = "dhcp::Header {\n";
     s += "  message_type: " + ::ToStr(message_type) + "\n";
-    s += "  hardware_type: " + rfc1700::HardwareTypeToString(hardware_type) +
-         "\n";
+    s += "  hardware_type: " + rfc1700::HardwareTypeToStr(hardware_type) + "\n";
     s +=
         "  hardware_address_length: " + ::ToStr(hardware_address_length) + "\n";
     s += "  hops: " + ::ToStr(hops) + "\n";
@@ -654,7 +675,7 @@ struct __attribute__((__packed__)) PacketView : Header {
             options::OptionCode::MessageType)) {
       return o->value;
     }
-    return options::MessageType::UNKNOWN;
+    return options::MessageType::Value::UNKNOWN;
   }
   MAC effective_mac() const {
     if (auto *opt = FindOption<options::ClientIdentifier>()) {
@@ -865,7 +886,8 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     return;
   }
 
-  options::MessageType::Value response_type = options::MessageType::UNKNOWN;
+  options::MessageType::Value response_type =
+      options::MessageType::Value::UNKNOWN;
   steady_clock::duration lease_time = 0s;
   bool inform = false;
 
@@ -884,25 +906,25 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
 
   int request_lease_time_seconds = 60;
   switch (packet.MessageType()) {
-  case options::MessageType::DISCOVER:
-    response_type = options::MessageType::OFFER;
+  case options::MessageType::Value::DISCOVER:
+    response_type = options::MessageType::Value::OFFER;
     lease_time = 10s;
     break;
-  case options::MessageType::REQUEST:
+  case options::MessageType::Value::REQUEST:
     if (auto *opt = packet.FindOption<options::RequestedIPAddress>();
         opt != nullptr && opt->ip != chosen_ip) {
-      response_type = options::MessageType::NAK;
+      response_type = options::MessageType::Value::NAK;
     } else {
-      response_type = options::MessageType::ACK;
+      response_type = options::MessageType::Value::ACK;
     }
     lease_time = request_lease_time_seconds * 1s;
     break;
-  case options::MessageType::INFORM:
-    response_type = options::MessageType::ACK;
+  case options::MessageType::Value::INFORM:
+    response_type = options::MessageType::Value::ACK;
     lease_time = 0s;
     inform = true;
     break;
-  case options::MessageType::RELEASE:
+  case options::MessageType::Value::RELEASE:
     if (auto it = entries_by_ip.find(packet.client_ip);
         it != entries_by_ip.end()) {
       auto *entry = *it;
@@ -912,7 +934,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     }
     return;
   default:
-    response_type = options::MessageType::UNKNOWN;
+    response_type = options::MessageType::Value::UNKNOWN;
     break;
   }
 
@@ -950,7 +972,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     }
   }
 
-  if (response_type == options::MessageType::UNKNOWN) {
+  if (response_type == options::MessageType::Value::UNKNOWN) {
     LOG << "DHCP server received unknown DHCP message:\n" << packet.ToStr();
     return;
   }

@@ -33,7 +33,7 @@ Netlink::Netlink(int protocol, Status &status) : protocol(protocol) {
     fixed_message_size = sizeof(genlmsghdr);
     break;
   default:
-    status() += "Unknown netlink protocol " + std::to_string(protocol);
+    status() += "Unknown netlink protocol " + ToStr(protocol);
     return;
   }
   fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, protocol);
@@ -145,8 +145,7 @@ void Netlink::ReceiveAck(Status &status) {
   Receive(
       [&](MessageType message_type, Attrs attrs) {
         if (message_type != NLMSG_ERROR) {
-          status() +=
-              "Expected NLMSG_ERROR, got " + std::to_string(message_type);
+          status() += "Expected NLMSG_ERROR, got " + ToStr(message_type);
           return;
         }
       },
@@ -177,9 +176,9 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
       nlmsghdr *hdr = (nlmsghdr *)(buf_iter);
       char *msg_end = buf_iter + hdr->nlmsg_len;
       if (msg_end > buf_end) {
-        status() += "Truncated Netlink message, msg_len=" +
-                    std::to_string(hdr->nlmsg_len) +
-                    ", buf_size=" + std::to_string(len);
+        status() +=
+            "Truncated Netlink message, msg_len=" + ToStr(hdr->nlmsg_len) +
+            ", buf_size=" + ToStr(len);
         return;
       }
       buf_iter += sizeof(nlmsghdr);
@@ -225,15 +224,14 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
           }
           if (err_attrs[NLMSGERR_ATTR_OFFS]) {
             msg += " error offset: ";
-            msg += std::to_string(
-                *(uint32_t *)(err_attrs[NLMSGERR_ATTR_OFFS] + 1));
+            msg += ToStr(*(uint32_t *)(err_attrs[NLMSGERR_ATTR_OFFS] + 1));
           }
         }
 
         if (buf_iter != end) {
-          status() += "Netlink error had " + std::to_string(end - buf_iter) +
+          status() += "Netlink error had " + ToStr(end - buf_iter) +
                       " extra bytes at the end (header says " +
-                      std::to_string(hdr->nlmsg_len) +
+                      ToStr(hdr->nlmsg_len) +
                       "B, flags=" + f("%x", hdr->nlmsg_flags) + ")";
         }
 
@@ -265,7 +263,7 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
             f("0x%x", ((nlmsghdr *)buf)->nlmsg_type);
       } else {
         status() += "Netlink parsing code overshot the end of buffer by " +
-                    std::to_string(buf_iter - buf_end) + " bytes";
+                    ToStr(buf_iter - buf_end) + " bytes";
       }
       return; // Parsing error - don't progress further to avoid more noise
     }
