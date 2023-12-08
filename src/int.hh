@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 namespace maf {
 
 using I8 = signed char;
@@ -15,11 +17,13 @@ using U16 = unsigned short;
 
 struct U24 {
   unsigned int data : 24;
-  U24(unsigned int x) : data(x) {}
-  operator unsigned int() const { return data; }
+  constexpr U24(unsigned int x) : data(x) {}
+  constexpr operator unsigned int() const { return data; }
 } __attribute__((__packed__));
 
-// using U24 = unsigned _BitInt(24);
+// using U24 = unsigned _BitInt(24); // this has size of 4!
+
+static_assert(sizeof(U24) == 3);
 
 using U32 = unsigned int;
 using U64 = unsigned long;
@@ -29,3 +33,11 @@ using Size = unsigned long;
 using SSize = signed long;
 
 } // namespace maf
+
+namespace std {
+
+template <> struct is_integral<maf::U24> {
+  static constexpr bool value = true;
+};
+
+} // namespace std

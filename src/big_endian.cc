@@ -35,37 +35,4 @@ template <> U24 PeekBigEndian(Span<> s) {
   return x;
 }
 
-template <> U8 ConsumeBigEndian(Span<> &s) {
-  if (s.size() < 1) {
-    return 0;
-  }
-  U8 x = (U8)s[0];
-  s = s.subspan<1>();
-  return x;
-}
-
-template <> U16 ConsumeBigEndian(Span<> &s) {
-  if (s.size() < 2) {
-    return 0;
-  }
-  U16 x = (U8)s[0] << 8 | (U8)s[1];
-  s = s.subspan<2>();
-  return x;
-}
-
-template <> U24 ConsumeBigEndian(Span<> &s) {
-  auto x = PeekBigEndian<U24>(s);
-  s = s.subspan<3>();
-  return x;
-}
-
-template <> U32 ConsumeBigEndian(Span<> &s) {
-  if (s.size() < 4) {
-    return 0;
-  }
-  U32 x = s[0] << 24 | s[1] << 16 | s[2] << 8 | s[3];
-  s = s.subspan<4>();
-  return x;
-}
-
 } // namespace maf

@@ -333,8 +333,8 @@ struct Phase2 : Phase {
     handshake_hash_builder.Update(data);
 
     while (!data.empty()) {
-      U8 handshake_type = ConsumeBigEndian<U8>(data);
-      U24 handshake_length = ConsumeBigEndian<U24>(data);
+      U8 handshake_type = data.Consume<U8>();
+      U24 handshake_length = data.Consume<Big<U24>>();
       if (handshake_length > data.size()) {
         AppendErrorMessage(conn) +=
             "TLS handshake failed because of record with invalid length";
@@ -569,8 +569,8 @@ struct Phase1 : Phase {
 
   void ProcessHandshake(Connection &conn, Span<> handshake) {
     Span<> server_hello = handshake;
-    U8 handshake_type = ConsumeBigEndian<U8>(server_hello);
-    U24 handshake_length = ConsumeBigEndian<U24>(server_hello);
+    U8 handshake_type = server_hello.Consume<U8>();
+    U24 handshake_length = server_hello.Consume<Big<U24>>();
     if (handshake_length > server_hello.size()) {
       AppendErrorMessage(conn) +=
           f("TLS Handshake Header claims length %d but there are "
@@ -586,14 +586,14 @@ struct Phase1 : Phase {
       return;
     }
 
-    U8 server_version_major = ConsumeBigEndian<U8>(server_hello);
-    U8 server_version_minor = ConsumeBigEndian<U8>(server_hello);
+    U8 server_version_major = server_hello.Consume<U8>();
+    U8 server_version_minor = server_hello.Consume<U8>();
     server_hello = server_hello.subspan<32>(); // server random
-    U8 session_id_length = ConsumeBigEndian<U8>(server_hello);
+    U8 session_id_length = server_hello.Consume<U8>();
     server_hello = server_hello.subspan(session_id_length);
-    U16 cipher_suite = ConsumeBigEndian<U16>(server_hello);
-    U8 compression_method = ConsumeBigEndian<U8>(server_hello);
-    U16 extensions_length = ConsumeBigEndian<U16>(server_hello);
+    U16 cipher_suite = server_hello.Consume<Big<U16>>();
+    U8 compression_method = server_hello.Consume<U8>();
+    U16 extensions_length = server_hello.Consume<Big<U16>>();
     if (extensions_length != server_hello.size()) {
       AppendErrorMessage(conn) +=
           "Server hello extensions_length is " + ToStr((U32)extensions_length) +
@@ -607,8 +607,8 @@ struct Phase1 : Phase {
     curve25519::Public server_public;
 
     while (!server_hello.empty()) {
-      U16 extension_type = ConsumeBigEndian<U16>(server_hello);
-      U16 extension_length = ConsumeBigEndian<U16>(server_hello);
+      U16 extension_type = server_hello.Consume<Big<U16>>();
+      U16 extension_length = server_hello.Consume<Big<U16>>();
       if (extension_length > server_hello.size()) {
         AppendErrorMessage(conn) +=
             f("Server hello extension_length is %d but there are "
@@ -620,12 +620,12 @@ struct Phase1 : Phase {
       server_hello = server_hello.subspan(extension_length);
       switch (extension_type) {
       case 0x2b: // supported_versions
-        supported_version_major = ConsumeBigEndian<U8>(extension_data);
-        supported_version_minor = ConsumeBigEndian<U8>(extension_data);
+        supported_version_major = extension_data.Consume<U8>();
+        supported_version_minor = extension_data.Consume<U8>();
         break;
       case 0x33: { // key share
-        U16 group = ConsumeBigEndian<U16>(extension_data);
-        U16 length = ConsumeBigEndian<U16>(extension_data);
+        U16 group = extension_data.Consume<Big<U16>>();
+        U16 length = extension_data.Consume<Big<U16>>();
         if (length != extension_data.size()) {
           AppendErrorMessage(conn) += f(
               "Server Hello key share length is %d but there are %d bytes left",
