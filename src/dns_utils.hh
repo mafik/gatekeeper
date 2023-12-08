@@ -17,9 +17,9 @@ namespace maf::dns {
 static constexpr std::chrono::steady_clock::duration kPendingTTL = 30s;
 static constexpr std::chrono::steady_clock::duration kAuthoritativeTTL = 60s;
 
-static constexpr uint16_t kServerPort = 53;
+static constexpr U16 kServerPort = 53;
 
-enum class Type : uint16_t {
+enum class Type : U16 {
   A = 1,
   NS = 2,
   CNAME = 5,
@@ -35,7 +35,7 @@ enum class Type : uint16_t {
 
 Str ToStr(Type);
 
-enum class Class : uint16_t {
+enum class Class : U16 {
   IN = 1,
   ANY = 255,
 };

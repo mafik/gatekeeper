@@ -107,8 +107,7 @@ pair<Str, Size> LoadDomainName(const char *dns_message_base,
       if (offset >= dns_message_len) {
         return make_pair("", 0);
       }
-      uint16_t new_offset =
-          ((n & 0b0011'1111) << 8) | dns_message_base[offset++];
+      U16 new_offset = ((n & 0b0011'1111) << 8) | dns_message_base[offset++];
       if (new_offset >=
           start_offset) { // disallow forward jumps to avoid infinite loops
         return make_pair("", 0);
@@ -328,9 +327,9 @@ U32 Record::ttl() const {
     auto d = duration_cast<chrono::seconds>(*expiration -
                                             chrono::steady_clock::now())
                  .count();
-    return (uint32_t)max(d, 0l);
+    return (U32)max(d, 0l);
   } else {
-    return (uint32_t)duration_cast<chrono::seconds>(kAuthoritativeTTL).count();
+    return (U32)duration_cast<chrono::seconds>(kAuthoritativeTTL).count();
   }
 }
 Str Record::ToStr() const {
@@ -340,8 +339,8 @@ Str Record::ToStr() const {
 Str Record::pretty_value() const {
   if (type == Type::A) {
     if (data.size() == 4) {
-      return ::ToStr((uint8_t)data[0]) + "." + ::ToStr((uint8_t)data[1]) + "." +
-             ::ToStr((uint8_t)data[2]) + "." + ::ToStr((uint8_t)data[3]);
+      return ::ToStr((U8)data[0]) + "." + ::ToStr((U8)data[1]) + "." +
+             ::ToStr((U8)data[2]) + "." + ::ToStr((U8)data[3]);
     }
   } else if (type == Type::CNAME) {
     auto [loaded_name, loaded_size] =

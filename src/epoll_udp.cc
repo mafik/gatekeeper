@@ -2,7 +2,7 @@
 #include "status.hh"
 #include <cstring>
 
-using namespace maf;
+namespace maf::epoll {
 
 void UDPListener::NotifyRead(Status &status) {
   while (true) {
@@ -24,3 +24,5 @@ void UDPListener::NotifyRead(Status &status) {
     HandleRequest(StrView((char *)recvbuf, len), source_ip, source_port);
   }
 }
+
+} // namespace maf::epoll

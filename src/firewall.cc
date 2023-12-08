@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
 #include <fcntl.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_queue.h>
@@ -63,8 +62,8 @@ static std::string PostroutingRule() {
       "\x01\x00\x63\x6f\x75\x6e\x74\x65\x72\x00\x04\x00\x02\x80\x24\x00\x01\x80"
       "\x0a\x00\x01\x00\x71\x75\x65\x75\x65\x00\x00\x00\x14\x00\x02\x80\x06\x00"
       "\x01\x00\x05\x39\x00\x00\x06\x00\x02\x00\x00\x01\x00\x00"s;
-  *(uint32_t *)(base.data() + 76) = lan.index;
-  *(uint32_t *)(base.data() + 172) = lan_network.ip.addr;
+  *(U32 *)(base.data() + 76) = lan.index;
+  *(U32 *)(base.data() + 172) = lan_network.ip.addr;
   return base;
 }
 
@@ -86,8 +85,8 @@ static std::string PreroutingRule() {
       "\x01\x00\x63\x6f\x75\x6e\x74\x65\x72\x00\x04\x00\x02\x80\x24\x00\x01\x80"
       "\x0a\x00\x01\x00\x71\x75\x65\x75\x65\x00\x00\x00\x14\x00\x02\x80\x06\x00"
       "\x01\x00\x05\x39\x00\x00\x06\x00\x02\x00\x00\x01\x00\x00"s;
-  *(uint32_t *)(base.data() + 76) = lan.index;
-  *(uint32_t *)(base.data() + 172) = wan_ip.addr;
+  *(U32 *)(base.data() + 76) = lan.index;
+  *(U32 *)(base.data() + 172) = wan_ip.addr;
   return base;
 }
 
@@ -171,7 +170,7 @@ std::optional<Netlink> queue;
 
 std::thread loop;
 
-enum class ProtocolID : uint8_t {
+enum class ProtocolID : U8 {
   ICMP = 1,
   TCP = 6,
   UDP = 17,
@@ -227,13 +226,13 @@ struct INET_Header {
 };
 
 struct TCP_Header : INET_Header {
-  uint32_t seq;
-  uint32_t ack;
-  uint8_t offset_reserved;
-  uint8_t flags;
-  uint16_t window;
-  uint16_t checksum;
-  uint16_t urgent;
+  U32 seq;
+  U32 ack;
+  U8 offset_reserved;
+  U8 flags;
+  U16 window;
+  U16 checksum;
+  U16 urgent;
 
   size_t HeaderLength() const { return ((offset_reserved & 0xf0) >> 2); }
 };
@@ -241,8 +240,8 @@ struct TCP_Header : INET_Header {
 static_assert(sizeof(TCP_Header) == 20, "TCP_Header should have 20 bytes");
 
 struct UDP_Header : INET_Header {
-  uint16_t length;
-  uint16_t checksum;
+  U16 length;
+  U16 checksum;
 };
 
 static_assert(sizeof(UDP_Header) == 8, "UDP_Header should have 8 bytes");
@@ -363,8 +362,8 @@ struct RecordTrafficPipe : epoll::Listener {
   struct RecordTrafficMessage {
     MAC local_host;
     IP remote_ip;
-    uint32_t up;
-    uint32_t down;
+    U32 up;
+    U32 down;
   };
 
   void NotifyRead(Status &status) override {

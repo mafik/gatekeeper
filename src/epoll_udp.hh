@@ -4,13 +4,18 @@
 #include <string_view>
 
 #include "epoll.hh"
+#include "int.hh"
+#include "str.hh"
 
-struct UDPListener : maf::epoll::Listener {
-  virtual void HandleRequest(std::string_view buf, maf::IP source_ip,
-                             uint16_t source_port) = 0;
+namespace maf::epoll {
 
-  void NotifyRead(maf::Status &) override;
+struct UDPListener : Listener {
+  virtual void HandleRequest(StrView buf, IP source_ip, U16 source_port) = 0;
+
+  void NotifyRead(Status &) override;
 
 private:
-  uint8_t recvbuf[65536] = {0};
+  U8 recvbuf[65536] = {0};
 };
+
+} // namespace maf::epoll

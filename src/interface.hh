@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <functional>
 #include <string>
 
@@ -8,29 +7,33 @@
 #include "status.hh"
 #include "vec.hh"
 
+namespace maf {
+
 struct Interface {
   std::string name = "";
-  uint32_t index = 0;
+  U32 index = 0;
 
   bool IsLoopback();
   bool IsWireless();
-  maf::IP IP(maf::Status &status);
-  maf::IP Netmask(maf::Status &status);
-  maf::Network Network(maf::Status &status);
-  void BringUp(maf::Status &status) const;
-  void BringDown(maf::Status &status) const;
-  void Configure(maf::IP ip, maf::Network network, maf::Status &status);
-  void Deconfigure(maf::Status &status);
+  maf::IP IP(Status &status);
+  maf::IP Netmask(Status &status);
+  Network Network(Status &status);
+  void BringUp(Status &status) const;
+  void BringDown(Status &status) const;
+  void Configure(maf::IP ip, maf::Network network, Status &status);
+  void Deconfigure(Status &status);
 
   // Update the index of the interface based on its name.
-  void UpdateIndex(maf::Status &status);
+  void UpdateIndex(Status &status);
 
-  static void CheckName(std::string_view name, maf::Status &status);
+  static void CheckName(std::string_view name, Status &status);
 };
 
 void ForEachInetrface(std::function<void(Interface &)> callback);
 
-Interface BridgeInterfaces(const maf::Vec<Interface> &interfaces,
-                           const char *bridge_name, maf::Status &status);
+Interface BridgeInterfaces(const Vec<Interface> &interfaces,
+                           const char *bridge_name, Status &status);
 
-void DeleteBridge(const char *bridge_name, maf::Status &status);
+void DeleteBridge(const char *bridge_name, Status &status);
+
+} // namespace maf

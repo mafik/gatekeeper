@@ -10,6 +10,7 @@
 #include <string_view>
 #include <unordered_map>
 
+// TODO: move this to maf::epoll::http
 namespace http {
 
 // Request wraps the HTTP request buffer and provides easy access to its
@@ -135,7 +136,7 @@ struct Connection : maf::epoll::Listener {
   void Flush();
 
   // Close this WebSocket connection with an optional code & message.
-  void Close(uint16_t code, std::string_view reason);
+  void Close(maf::U16 code, std::string_view reason);
 
   // Close the TCP connection that is the base for this Connection.
   //
@@ -186,7 +187,7 @@ struct Server : maf::epoll::Listener {
 
   struct Config {
     maf::IP ip = INADDR_ANY;
-    uint16_t port = 80;
+    maf::U16 port = 80;
     std::optional<std::string> interface;
   };
 

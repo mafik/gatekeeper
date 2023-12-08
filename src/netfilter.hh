@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 #include "netlink.hh"
 #include "optional.hh"
 #include "status.hh"
@@ -11,7 +9,7 @@
 // See https://en.wikipedia.org/wiki/Netfilter.
 namespace maf::netfilter {
 
-enum class Family : uint8_t {
+enum class Family : U8 {
   UNSPEC = 0,
   INET = 1, // AF_UNIX, corresponds to the "inet" family
   IPv4 = 2, // AF_INET, corresponds to the "ip" family
@@ -36,7 +34,7 @@ void FlushTable(Netlink &, Family, const char *table_name, Status &status);
 
 // Create a new nftables chain.
 void NewChain(Netlink &, Family, const char *table_name, const char *chain_name,
-              Optional<std::pair<Hook, int32_t>> hook_priority,
+              Optional<std::pair<Hook, I32>> hook_priority,
               Optional<bool> policy_accept, Status &status);
 
 // Clear all rules in a chain.

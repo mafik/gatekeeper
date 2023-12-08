@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <linux/netfilter/nfnetlink_queue.h>
 #include <linux/netlink.h>
 
@@ -26,7 +25,7 @@ struct Bind : nlmsghdr {
             .nlmsg_flags = NLM_F_REQUEST,
             .nlmsg_seq = 0,
         }) {}
-  nfgenmsg msg{.nfgen_family = (uint8_t)Family::UNSPEC,
+  nfgenmsg msg{.nfgen_family = (U8)Family::UNSPEC,
                .version = NFNETLINK_V0,
                .res_id = kQueueNumber.big_endian};
   nlattr cmd_attr{
@@ -76,9 +75,9 @@ public:
 };
 
 struct Verdict : nlmsghdr {
-  static constexpr uint32_t NF_ACCEPT = 1;
-  static constexpr uint32_t NF_DROP = 0;
-  Verdict(uint32_t packet_id_be32, bool accept)
+  static constexpr U32 NF_ACCEPT = 1;
+  static constexpr U32 NF_DROP = 0;
+  Verdict(U32 packet_id_be32, bool accept)
       : nlmsghdr({
             .nlmsg_len = sizeof(*this),
             .nlmsg_type = (NFNL_SUBSYS_QUEUE << 8) | NFQNL_MSG_VERDICT,

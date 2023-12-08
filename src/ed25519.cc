@@ -7,11 +7,14 @@
 #include <unistd.h>
 
 #include "hex.hh"
+#include "int.hh"
+
+using namespace maf;
 
 // From https://ed25519.cr.yp.to/
 namespace {
 
-using crypto_uint32 = uint32_t;
+using crypto_uint32 = U32;
 
 // fe25519
 

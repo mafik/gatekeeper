@@ -39,11 +39,11 @@ static char *itimerspec_dump(struct itimerspec *ts) {
 void Timer::Arm(double initial_s, double interval_s) {
   itimerspec ts = {
       .it_interval = {.tv_sec = (time_t)interval_s,
-                      .tv_nsec = (long)((interval_s - (uint64_t)interval_s) *
-                                        1000000000)},
+                      .tv_nsec =
+                          (long)((interval_s - (U64)interval_s) * 1000000000)},
       .it_value = {.tv_sec = (time_t)initial_s,
                    .tv_nsec =
-                       (long)((initial_s - (uint64_t)initial_s) * 1000000000)}};
+                       (long)((initial_s - (U64)initial_s) * 1000000000)}};
   if (timerfd_settime(fd, 0, &ts, nullptr) == -1) {
     Str &err = AppendErrorMessage(status);
     err += "timerfd_settime(): ";
@@ -56,7 +56,7 @@ void Timer::Arm(double initial_s, double interval_s) {
 void Timer::Disarm() { Arm(0, 0); }
 
 void Timer::NotifyRead(Status &epoll_status) {
-  uint64_t ticks;
+  U64 ticks;
   if (read(fd, &ticks, sizeof(ticks)) != sizeof(ticks)) {
     AppendErrorMessage(epoll_status) += "read() in Timer::NotifyRead";
     return;

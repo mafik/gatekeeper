@@ -260,7 +260,7 @@ void LookupIPv4::OnAnswer(const Message &msg) {
 
 void LookupIPv4::OnExpired() { on_error(); }
 
-struct Client : UDPListener {
+struct Client : epoll::UDPListener {
 
   void Listen(Status &status) {
     fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
@@ -293,7 +293,7 @@ struct Client : UDPListener {
     close(fd);
   }
 
-  void HandleRequest(StrView buf, IP source_ip, uint16_t source_port) override {
+  void HandleRequest(StrView buf, IP source_ip, U16 source_port) override {
     if (find(etc::resolv.begin(), etc::resolv.end(), source_ip) ==
         etc::resolv.end()) {
       Str dns_servers = "";
@@ -407,7 +407,7 @@ void InjectAuthoritativeEntry(const Str &domain, IP ip) {
       .questions = {Question{.domain_name = domain}},
       .answers = {Record{Question{.domain_name = domain},
                          std::chrono::steady_clock::time_point::max(),
-                         (uint16_t)sizeof(ip.addr),
+                         (U16)sizeof(ip.addr),
                          string((char *)&ip.addr, sizeof(ip.addr))}}};
   new CachedEntry(dummy_msg);
 }

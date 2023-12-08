@@ -14,7 +14,7 @@ namespace dhcp {
 using namespace maf;
 using namespace std;
 
-struct Server : UDPListener {
+struct Server : epoll::UDPListener {
 
   struct Entry : Expirable {
     IP ip;

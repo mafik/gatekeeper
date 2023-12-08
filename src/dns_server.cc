@@ -29,7 +29,7 @@ struct ProxyLookup : LookupBase {
   void OnExpired() override { delete this; }
 };
 
-struct Server : UDPListener {
+struct Server : epoll::UDPListener {
 
   // Start listening.
   //
@@ -93,15 +93,14 @@ struct Server : UDPListener {
   }
 
   void SendError(ResponseCode code, const Message &msg, IP client_ip,
-                 uint16_t client_port, string &err) {
+                 U16 client_port, string &err) {
     Header response = ResponseHeader(msg);
     response.response_code = code;
     fd.SendTo(client_ip, client_port,
               StrView((const char *)(&response), sizeof(response)), err);
   }
 
-  void HandleRequest(string_view buf, IP source_ip,
-                     uint16_t source_port) override {
+  void HandleRequest(string_view buf, IP source_ip, U16 source_port) override {
     if (!lan_network.Contains(source_ip)) {
       LOG << "DNS server received a packet from an unexpected source: "
           << ToStr(source_ip) << " (expected network " << lan_network << ")";

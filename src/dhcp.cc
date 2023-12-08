@@ -32,7 +32,7 @@ const U32 kMagicCookie = 0x63825363;
 namespace options {
 
 // RFC 2132
-enum class OptionCode : uint8_t {
+enum class OptionCode : U8 {
   Pad = 0,
   SubnetMask = 1,
   TimeOffset = 2,
@@ -284,8 +284,8 @@ Str ToStr(OptionCode code) {
 
 struct __attribute__((__packed__)) Base {
   OptionCode code;
-  uint8_t length;
-  Base(OptionCode code, uint8_t length = 0) : code(code), length(length) {}
+  U8 length;
+  Base(OptionCode code, U8 length = 0) : code(code), length(length) {}
   Str ToStr() const;
   size_t size() const {
     switch (code) {
@@ -349,7 +349,7 @@ private:
 
 struct __attribute__((__packed__)) HostName : Base {
   static constexpr OptionCode kCode = OptionCode::HostName;
-  const uint8_t value[];
+  const U8 value[];
   HostName() = delete;
   Str ToStr() const { return "HostName(" + hostname() + ")"; }
   Str hostname() const { return std::string((const char *)value, length); }
@@ -357,7 +357,7 @@ struct __attribute__((__packed__)) HostName : Base {
 
 struct __attribute__((__packed__)) DomainName : Base {
   static constexpr OptionCode kCode = OptionCode::DomainName;
-  const uint8_t value[];
+  const U8 value[];
   static unique_ptr<DomainName, FreeDeleter> Make(string domain_name) {
     int n = domain_name.size();
     void *buffer = malloc(sizeof(DomainName) + n);
@@ -387,7 +387,7 @@ struct __attribute__((__packed__)) IPAddressLeaseTime : Base {
 };
 
 struct __attribute__((__packed__)) MessageType : Base {
-  enum class Value : uint8_t {
+  enum class Value : U8 {
     UNKNOWN = 0,
     DISCOVER = 1,
     OFFER = 2,
@@ -472,8 +472,8 @@ struct __attribute__((__packed__)) ServerIdentifier : Base {
 
 // RFC 2132, section 9.8
 struct __attribute__((__packed__)) ParameterRequestList {
-  const uint8_t code = 55;
-  const uint8_t length;
+  const U8 code = 55;
+  const U8 length;
   const OptionCode c[0];
   Str ToStr() const {
     Str r = "ParameterRequestList(";
@@ -506,7 +506,7 @@ struct __attribute__((__packed__)) VendorClassIdentifier {
 // RFC 2132, Section 9.14
 struct __attribute__((__packed__)) ClientIdentifier : Base {
   static constexpr OptionCode kCode = OptionCode::ClientIdentifier;
-  const uint8_t type = 1; // Hardware address
+  const U8 type = 1; // Hardware address
   const MAC hardware_address;
   ClientIdentifier(const MAC &hardware_address)
       : Base(kCode, 1 + 6), hardware_address(hardware_address) {}
@@ -562,23 +562,23 @@ Str Base::ToStr() const {
 // Fixed prefix of a DHCP packet. This is followed by a list of options.
 // All fields use network byte order.
 struct __attribute__((__packed__)) Header {
-  uint8_t message_type = 1;  // Boot Request
-  uint8_t hardware_type = 1; // Ethernet
-  uint8_t hardware_address_length = 6;
-  uint8_t hops = 0;
-  uint32_t transaction_id = random<uint32_t>();
-  uint16_t seconds_elapsed = 0;
+  U8 message_type = 1;  // Boot Request
+  U8 hardware_type = 1; // Ethernet
+  U8 hardware_address_length = 6;
+  U8 hops = 0;
+  U32 transaction_id = random<U32>();
+  U16 seconds_elapsed = 0;
   Big<U16> flags = 0;
   IP client_ip = {0, 0, 0, 0};  // ciaddr
   IP your_ip = {0, 0, 0, 0};    // yiaddr
   IP server_ip = {0, 0, 0, 0};  // siaddr (Next server IP)
   IP gateway_ip = {0, 0, 0, 0}; // giaddr (Relay agent IP)
   union {
-    uint8_t client_hardware_address[16] = {};
+    U8 client_hardware_address[16] = {};
     MAC client_mac_address;
   };
-  uint8_t server_name[64] = {};
-  uint8_t boot_filename[128] = {};
+  U8 server_name[64] = {};
+  U8 boot_filename[128] = {};
   Big<U32> magic_cookie = kMagicCookie;
 
   Str ToStr() const {
@@ -610,7 +610,7 @@ struct __attribute__((__packed__)) Header {
 
 // Provides read access to a memory buffer that contains a DHCP packet.
 struct __attribute__((__packed__)) PacketView : Header {
-  uint8_t options[0];
+  U8 options[0];
   void CheckFitsIn(size_t len, string &error) {
     if (len < sizeof(Header)) {
       error = "Packet is too short";
@@ -620,7 +620,7 @@ struct __attribute__((__packed__)) PacketView : Header {
       error = "Packet is too short to contain an End option";
       return;
     }
-    uint8_t *p = options;
+    U8 *p = options;
     while (true) {
       options::Base *opt = (options::Base *)p;
       p += opt->size();
@@ -640,7 +640,7 @@ struct __attribute__((__packed__)) PacketView : Header {
     Str s = "dhcp::PacketView {\n";
     s += IndentString(Header::ToStr());
     s += "\n  options:\n";
-    const uint8_t *p = options;
+    const U8 *p = options;
     while (*p != 255) {
       const options::Base &opt = *(const options::Base *)p;
       s += IndentString(opt.ToStr(), 4) + "\n";
@@ -650,7 +650,7 @@ struct __attribute__((__packed__)) PacketView : Header {
     return s;
   }
   options::Base *FindOption(options::OptionCode code) const {
-    const uint8_t *p = options;
+    const U8 *p = options;
     while (*p != 255) {
       options::Base &opt = *(options::Base *)p;
       if (opt.code == code) {
@@ -858,7 +858,7 @@ void Server::StopListening() {
   close(fd);
 }
 
-void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
+void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
   if (buf.size() < sizeof(PacketView)) {
     ERROR << "DHCP server received a packet that is too short: " << buf.size()
           << " bytes:\n"

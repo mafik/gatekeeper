@@ -1,13 +1,12 @@
 #pragma once
 
-#include <cstdint>
-
+#include "int.hh"
 #include "str.hh"
 
-namespace rfc1700 {
+namespace maf::rfc1700 {
 
 extern const char *kHardwareTypeNames[22];
 
-maf::Str HardwareTypeToStr(uint8_t type);
+Str HardwareTypeToStr(U8 type);
 
-} // namespace rfc1700
+} // namespace maf::rfc1700

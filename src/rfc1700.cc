@@ -1,8 +1,6 @@
 #include "rfc1700.hh"
 
-using namespace maf;
-
-namespace rfc1700 {
+namespace maf::rfc1700 {
 
 const char *kHardwareTypeNames[] = {"Not hardware address",
                                     "Ethernet (10Mb)",
@@ -27,11 +25,11 @@ const char *kHardwareTypeNames[] = {"Not hardware address",
                                     "Serial Line",
                                     "Asynchronous Transmission Mode (ATM)"};
 
-Str HardwareTypeToStr(uint8_t type) {
+Str HardwareTypeToStr(U8 type) {
   if (type < sizeof(kHardwareTypeNames) / sizeof(kHardwareTypeNames[0])) {
     return kHardwareTypeNames[type];
   }
   return "Unknown hardware type " + ToStr(type);
 }
 
-} // namespace rfc1700
+} // namespace maf::rfc1700

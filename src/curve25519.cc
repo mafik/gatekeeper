@@ -5,6 +5,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "int.hh"
+
+using namespace maf;
+
 // Note: if int128 is needed on other platforms, then `_BigInt(128)` might help.
 
 // curve25519-donna-c64.c from github.com/agl/curve25519-donna
@@ -34,15 +38,13 @@ namespace {
  * from the sample implementation.
  */
 
-#include <stdint.h>
 #include <string.h>
 
-typedef uint8_t U8;
-typedef uint64_t limb;
+typedef U64 limb;
 typedef limb felem[5];
 // This is a special gcc mode for 128-bit integers. It's implemented on 64-bit
 // platforms only as far as I know.
-typedef unsigned uint128_t __attribute__((mode(TI)));
+typedef unsigned U128 __attribute__((mode(TI)));
 
 #undef force_inline
 #define force_inline __attribute__((always_inline))
@@ -78,21 +80,21 @@ static inline void force_inline fdifference_backwards(felem out,
 /* Multiply a number by a scalar: output = in * scalar */
 static inline void force_inline fscalar_product(felem output, const felem in,
                                                 const limb scalar) {
-  uint128_t a;
+  U128 a;
 
-  a = ((uint128_t)in[0]) * scalar;
+  a = ((U128)in[0]) * scalar;
   output[0] = ((limb)a) & 0x7ffffffffffff;
 
-  a = ((uint128_t)in[1]) * scalar + ((limb)(a >> 51));
+  a = ((U128)in[1]) * scalar + ((limb)(a >> 51));
   output[1] = ((limb)a) & 0x7ffffffffffff;
 
-  a = ((uint128_t)in[2]) * scalar + ((limb)(a >> 51));
+  a = ((U128)in[2]) * scalar + ((limb)(a >> 51));
   output[2] = ((limb)a) & 0x7ffffffffffff;
 
-  a = ((uint128_t)in[3]) * scalar + ((limb)(a >> 51));
+  a = ((U128)in[3]) * scalar + ((limb)(a >> 51));
   output[3] = ((limb)a) & 0x7ffffffffffff;
 
-  a = ((uint128_t)in[4]) * scalar + ((limb)(a >> 51));
+  a = ((U128)in[4]) * scalar + ((limb)(a >> 51));
   output[4] = ((limb)a) & 0x7ffffffffffff;
 
   output[0] += (a >> 51) * 19;
@@ -108,7 +110,7 @@ static inline void force_inline fscalar_product(felem output, const felem in,
  */
 static inline void force_inline fmul(felem output, const felem in2,
                                      const felem in) {
-  uint128_t t[5];
+  U128 t[5];
   limb r0, r1, r2, r3, r4, s0, s1, s2, s3, s4, c;
 
   r0 = in[0];
@@ -123,24 +125,22 @@ static inline void force_inline fmul(felem output, const felem in2,
   s3 = in2[3];
   s4 = in2[4];
 
-  t[0] = ((uint128_t)r0) * s0;
-  t[1] = ((uint128_t)r0) * s1 + ((uint128_t)r1) * s0;
-  t[2] = ((uint128_t)r0) * s2 + ((uint128_t)r2) * s0 + ((uint128_t)r1) * s1;
-  t[3] = ((uint128_t)r0) * s3 + ((uint128_t)r3) * s0 + ((uint128_t)r1) * s2 +
-         ((uint128_t)r2) * s1;
-  t[4] = ((uint128_t)r0) * s4 + ((uint128_t)r4) * s0 + ((uint128_t)r3) * s1 +
-         ((uint128_t)r1) * s3 + ((uint128_t)r2) * s2;
+  t[0] = ((U128)r0) * s0;
+  t[1] = ((U128)r0) * s1 + ((U128)r1) * s0;
+  t[2] = ((U128)r0) * s2 + ((U128)r2) * s0 + ((U128)r1) * s1;
+  t[3] = ((U128)r0) * s3 + ((U128)r3) * s0 + ((U128)r1) * s2 + ((U128)r2) * s1;
+  t[4] = ((U128)r0) * s4 + ((U128)r4) * s0 + ((U128)r3) * s1 + ((U128)r1) * s3 +
+         ((U128)r2) * s2;
 
   r4 *= 19;
   r1 *= 19;
   r2 *= 19;
   r3 *= 19;
 
-  t[0] += ((uint128_t)r4) * s1 + ((uint128_t)r1) * s4 + ((uint128_t)r2) * s3 +
-          ((uint128_t)r3) * s2;
-  t[1] += ((uint128_t)r4) * s2 + ((uint128_t)r2) * s4 + ((uint128_t)r3) * s3;
-  t[2] += ((uint128_t)r4) * s3 + ((uint128_t)r3) * s4;
-  t[3] += ((uint128_t)r4) * s4;
+  t[0] += ((U128)r4) * s1 + ((U128)r1) * s4 + ((U128)r2) * s3 + ((U128)r3) * s2;
+  t[1] += ((U128)r4) * s2 + ((U128)r2) * s4 + ((U128)r3) * s3;
+  t[2] += ((U128)r4) * s3 + ((U128)r3) * s4;
+  t[3] += ((U128)r4) * s4;
 
   r0 = (limb)t[0] & 0x7ffffffffffff;
   c = (limb)(t[0] >> 51);
@@ -173,7 +173,7 @@ static inline void force_inline fmul(felem output, const felem in2,
 
 static inline void force_inline fsquare_times(felem output, const felem in,
                                               limb count) {
-  uint128_t t[5];
+  U128 t[5];
   limb r0, r1, r2, r3, r4, c;
   limb d0, d1, d2, d4, d419;
 
@@ -190,16 +190,11 @@ static inline void force_inline fsquare_times(felem output, const felem in,
     d419 = r4 * 19;
     d4 = d419 * 2;
 
-    t[0] =
-        ((uint128_t)r0) * r0 + ((uint128_t)d4) * r1 + (((uint128_t)d2) * (r3));
-    t[1] = ((uint128_t)d0) * r1 + ((uint128_t)d4) * r2 +
-           (((uint128_t)r3) * (r3 * 19));
-    t[2] =
-        ((uint128_t)d0) * r2 + ((uint128_t)r1) * r1 + (((uint128_t)d4) * (r3));
-    t[3] = ((uint128_t)d0) * r3 + ((uint128_t)d1) * r2 +
-           (((uint128_t)r4) * (d419));
-    t[4] =
-        ((uint128_t)d0) * r4 + ((uint128_t)d1) * r3 + (((uint128_t)r2) * (r2));
+    t[0] = ((U128)r0) * r0 + ((U128)d4) * r1 + (((U128)d2) * (r3));
+    t[1] = ((U128)d0) * r1 + ((U128)d4) * r2 + (((U128)r3) * (r3 * 19));
+    t[2] = ((U128)d0) * r2 + ((U128)r1) * r1 + (((U128)d4) * (r3));
+    t[3] = ((U128)d0) * r3 + ((U128)d1) * r2 + (((U128)r4) * (d419));
+    t[4] = ((U128)d0) * r4 + ((U128)d1) * r3 + (((U128)r2) * (r2));
 
     r0 = (limb)t[0] & 0x7ffffffffffff;
     c = (limb)(t[0] >> 51);
@@ -262,7 +257,7 @@ static void fexpand(limb *output, const char *in) {
  * little-endian, 32-byte array
  */
 static void fcontract(char *output, const felem input) {
-  uint128_t t[5];
+  U128 t[5];
 
   t[0] = input[0];
   t[1] = input[1];
@@ -475,7 +470,7 @@ static void crecip(felem out, const felem z) {
 int curve25519_donna(char *mypublic, const char *secret,
                      const char *basepoint) {
   limb bp[5], x[5], z[5], zmone[5];
-  uint8_t e[32];
+  U8 e[32];
   int i;
 
   for (i = 0; i < 32; ++i)

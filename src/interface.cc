@@ -11,7 +11,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-using namespace maf;
+namespace maf {
 
 static void PrepareFD(FD &fd) {
   if (fd < 0) {
@@ -133,7 +133,7 @@ bool Interface::IsWireless() {
 
 IP Interface::IP(Status &status) { return IP::FromInterface(name, status); }
 
-::IP Interface::Netmask(Status &status) {
+maf::IP Interface::Netmask(Status &status) {
   return IP::NetmaskFromInterface(name, status);
 }
 
@@ -153,7 +153,7 @@ void Interface::BringDown(Status &status) const {
   BringInterfaceDown(fd, *this, status);
 }
 
-void Interface::Configure(::IP ip, ::Network network, Status &status) {
+void Interface::Configure(maf::IP ip, maf::Network network, Status &status) {
   FD fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   // Assign IP
   SetInterfaceIPv4(fd, *this, ip, status);
@@ -193,7 +193,7 @@ void Interface::Configure(::IP ip, ::Network network, Status &status) {
 
 void Interface::Deconfigure(Status &status) {
   FD fd;
-  SetInterfaceIPv4(fd, *this, ::IP(0, 0, 0, 0), status);
+  SetInterfaceIPv4(fd, *this, maf::IP(0, 0, 0, 0), status);
   if (!OK(status)) {
     AppendErrorMessage(status) += "Couldn't clear IP of interface " + name;
     return;
@@ -281,3 +281,5 @@ Interface BridgeInterfaces(const Vec<Interface> &interfaces,
   }
   return bridge;
 }
+
+} // namespace maf

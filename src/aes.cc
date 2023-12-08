@@ -16,7 +16,7 @@ namespace {
 //  CONSTANTS
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static const uint32_t TE0[256] = {
+static const U32 TE0[256] = {
     0xc66363a5UL, 0xf87c7c84UL, 0xee777799UL, 0xf67b7b8dUL, 0xfff2f20dUL,
     0xd66b6bbdUL, 0xde6f6fb1UL, 0x91c5c554UL, 0x60303050UL, 0x02010103UL,
     0xce6767a9UL, 0x562b2b7dUL, 0xe7fefe19UL, 0xb5d7d762UL, 0x4dababe6UL,
@@ -71,7 +71,7 @@ static const uint32_t TE0[256] = {
     0x2c16163aUL,
 };
 
-static const uint32_t TD0[256] = {
+static const U32 TD0[256] = {
     0x51f4a750UL, 0x7e416553UL, 0x1a17a4c3UL, 0x3a275e96UL, 0x3bab6bcbUL,
     0x1f9d45f1UL, 0xacfa58abUL, 0x4be30393UL, 0x2030fa55UL, 0xad766df6UL,
     0x88cc7691UL, 0xf5024c25UL, 0x4fe5d7fcUL, 0xc52acbd7UL, 0x26354480UL,
@@ -126,7 +126,7 @@ static const uint32_t TD0[256] = {
     0xd0b85742UL,
 };
 
-static const uint32_t Td4[256] = {
+static const U32 Td4[256] = {
     0x52525252UL, 0x09090909UL, 0x6a6a6a6aUL, 0xd5d5d5d5UL, 0x30303030UL,
     0x36363636UL, 0xa5a5a5a5UL, 0x38383838UL, 0xbfbfbfbfUL, 0x40404040UL,
     0xa3a3a3a3UL, 0x9e9e9e9eUL, 0x81818181UL, 0xf3f3f3f3UL, 0xd7d7d7d7UL,
@@ -181,7 +181,7 @@ static const uint32_t Td4[256] = {
     0x7d7d7d7dUL,
 };
 
-static const uint32_t TE1[256] = {
+static const U32 TE1[256] = {
     0xa5c66363UL, 0x84f87c7cUL, 0x99ee7777UL, 0x8df67b7bUL, 0x0dfff2f2UL,
     0xbdd66b6bUL, 0xb1de6f6fUL, 0x5491c5c5UL, 0x50603030UL, 0x03020101UL,
     0xa9ce6767UL, 0x7d562b2bUL, 0x19e7fefeUL, 0x62b5d7d7UL, 0xe64dababUL,
@@ -236,7 +236,7 @@ static const uint32_t TE1[256] = {
     0x3a2c1616UL,
 };
 
-static const uint32_t TE2[256] = {
+static const U32 TE2[256] = {
     0x63a5c663UL, 0x7c84f87cUL, 0x7799ee77UL, 0x7b8df67bUL, 0xf20dfff2UL,
     0x6bbdd66bUL, 0x6fb1de6fUL, 0xc55491c5UL, 0x30506030UL, 0x01030201UL,
     0x67a9ce67UL, 0x2b7d562bUL, 0xfe19e7feUL, 0xd762b5d7UL, 0xabe64dabUL,
@@ -291,7 +291,7 @@ static const uint32_t TE2[256] = {
     0x163a2c16UL,
 };
 
-static const uint32_t TE3[256] = {
+static const U32 TE3[256] = {
     0x6363a5c6UL, 0x7c7c84f8UL, 0x777799eeUL, 0x7b7b8df6UL, 0xf2f20dffUL,
     0x6b6bbdd6UL, 0x6f6fb1deUL, 0xc5c55491UL, 0x30305060UL, 0x01010302UL,
     0x6767a9ceUL, 0x2b2b7d56UL, 0xfefe19e7UL, 0xd7d762b5UL, 0xababe64dUL,
@@ -346,7 +346,7 @@ static const uint32_t TE3[256] = {
     0x16163a2cUL,
 };
 
-static const uint32_t Te4_0[] = {
+static const U32 Te4_0[] = {
     0x00000063UL, 0x0000007cUL, 0x00000077UL, 0x0000007bUL, 0x000000f2UL,
     0x0000006bUL, 0x0000006fUL, 0x000000c5UL, 0x00000030UL, 0x00000001UL,
     0x00000067UL, 0x0000002bUL, 0x000000feUL, 0x000000d7UL, 0x000000abUL,
@@ -400,7 +400,7 @@ static const uint32_t Te4_0[] = {
     0x0000002dUL, 0x0000000fUL, 0x000000b0UL, 0x00000054UL, 0x000000bbUL,
     0x00000016UL};
 
-static const uint32_t Te4_1[] = {
+static const U32 Te4_1[] = {
     0x00006300UL, 0x00007c00UL, 0x00007700UL, 0x00007b00UL, 0x0000f200UL,
     0x00006b00UL, 0x00006f00UL, 0x0000c500UL, 0x00003000UL, 0x00000100UL,
     0x00006700UL, 0x00002b00UL, 0x0000fe00UL, 0x0000d700UL, 0x0000ab00UL,
@@ -454,7 +454,7 @@ static const uint32_t Te4_1[] = {
     0x00002d00UL, 0x00000f00UL, 0x0000b000UL, 0x00005400UL, 0x0000bb00UL,
     0x00001600UL};
 
-static const uint32_t Te4_2[] = {
+static const U32 Te4_2[] = {
     0x00630000UL, 0x007c0000UL, 0x00770000UL, 0x007b0000UL, 0x00f20000UL,
     0x006b0000UL, 0x006f0000UL, 0x00c50000UL, 0x00300000UL, 0x00010000UL,
     0x00670000UL, 0x002b0000UL, 0x00fe0000UL, 0x00d70000UL, 0x00ab0000UL,
@@ -508,7 +508,7 @@ static const uint32_t Te4_2[] = {
     0x002d0000UL, 0x000f0000UL, 0x00b00000UL, 0x00540000UL, 0x00bb0000UL,
     0x00160000UL};
 
-static const uint32_t Te4_3[] = {
+static const U32 Te4_3[] = {
     0x63000000UL, 0x7c000000UL, 0x77000000UL, 0x7b000000UL, 0xf2000000UL,
     0x6b000000UL, 0x6f000000UL, 0xc5000000UL, 0x30000000UL, 0x01000000UL,
     0x67000000UL, 0x2b000000UL, 0xfe000000UL, 0xd7000000UL, 0xab000000UL,
@@ -562,7 +562,7 @@ static const uint32_t Te4_3[] = {
     0x2d000000UL, 0x0f000000UL, 0xb0000000UL, 0x54000000UL, 0xbb000000UL,
     0x16000000UL};
 
-static const uint32_t TD1[256] = {
+static const U32 TD1[256] = {
     0x5051f4a7UL, 0x537e4165UL, 0xc31a17a4UL, 0x963a275eUL, 0xcb3bab6bUL,
     0xf11f9d45UL, 0xabacfa58UL, 0x934be303UL, 0x552030faUL, 0xf6ad766dUL,
     0x9188cc76UL, 0x25f5024cUL, 0xfc4fe5d7UL, 0xd7c52acbUL, 0x80263544UL,
@@ -617,7 +617,7 @@ static const uint32_t TD1[256] = {
     0x42d0b857UL,
 };
 
-static const uint32_t TD2[256] = {
+static const U32 TD2[256] = {
     0xa75051f4UL, 0x65537e41UL, 0xa4c31a17UL, 0x5e963a27UL, 0x6bcb3babUL,
     0x45f11f9dUL, 0x58abacfaUL, 0x03934be3UL, 0xfa552030UL, 0x6df6ad76UL,
     0x769188ccUL, 0x4c25f502UL, 0xd7fc4fe5UL, 0xcbd7c52aUL, 0x44802635UL,
@@ -672,7 +672,7 @@ static const uint32_t TD2[256] = {
     0x5742d0b8UL,
 };
 
-static const uint32_t TD3[256] = {
+static const U32 TD3[256] = {
     0xf4a75051UL, 0x4165537eUL, 0x17a4c31aUL, 0x275e963aUL, 0xab6bcb3bUL,
     0x9d45f11fUL, 0xfa58abacUL, 0xe303934bUL, 0x30fa5520UL, 0x766df6adUL,
     0xcc769188UL, 0x024c25f5UL, 0xe5d7fc4fUL, 0x2acbd7c5UL, 0x35448026UL,
@@ -727,7 +727,7 @@ static const uint32_t TD3[256] = {
     0xb85742d0UL,
 };
 
-static const uint32_t Tks0[] = {
+static const U32 Tks0[] = {
     0x00000000UL, 0x0e090d0bUL, 0x1c121a16UL, 0x121b171dUL, 0x3824342cUL,
     0x362d3927UL, 0x24362e3aUL, 0x2a3f2331UL, 0x70486858UL, 0x7e416553UL,
     0x6c5a724eUL, 0x62537f45UL, 0x486c5c74UL, 0x4665517fUL, 0x547e4662UL,
@@ -781,7 +781,7 @@ static const uint32_t Tks0[] = {
     0xbb6bae84UL, 0xb562a38fUL, 0x9f5d80beUL, 0x91548db5UL, 0x834f9aa8UL,
     0x8d4697a3UL};
 
-static const uint32_t Tks1[] = {
+static const U32 Tks1[] = {
     0x00000000UL, 0x0b0e090dUL, 0x161c121aUL, 0x1d121b17UL, 0x2c382434UL,
     0x27362d39UL, 0x3a24362eUL, 0x312a3f23UL, 0x58704868UL, 0x537e4165UL,
     0x4e6c5a72UL, 0x4562537fUL, 0x74486c5cUL, 0x7f466551UL, 0x62547e46UL,
@@ -835,7 +835,7 @@ static const uint32_t Tks1[] = {
     0x84bb6baeUL, 0x8fb562a3UL, 0xbe9f5d80UL, 0xb591548dUL, 0xa8834f9aUL,
     0xa38d4697UL};
 
-static const uint32_t Tks2[] = {
+static const U32 Tks2[] = {
     0x00000000UL, 0x0d0b0e09UL, 0x1a161c12UL, 0x171d121bUL, 0x342c3824UL,
     0x3927362dUL, 0x2e3a2436UL, 0x23312a3fUL, 0x68587048UL, 0x65537e41UL,
     0x724e6c5aUL, 0x7f456253UL, 0x5c74486cUL, 0x517f4665UL, 0x4662547eUL,
@@ -889,7 +889,7 @@ static const uint32_t Tks2[] = {
     0xae84bb6bUL, 0xa38fb562UL, 0x80be9f5dUL, 0x8db59154UL, 0x9aa8834fUL,
     0x97a38d46UL};
 
-static const uint32_t Tks3[] = {
+static const U32 Tks3[] = {
     0x00000000UL, 0x090d0b0eUL, 0x121a161cUL, 0x1b171d12UL, 0x24342c38UL,
     0x2d392736UL, 0x362e3a24UL, 0x3f23312aUL, 0x48685870UL, 0x4165537eUL,
     0x5a724e6cUL, 0x537f4562UL, 0x6c5c7448UL, 0x65517f46UL, 0x7e466254UL,
@@ -943,7 +943,7 @@ static const uint32_t Tks3[] = {
     0x6bae84bbUL, 0x62a38fb5UL, 0x5d80be9fUL, 0x548db591UL, 0x4f9aa883UL,
     0x4697a38dUL};
 
-static const uint32_t rcon[] = {
+static const U32 rcon[] = {
     0x01000000UL, 0x02000000UL, 0x04000000UL, 0x08000000UL,
     0x10000000UL, 0x20000000UL, 0x40000000UL, 0x80000000UL,
     0x1B000000UL, 0x36000000UL, // for 128-bit blocks, Rijndael never uses more
@@ -976,25 +976,25 @@ static const uint32_t rcon[] = {
 
 #define LOAD32H(x, y)                                                          \
   {                                                                            \
-    x = ((uint32_t)((y)[0] & 255) << 24) | ((uint32_t)((y)[1] & 255) << 16) |  \
-        ((uint32_t)((y)[2] & 255) << 8) | ((uint32_t)((y)[3] & 255));          \
+    x = ((U32)((y)[0] & 255) << 24) | ((U32)((y)[1] & 255) << 16) |            \
+        ((U32)((y)[2] & 255) << 8) | ((U32)((y)[3] & 255));                    \
   }
 
 #define ROL(x, y)                                                              \
-  ((((uint32_t)(x) << (uint32_t)((y) & 31)) |                                  \
-    (((uint32_t)(x) & 0xFFFFFFFFUL) >> (uint32_t)((32 - ((y) & 31)) & 31))) &  \
+  ((((U32)(x) << (U32)((y) & 31)) |                                            \
+    (((U32)(x) & 0xFFFFFFFFUL) >> (U32)((32 - ((y) & 31)) & 31))) &            \
    0xFFFFFFFFUL)
 #define ROR(x, y)                                                              \
-  (((((uint32_t)(x) & 0xFFFFFFFFUL) >> (uint32_t)((y) & 31)) |                 \
-    ((uint32_t)(x) << (uint32_t)((32 - ((y) & 31)) & 31))) &                   \
+  (((((U32)(x) & 0xFFFFFFFFUL) >> (U32)((y) & 31)) |                           \
+    ((U32)(x) << (U32)((32 - ((y) & 31)) & 31))) &                             \
    0xFFFFFFFFUL)
 #define ROLc(x, y)                                                             \
-  ((((uint32_t)(x) << (uint32_t)((y) & 31)) |                                  \
-    (((uint32_t)(x) & 0xFFFFFFFFUL) >> (uint32_t)((32 - ((y) & 31)) & 31))) &  \
+  ((((U32)(x) << (U32)((y) & 31)) |                                            \
+    (((U32)(x) & 0xFFFFFFFFUL) >> (U32)((32 - ((y) & 31)) & 31))) &            \
    0xFFFFFFFFUL)
 #define RORc(x, y)                                                             \
-  (((((uint32_t)(x) & 0xFFFFFFFFUL) >> (uint32_t)((y) & 31)) |                 \
-    ((uint32_t)(x) << (uint32_t)((32 - ((y) & 31)) & 31))) &                   \
+  (((((U32)(x) & 0xFFFFFFFFUL) >> (U32)((y) & 31)) |                           \
+    ((U32)(x) << (U32)((32 - ((y) & 31)) & 31))) &                             \
    0xFFFFFFFFUL)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1010,13 +1010,13 @@ static const uint32_t rcon[] = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int AesInitialise(AES *Context,    // [out]
                   void const *Key, // [in]
-                  uint32_t KeySize // [in]
+                  U32 KeySize      // [in]
 ) {
-  uint8_t const *key = (uint8_t const *)Key;
+  U8 const *key = (U8 const *)Key;
   uint_fast32_t i;
-  uint32_t temp;
-  uint32_t *rk;
-  uint32_t *rrk;
+  U32 temp;
+  U32 *rk;
+  U32 *rrk;
 
 #define SETUP_MIX(Value)                                                       \
   ((Te4_3[BYTE(Value, 2)]) ^ (Te4_2[BYTE(Value, 1)]) ^                         \
@@ -1138,19 +1138,19 @@ int AesInitialise(AES *Context,    // [out]
 //  initialised with one of the functions AesInitialise[n]. Input and Output can
 //  point to same memory location.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void AesEncrypt(AES const *Context,                  // [in]
-                uint8_t const Input[AES_BLOCK_SIZE], // [in]
-                uint8_t Output[AES_BLOCK_SIZE]       // [out]
+void AesEncrypt(AES const *Context,             // [in]
+                U8 const Input[AES_BLOCK_SIZE], // [in]
+                U8 Output[AES_BLOCK_SIZE]       // [out]
 ) {
-  uint32_t s0;
-  uint32_t s1;
-  uint32_t s2;
-  uint32_t s3;
-  uint32_t t0;
-  uint32_t t1;
-  uint32_t t2;
-  uint32_t t3;
-  uint32_t const *rk;
+  U32 s0;
+  U32 s1;
+  U32 s2;
+  U32 s3;
+  U32 t0;
+  U32 t1;
+  U32 t2;
+  U32 t3;
+  U32 const *rk;
   uint_fast32_t r;
 
   rk = Context->eK;
@@ -1218,19 +1218,19 @@ void AesEncrypt(AES const *Context,                  // [in]
 //  point to same memory location, however it is more efficient to use
 //  AesDecryptInPlace in this situation.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void AesDecrypt(AES const *Context,                  // [in]
-                uint8_t const Input[AES_BLOCK_SIZE], // [in]
-                uint8_t Output[AES_BLOCK_SIZE]       // [out]
+void AesDecrypt(AES const *Context,             // [in]
+                U8 const Input[AES_BLOCK_SIZE], // [in]
+                U8 Output[AES_BLOCK_SIZE]       // [out]
 ) {
-  uint32_t s0;
-  uint32_t s1;
-  uint32_t s2;
-  uint32_t s3;
-  uint32_t t0;
-  uint32_t t1;
-  uint32_t t2;
-  uint32_t t3;
-  uint32_t const *rk;
+  U32 s0;
+  U32 s1;
+  U32 s2;
+  U32 s3;
+  U32 t0;
+  U32 t1;
+  U32 t2;
+  U32 t3;
+  U32 const *rk;
   uint_fast32_t r;
 
   rk = Context->dK;

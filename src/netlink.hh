@@ -92,10 +92,10 @@ struct Netlink : epoll::Listener {
   static_assert(sizeof(Attr) == 4, "Netlink::Attr must be 4 bytes");
 
   // The sequence number of the next message to be sent.
-  uint32_t seq = 1;
+  U32 seq = 1;
 
   int protocol = -1;
-  uint32_t fixed_message_size = 0;
+  U32 fixed_message_size = 0;
 
   // Establishes connection with the specified netlink protocol.
   //

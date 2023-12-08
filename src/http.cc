@@ -130,17 +130,17 @@ static int ConsumeWebSocketFrame(Connection &c) {
   int opcode = c.request_buffer[0] & 15;
   bool mask = c.request_buffer[1] >> 7;
   assert(fin); // TODO: message fragmentation
-  uint64_t payload_len = ((int)c.request_buffer[1]) & 127;
+  U64 payload_len = ((int)c.request_buffer[1]) & 127;
   int offset = 2;
   if (payload_len == 126) {
     if (c.request_buffer.size() < 4) // 2 bytes header + 2 bytes payload len
       return 0;
-    payload_len = *(uint16_t *)(c.request_buffer.data() + offset);
+    payload_len = *(U16 *)(c.request_buffer.data() + offset);
     offset += 2;
   } else if (payload_len == 127) {
     if (c.request_buffer.size() < 10) // 2 bytes header + 8 bytes of payload len
       return 0;
-    payload_len = *(uint64_t *)(c.request_buffer.data() + offset);
+    payload_len = *(U64 *)(c.request_buffer.data() + offset);
     offset += 8;
   }
   if (c.request_buffer.size() < offset + payload_len + (mask ? 4 : 0)) {
@@ -336,23 +336,23 @@ static void TryReading(Connection &c) {
   TryWriting(c);
 }
 
-static void AppendWebSocketFrame(Connection &c, uint8_t opcode,
+static void AppendWebSocketFrame(Connection &c, U8 opcode,
                                  std::string_view payload) {
   char header[10];
   int header_size;
   header[0] = (char)(1 << 7 | opcode); // FIN | opcode
-  uint64_t len = payload.size();
+  U64 len = payload.size();
   if (len < 126) {
     header_size = 2;
     header[1] = (char)len;
   } else if (len < 0x10000) {
     header_size = 4;
     header[1] = 126;
-    *(uint16_t *)(header + 2) = htobe16(len);
+    *(U16 *)(header + 2) = htobe16(len);
   } else {
     header_size = 10;
     header[1] = 127;
-    *(uint64_t *)(header + 2) = htobe64(len);
+    *(U64 *)(header + 2) = htobe64(len);
   }
   c.response_buffer.append(header, header_size);
   c.response_buffer.append(payload);
@@ -374,10 +374,10 @@ void Connection::SendText(std::string_view payload, bool flush) {
 
 void Connection::Flush() { TryWriting(*this); }
 
-void Connection::Close(uint16_t code, std::string_view reason) {
+void Connection::Close(U16 code, std::string_view reason) {
   if (mode == MODE_WEBSOCKET) {
     char payload[reason.size() + 2];
-    *(uint16_t *)(payload) = htobe16(code);
+    *(U16 *)(payload) = htobe16(code);
     memcpy(payload + 2, reason.data(), reason.size());
     closing = true;
     AppendWebSocketFrame(*this, 8,

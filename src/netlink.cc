@@ -103,7 +103,7 @@ void Netlink::Send(nlmsghdr &msg, Status &status) {
 }
 
 void Netlink::SendWithAttr(nlmsghdr &hdr, Attr &attr, Status &status) {
-  uint16_t hdr_len = hdr.nlmsg_len;
+  U16 hdr_len = hdr.nlmsg_len;
 
   hdr.nlmsg_seq = seq++;
   hdr.nlmsg_len += attr.len;
@@ -224,7 +224,7 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
           }
           if (err_attrs[NLMSGERR_ATTR_OFFS]) {
             msg += " error offset: ";
-            msg += ToStr(*(uint32_t *)(err_attrs[NLMSGERR_ATTR_OFFS] + 1));
+            msg += ToStr(*(U32 *)(err_attrs[NLMSGERR_ATTR_OFFS] + 1));
           }
         }
 
