@@ -2,7 +2,6 @@
 
 #include "int.hh"
 #include "span.hh"
-#include "str.hh"
 
 namespace maf {
 
@@ -20,8 +19,6 @@ struct SHA1 {
 
   operator Span<char, 20>() { return bytes; }
   operator Span<>() { return bytes; }
-  // TODO: SHA1 is not text so this operator should be removed
-  operator StrView() { return StrView(bytes, 20); }
 
   struct Builder {
     U64 length;
