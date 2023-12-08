@@ -4,6 +4,7 @@
 
 #include <chrono>
 
+#include "big_endian.hh"
 #include "fn.hh"
 #include "int.hh"
 #include "optional.hh"
@@ -94,10 +95,10 @@ struct __attribute__((__packed__)) Header {
   U8 reserved : 3;
   bool recursion_available : 1;
 
-  U16 question_count;   // big endian
-  U16 answer_count;     // big endian
-  U16 authority_count;  // big endian
-  U16 additional_count; // big endian
+  Big<U16> question_count;
+  Big<U16> answer_count;
+  Big<U16> authority_count;
+  Big<U16> additional_count;
   void write_to(Str &buffer);
   Str ToStr() const;
 };

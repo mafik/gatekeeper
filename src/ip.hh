@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <bit>
 
+#include "big_endian.hh"
 #include "int.hh"
 #include "status.hh"
 #include "str.hh"
@@ -11,6 +12,7 @@ namespace maf {
 
 union __attribute__((__packed__)) IP {
   U32 addr; // network byte order
+  Big<U32> addr_big_endian;
   U8 bytes[4];
   U16 halves[2];
   IP() : addr(0) {}
@@ -22,16 +24,19 @@ union __attribute__((__packed__)) IP {
                                  Status &status);
   static IP NetmaskFromPrefixLength(int prefix_length);
   auto operator<=>(const IP &other) const {
-    return (int32_t)ntohl(addr) <=> (int32_t)ntohl(other.addr);
+    return addr_big_endian <=> other.addr_big_endian;
   }
   bool operator==(const IP &other) const { return addr == other.addr; }
   bool operator!=(const IP &other) const { return addr != other.addr; }
   IP operator&(const IP &other) const { return IP(addr & other.addr); }
   IP operator|(const IP &other) const { return IP(addr | other.addr); }
   IP operator~() const { return IP(~addr); }
-  IP operator+(int n) const { return IP(htonl(ntohl(addr) + n)); }
+  IP operator+(int n) const {
+    Big<U32> sum = addr_big_endian.Get() + n;
+    return IP(sum.big_endian);
+  }
   IP &operator++() {
-    addr = htonl(ntohl(addr) + 1);
+    addr_big_endian.Set(addr_big_endian.Get() + 1);
     return *this;
   }
   bool TryParse(const char *cp) {

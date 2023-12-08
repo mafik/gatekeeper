@@ -12,6 +12,10 @@ template <typename T = char> struct Vec : std::vector<T> {
 
   Span<> Span() { return {this->data(), this->size()}; }
 
+  template <typename U> void Append(const U &u) {
+    this->insert(this->end(), (T *)&u, (T *)&u + sizeof(U) / sizeof(T));
+  }
+
   // Returns true if the vector contains the given value.
   //
   // Note: When C++23 is properly supported this could be replaced with

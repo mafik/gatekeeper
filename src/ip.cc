@@ -39,11 +39,11 @@ IP IP::NetmaskFromInterface(std::string_view interface_name, Status &status) {
 }
 
 IP IP::NetmaskFromPrefixLength(int prefix_length) {
-  uint32_t mask = 0;
+  U32 mask = 0;
   for (int i = 0; i < prefix_length; i++) {
-    mask |= 1 << (31 - i);
+    mask = std::byteswap(std::rotr(std::byteswap(mask), 1) | 0x80000000);
   }
-  return IP(htonl(mask));
+  return IP(mask);
 }
 
 Str ToStr(IP ip) {

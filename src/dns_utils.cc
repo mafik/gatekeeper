@@ -166,10 +166,10 @@ Str Header::ToStr() const {
   r += "  recursion_desired: " + ::ToStr(recursion_desired) + "\n";
   r += "  recursion_available: " + ::ToStr(recursion_available) + "\n";
   r += "  response_code: " + string(dns::ToStr(response_code)) + "\n";
-  r += "  question_count: " + ::ToStr(ntohs(question_count)) + "\n";
-  r += "  answer_count: " + ::ToStr(ntohs(answer_count)) + "\n";
-  r += "  authority_count: " + ::ToStr(ntohs(authority_count)) + "\n";
-  r += "  additional_count: " + ::ToStr(ntohs(additional_count)) + "\n";
+  r += "  question_count: " + ::ToStr(question_count) + "\n";
+  r += "  answer_count: " + ::ToStr(answer_count) + "\n";
+  r += "  authority_count: " + ::ToStr(authority_count) + "\n";
+  r += "  additional_count: " + ::ToStr(additional_count) + "\n";
   r += "}";
   return r;
 }
@@ -378,7 +378,7 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
 
   size_t offset = sizeof(Header);
 
-  for (int i = 0; i < ntohs(header.question_count); ++i) {
+  for (int i = 0; i < header.question_count.Get(); ++i) {
     if (auto q_size = questions.emplace_back().LoadFrom(ptr, len, offset)) {
       offset += q_size;
     } else {
@@ -387,7 +387,7 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
     }
   }
 
-  auto LoadRecordList = [&](vector<Record> &v, uint16_t n) {
+  auto LoadRecordList = [&](Vec<Record> &v, U16 n) {
     for (int i = 0; i < n; ++i) {
       Record &r = v.emplace_back();
       if (auto r_size = r.LoadFrom(ptr, len, offset)) {
@@ -403,18 +403,18 @@ void Message::Parse(const char *ptr, size_t len, string &err) {
     }
   };
 
-  LoadRecordList(answers, ntohs(header.answer_count));
+  LoadRecordList(answers, header.answer_count);
   if (!err.empty())
     return;
-  LoadRecordList(authority, ntohs(header.authority_count));
+  LoadRecordList(authority, header.authority_count);
   if (!err.empty())
     return;
-  LoadRecordList(additional, ntohs(header.additional_count));
+  LoadRecordList(additional, header.additional_count);
   if (!err.empty())
     return;
 }
-string Message::ToStr() const {
-  string r = "dns::Message {\n";
+Str Message::ToStr() const {
+  Str r = "dns::Message {\n";
   r += IndentString(header.ToStr()) + "\n";
   for (auto &q : questions) {
     r += "  " + q.ToStr() + "\n";
@@ -431,7 +431,7 @@ string Message::ToStr() const {
   r += "}";
   return r;
 }
-void Message::ForEachRecord(function<void(const Record &)> f) const {
+void Message::ForEachRecord(Fn<void(const Record &)> f) const {
   for (const Record &r : answers) {
     f(r);
   }

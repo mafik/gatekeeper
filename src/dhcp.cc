@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 
 #include "arp.hh"
+#include "big_endian.hh"
 #include "config.hh"
 #include "etc.hh"
 #include "expirable.hh"
@@ -24,9 +25,9 @@ using chrono::steady_clock;
 namespace dhcp {
 
 const IP kBroadcastIP(255, 255, 255, 255);
-const uint16_t kServerPort = 67;
-const uint16_t kClientPort = 68;
-const uint32_t kMagicCookie = 0x63825363;
+const U16 kServerPort = 67;
+const U16 kClientPort = 68;
+const U32 kMagicCookie = 0x63825363;
 
 namespace options {
 
@@ -379,9 +380,9 @@ struct __attribute__((__packed__)) RequestedIPAddress : Base {
 };
 
 struct __attribute__((__packed__)) IPAddressLeaseTime : Base {
-  const uint32_t seconds;
-  IPAddressLeaseTime(uint32_t seconds)
-      : Base(OptionCode::IPAddressLeaseTime, 4), seconds(htonl(seconds)) {}
+  const Big<U32> seconds;
+  IPAddressLeaseTime(U32 seconds)
+      : Base(OptionCode::IPAddressLeaseTime, 4), seconds(seconds) {}
   Str ToStr() const {
     return "IPAddressLeaseTime(" + ::ToStr(ntohl(seconds)) + ")";
   }
@@ -489,18 +490,16 @@ struct __attribute__((__packed__)) ParameterRequestList {
 
 // RFC 2132, section 9.10
 struct __attribute__((__packed__)) MaximumDHCPMessageSize {
-  const uint8_t code = 57;
-  const uint8_t length = 2;
-  const uint16_t value = htons(1500);
-  Str ToStr() const {
-    return "MaximumDHCPMessageSize(" + ::ToStr(ntohs(value)) + ")";
-  }
+  const U8 code = 57;
+  const U8 length = 2;
+  const Big<U16> value = 1500;
+  Str ToStr() const { return "MaximumDHCPMessageSize(" + ::ToStr(value) + ")"; }
 };
 
 struct __attribute__((__packed__)) VendorClassIdentifier {
-  const uint8_t code = 60;
-  const uint8_t length;
-  const uint8_t value[0];
+  const U8 code = 60;
+  const U8 length;
+  const U8 value[0];
   Str ToStr() const {
     return "VendorClassIdentifier(" + Str((const char *)value, length) + ")";
   }
@@ -582,7 +581,7 @@ struct __attribute__((__packed__)) Header {
   };
   uint8_t server_name[64] = {};
   uint8_t boot_filename[128] = {};
-  uint32_t magic_cookie = htonl(kMagicCookie);
+  Big<U32> magic_cookie = kMagicCookie;
 
   Str ToStr() const {
     string s = "dhcp::Header {\n";
@@ -875,7 +874,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, uint16_t port) {
     ERROR << log_error;
     return;
   }
-  if (ntohl(packet.magic_cookie) != kMagicCookie) {
+  if (packet.magic_cookie != kMagicCookie) {
     ERROR << "DHCP server received a packet with an invalid magic cookie: "
           << ValToHex(packet.magic_cookie);
     return;

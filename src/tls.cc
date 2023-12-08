@@ -49,7 +49,7 @@ static_assert(sizeof(RecordHeader) == 5,
 
 void HKDF_Expand_Label(Span<> key, StrView label, Span<> ctx, Span<> out) {
   Vec<> hkdf_label;
-  AppendBigEndian<U16>(hkdf_label, out.size());
+  hkdf_label.Append(Big<U16>(out.size()));
   hkdf_label.push_back(label.size());
   hkdf_label.insert(hkdf_label.end(), label.begin(), label.end());
   hkdf_label.push_back(ctx.size());
@@ -366,7 +366,7 @@ struct Phase2 : Phase {
           SHA256 verify_data = HMAC<SHA256>(finished_key, handshake_hash);
           auto &buf = conn.tcp_connection.outbox;
           buf.push_back(0x14); // handshake
-          AppendBigEndian<U24>(buf, 32);
+          buf.Append(Big<U24>(32));
           buf.insert(buf.end(), verify_data.bytes, verify_data.bytes + 32);
         });
 
@@ -474,10 +474,10 @@ struct Phase1 : Phase {
       auto entry_length = hostname_length + 3;
       auto extension_length = entry_length + 2;
       Append({0x00, 0x00}); // extension type: server name
-      AppendBigEndian<U16>(send_tcp, extension_length);
-      AppendBigEndian<U16>(send_tcp, entry_length);
+      send_tcp.Append(Big<U16>(extension_length));
+      send_tcp.Append(Big<U16>(entry_length));
       Append({0x00}); // entry type: DNS hostname
-      AppendBigEndian<U16>(send_tcp, hostname_length);
+      send_tcp.Append(Big<U16>(hostname_length));
       send_tcp.insert(send_tcp.end(), config.server_name->begin(),
                       config.server_name->end());
     }

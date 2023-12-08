@@ -4,6 +4,7 @@
 #include <optional>
 #include <unordered_set>
 
+#include "big_endian.hh"
 #include "chrono.hh"
 #include "config.hh"
 #include "dns_utils.hh"
@@ -26,9 +27,10 @@ static constexpr U16 kClientPort = 338;
 
 U16 AllocateRequestId() {
   // Randomize initial request ID
-  static U16 request_id = random<uint16_t>();
+  static Big<U16> request_id = random<U16>();
   // Subsequent request IDs are incremented by 1
-  return request_id = htons(ntohs(request_id) + 1);
+  ++request_id.big_endian;
+  return request_id;
 }
 
 struct Entry {
@@ -225,10 +227,10 @@ void LookupBase::Start(Str domain, U16 type) {
                            .reply = true,
                            .response_code = cached->response_code,
                            .recursion_available = true,
-                           .question_count = htons(1),
-                           .answer_count = htons(cached->answers.size()),
-                           .authority_count = htons(cached->authority.size()),
-                           .additional_count = htons(cached->additional.size()),
+                           .question_count = 1,
+                           .answer_count = cached->answers.size(),
+                           .authority_count = cached->authority.size(),
+                           .additional_count = cached->additional.size(),
                        },
                    .questions = {question},
                    .answers = cached->answers,
@@ -380,8 +382,8 @@ Client client;
 PendingEntry::PendingEntry(Question question, U16 id, LookupBase *lookup)
     : Expirable(kPendingTTL), Entry(question), id(id), in_progress({lookup}) {
   string buffer;
-  Header{.id = id, .recursion_desired = true, .question_count = htons(1)}
-      .write_to(buffer);
+  Header{.id = id, .recursion_desired = true, .question_count = 1}.write_to(
+      buffer);
   question.write_to(buffer);
   IP upstream_ip =
       etc::resolv[(++server_i) % etc::resolv.size()]; // Round-robin
@@ -400,8 +402,8 @@ void InjectAuthoritativeEntry(const Str &domain, IP ip) {
                  .reply = true,
                  .response_code = ResponseCode::NO_ERROR,
                  .recursion_available = true,
-                 .question_count = htons(1),
-                 .answer_count = htons(1)},
+                 .question_count = 1,
+                 .answer_count = 1},
       .questions = {Question{.domain_name = domain}},
       .answers = {Record{Question{.domain_name = domain},
                          std::chrono::steady_clock::time_point::max(),

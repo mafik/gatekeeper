@@ -85,10 +85,10 @@ struct Server : UDPListener {
         .response_code = ResponseCode::NO_ERROR,
         .reserved = 0,
         .recursion_available = msg.header.recursion_available,
-        .question_count = htons(0),
-        .answer_count = htons(0),
-        .authority_count = htons(0),
-        .additional_count = htons(0),
+        .question_count = 0,
+        .answer_count = 0,
+        .authority_count = 0,
+        .additional_count = 0,
     };
   }
 
@@ -179,10 +179,10 @@ void ProxyLookup::OnAnswer(const Message &msg) {
       .response_code = msg.header.response_code,
       .reserved = 0,
       .recursion_available = true,
-      .question_count = htons(1),
-      .answer_count = htons(msg.answers.size()),
-      .authority_count = htons(msg.authority.size()),
-      .additional_count = htons(msg.additional.size()),
+      .question_count = 1,
+      .answer_count = msg.answers.size(),
+      .authority_count = msg.authority.size(),
+      .additional_count = msg.additional.size(),
   };
   response_header.write_to(buffer);
   msg.questions.front().write_to(buffer);

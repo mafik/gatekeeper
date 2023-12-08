@@ -1,7 +1,6 @@
 #pragma once
 
 #include "int.hh"
-#include "vec.hh"
 
 #include <bit>
 
@@ -15,21 +14,25 @@ template <> constexpr maf::U24 byteswap(maf::U24 x) noexcept {
 
 namespace maf {
 
-template <typename T> void AppendBigEndian(Vec<> &s, T x);
-
-template <> void AppendBigEndian(Vec<> &s, U16 x);
-template <> void AppendBigEndian(Vec<> &s, U24 x);
-template <> void AppendBigEndian(Vec<> &s, U32 x);
-
+// A type that can be operated just like any other integral type, but its memory
+// representation is big-endian.
 template <typename T> struct Big {
   T big_endian;
 
   Big() = default;
   constexpr Big(T host_value) : big_endian(std::byteswap(host_value)) {}
 
+  constexpr static Big<T> FromBig(T big_endian) {
+    Big<T> ret;
+    ret.big_endian = big_endian;
+    return ret;
+  }
+
   T Get() const { return std::byteswap(big_endian); }
   void Set(T host_value) { big_endian = std::byteswap(host_value); }
   operator T() const { return Get(); }
+
+  auto operator<=>(const Big<T> &other) const { return Get() <=> other.Get(); }
 } __attribute__((packed));
 
 static_assert(Big<U16>(0x1122).big_endian == 0x2211);

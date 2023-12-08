@@ -470,7 +470,7 @@ AccessPoint::AccessPoint(const Interface &if_ctrl, Band band_preference,
     { // WMM
       // See `hostapd_eid_wmm`
       BufferBuilder wmm_parameter;
-      AppendBigEndian(wmm_parameter.buffer, (U24)0x0050F2);
+      wmm_parameter.buffer.Append(Big<U24>(0x0050F2));
       wmm_parameter.AppendPrimitive((U8)2); // Type
       wmm_parameter.AppendPrimitive((U8)1); // Subtype
       wmm_parameter.AppendPrimitive((U8)1); // WMM version 1.0
@@ -777,8 +777,8 @@ struct Handshake : Expirable, HashableByMAC<Handshake> {
         .key_ack = 1,
     };
     eapol3.AppendPrimitive(key_information);
-    eapol3.AppendPrimitive((U16)htons(16)); // Key Length
-    eapol3.AppendPrimitive(Big<U64>(2));    // Replay Counter
+    eapol3.AppendPrimitive(Big<U16>(16)); // Key Length
+    eapol3.AppendPrimitive(Big<U64>(2));  // Replay Counter
     eapol3.AppendRange(anonce);
     eapol3.AppendZeroes(16);                                // Key IV
     eapol3.AppendZeroes(8);                                 // Key RSC
