@@ -392,6 +392,11 @@ PendingEntry::PendingEntry(Question question, Big<U16> id, LookupBase *lookup)
 }
 
 void InjectAuthoritativeEntry(const Str &domain, IP ip) {
+  // Don't inject if we already have an entry for this domain.
+  if (Entry::cache.find(Question{.domain_name = domain}) !=
+      Entry::cache.end()) {
+    return;
+  }
   Str encoded_domain = EncodeDomainName(domain);
   Message dummy_msg = {
       .header = {.id = 0,
