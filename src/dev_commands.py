@@ -88,6 +88,12 @@ def run_systemd(env):
         yield p
     finally:
         subprocess.run(["systemctl", "stop", "gatekeeper-e2e"])
+        # If Gatekeeper crashes it may leave its nft table active.
+        # This breaks the internet on the test machine.
+        # So we delete it here.
+        subprocess.run(["nft",  "delete", "table", "gatekeeper"], stderr=subprocess.DEVNULL)
+        subprocess.run(["ip", "link", "set", "lan", "down"], stderr=subprocess.DEVNULL)
+        subprocess.run(["brctl", "delbr", "lan"], stderr=subprocess.DEVNULL)
 
 
 @contextmanager
