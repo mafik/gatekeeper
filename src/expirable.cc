@@ -23,7 +23,7 @@ struct OrderByExpiration {
   }
 };
 
-static multiset<Expirable *, OrderByExpiration> expiration_queue;
+static thread_local multiset<Expirable *, OrderByExpiration> expiration_queue;
 
 Expirable::Expirable() : expiration(nullopt) {}
 
