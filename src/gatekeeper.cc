@@ -400,7 +400,6 @@ void KillConflictingProcesses(Status &status) {
 int main(int argc, char *argv[]) {
   Status status;
 
-  Expirable::Init();
   TrafficLog::Init();
   epoll::Init();
 

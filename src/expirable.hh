@@ -36,10 +36,6 @@ struct Expirable {
   // O(1)
   static void Expire();
 
-  // Call this at program startup to prevent false positives from leak
-  // sanitizer.
-  static void Init();
-
 private:
   void AddToExpirationQueue();
   void RemoveFromExpirationQueue() const;

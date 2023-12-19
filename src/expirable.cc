@@ -1,5 +1,4 @@
 #include "expirable.hh"
-#include "atexit.hh"
 
 #include <cmath>
 #include <set>
@@ -23,7 +22,16 @@ struct OrderByExpiration {
   }
 };
 
-static thread_local multiset<Expirable *, OrderByExpiration> expiration_queue;
+struct ExpirationQueue : multiset<Expirable *, OrderByExpiration> {
+  ~ExpirationQueue() {
+    while (!empty()) {
+      delete *begin();
+    }
+    multiset<Expirable *, OrderByExpiration>::~multiset();
+  }
+};
+
+static thread_local ExpirationQueue expiration_queue;
 
 Expirable::Expirable() : expiration(nullopt) {}
 
@@ -74,14 +82,6 @@ void Expirable::Expire() {
          (*expiration_queue.begin())->expiration < now) {
     delete *expiration_queue.begin();
   }
-}
-
-void Expirable::Init() {
-  AtExit([]() {
-    while (!expiration_queue.empty()) {
-      delete *expiration_queue.begin();
-    }
-  });
 }
 
 } // namespace maf
