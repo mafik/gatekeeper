@@ -33,6 +33,7 @@ struct Server : epoll::UDPListener {
     Entry(Server &, IP, MAC, Str hostname, chrono::steady_clock::duration ttl);
 
     void UpdateMAC(MAC new_mac);
+    void UpdateIP(IP new_mac);
 
     // Automatically removes `this` from the lookup tables of the DHCP server.
     ~Entry();

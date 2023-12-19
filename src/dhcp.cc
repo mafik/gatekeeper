@@ -785,6 +785,12 @@ void Server::Entry::UpdateMAC(MAC new_mac) {
   server.entries_by_mac.insert(this);
 }
 
+void Server::Entry::UpdateIP(IP new_ip) {
+  server.entries_by_ip.erase(this);
+  ip = new_ip;
+  server.entries_by_ip.insert(this);
+}
+
 Server::Entry::~Entry() {
   server.entries_by_ip.erase(this);
   server.entries_by_mac.erase(this);
@@ -1005,9 +1011,42 @@ void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
     if (auto opt = packet.FindOption<options::HostName>()) {
       hostname = opt->hostname();
     }
-    auto *entry =
-        new Entry(*this, chosen_ip, packet.effective_mac(), hostname, 24h);
+    // Check existing entries for a matching IP or MAC.
+    Entry *entry_from_mac = nullptr;
+    Entry *entry_from_ip = nullptr;
+    if (auto it = entries_by_mac.find(packet.effective_mac());
+        it != entries_by_mac.end()) {
+      entry_from_mac = *it;
+    }
+    if (auto it = entries_by_ip.find(chosen_ip); it != entries_by_ip.end()) {
+      entry_from_ip = *it;
+    }
+    // Merge entries if needed.
+    Entry *entry = nullptr;
+    if (entry_from_ip == entry_from_mac) {
+      if (entry_from_mac != nullptr) {
+        entry = entry_from_mac;
+      } else {
+        entry =
+            new Entry(*this, chosen_ip, packet.effective_mac(), hostname, 24h);
+      }
+    } else if (entry_from_mac == nullptr) {
+      entry = entry_from_ip;
+      entry->UpdateMAC(packet.effective_mac());
+    } else if (entry_from_ip == nullptr) {
+      entry = entry_from_mac;
+      entry->UpdateIP(chosen_ip);
+    } else {
+      entry = entry_from_mac;
+      entry->UpdateIP(chosen_ip);
+      delete entry_from_ip;
+    }
+    // Update the entry.
+    entry->hostname = hostname;
     entry->last_activity = steady_clock::now();
+    if (entry->expiration.has_value()) {
+      entry->UpdateExpiration(24h);
+    }
   }
 }
 const char *Server::Name() const { return "dhcp::Server"; }
