@@ -19,11 +19,10 @@ template <class T = char, Size Extent = DynamicExtent>
 struct Span : std::span<T, Extent> {
   using std::span<T, Extent>::span;
 
-  // Allow Span of const arrays.
-  inline Span(const T *arr, Size n)
-      : std::span<T, Extent>(const_cast<T *>(arr), n) {}
-  inline Span(const Str &s) : Span(s.data(), s.size() / sizeof(T)) {}
-  inline Span(StrView s) : Span(s.data(), s.size() / sizeof(T)) {}
+  inline Span(const Str &s)
+      : Span(const_cast<char *>(s.data()), s.size() / sizeof(T)) {}
+  inline Span(StrView s)
+      : Span(const_cast<char *>(s.data()), s.size() / sizeof(T)) {}
 
   template <Size ExtentRhs>
   inline Span(std::span<T, ExtentRhs> s) : std::span<T, Extent>(s) {}
@@ -131,6 +130,10 @@ constexpr inline Span<char, sizeof(T)> SpanOfRef(const T &x) {
 
 inline StrView StrViewOf(Span<> span) {
   return StrView(span.data(), span.size());
+}
+
+template <typename T> inline Span<T, DynamicExtent> SpanOfArr(T *arr, Size n) {
+  return Span<T, DynamicExtent>(arr, n);
 }
 
 } // namespace maf

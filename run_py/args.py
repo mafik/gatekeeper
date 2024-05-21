@@ -4,6 +4,9 @@
 
 import __main__
 import argparse
+import sys
+
+sys.argv[0] = 'run'
 
 parser = argparse.ArgumentParser(
     description=__main__.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

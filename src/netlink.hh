@@ -76,7 +76,7 @@ struct Netlink : epoll::Listener {
     // place in memory would miss the payload.
     Attr(const Attr &) = delete;
 
-    Span<> Span() const { return {payload, len - sizeof(*this)}; }
+    Span<> Span() { return {payload, len - sizeof(*this)}; }
     template <typename T> T &As() {
       assert(len == sizeof(*this) + sizeof(T));
       return *(T *)payload;

@@ -25,6 +25,7 @@ struct ProxyLookup : LookupBase {
     Start(msg.questions.front().domain_name, (U16)msg.questions.front().type);
   }
 
+  void OnStartupFailure(Status &) override { delete this; }
   void OnAnswer(const Message &msg) override;
   void OnExpired() override { delete this; }
 };

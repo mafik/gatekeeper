@@ -9,7 +9,7 @@
 namespace maf {
 
 Poly1305 Encrypt_AEAD_CHACHA20_POLY1305(Span<char, 32> key,
-                                        Span<char, 12> nonce, Span<> data,
+                                        Span<char, 12> nonce, Span<char> data,
                                         Span<> aad) {
   char poly1305_key[32] = {};
   ChaCha20 chacha20(key, 0, nonce);

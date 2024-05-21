@@ -58,7 +58,7 @@ void HKDF_Expand_Label(Span<> key, StrView label, Span<> ctx, Span<> out) {
 }
 
 Arr<char, 32> zero_key = {};
-SHA256 early_secret = HKDF_Extract<SHA256>(Span<>("\x00", 1), zero_key);
+SHA256 early_secret = HKDF_Extract<SHA256>(SpanOfCStr("\x00"), zero_key);
 SHA256 empty_hash(kEmptySpan);
 Arr<char, 6> kClientChangeCipherSpec = HexArr("140303000101");
 
@@ -660,7 +660,7 @@ struct Phase1 : Phase {
         break;
       }
       } // switch (extension_type)
-    } // while (!server_hello.empty())
+    }   // while (!server_hello.empty())
 
     sha_builder.Update(handshake);
     curve25519::Shared shared_secret =

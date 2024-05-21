@@ -33,6 +33,7 @@
 
 __pycache__
 .cache
+*.pyc
 
 *.log
 *.pcap

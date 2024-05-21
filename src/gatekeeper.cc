@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <csignal>
 #include <cstdlib>
-#include <ctime>
 
 #include "../build/generated/version.hh"
 #include "atexit.hh"
@@ -397,6 +396,19 @@ void KillConflictingProcesses(Status &status) {
   }
 }
 
+void SetupDNSOverrides() {
+  for (auto &[ip, aliases] : etc::hosts) {
+    if (ip.bytes[0] == 127) {
+      continue;
+    }
+    for (auto &alias : aliases) {
+      string domain = alias + "." + kLocalDomain;
+      dns::Override(domain, ip);
+    }
+  }
+  dns::Override(etc::hostname + "." + kLocalDomain, lan_ip);
+}
+
 int main(int argc, char *argv[]) {
   Status status;
 
@@ -513,6 +525,7 @@ int main(int argc, char *argv[]) {
     ERROR << status;
     return 1;
   }
+  SetupDNSOverrides();
 
   dns::StartServer(status);
   if (!OK(status)) {

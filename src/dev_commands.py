@@ -101,11 +101,11 @@ def run_dhclient(namespace, interface):
     if not os.path.exists('./tests/dhclient'):
         shutil.copyfile('/sbin/dhclient', './tests/dhclient')
         shutil.copymode('/sbin/dhclient', './tests/dhclient')
-    subprocess.check_call(['ip', 'netns', 'exec', namespace, './tests/dhclient', '-1', '-cf', './tests/dhclient.conf', '-sf', './tests/dhclient-script', '-pf', './tests/dhclient.pid', interface])
+    subprocess.check_call(['sudo', 'ip', 'netns', 'exec', namespace, './tests/dhclient', '-1', '-cf', './tests/dhclient.conf', '-sf', './tests/dhclient-script', '-pf', './tests/dhclient.pid', interface])
     try:
         yield
     finally:
-        subprocess.call(['ip', 'netns', 'exec', namespace, './tests/dhclient', '-cf', './tests/dhclient.conf', '-sf', './tests/dhclient-script', '-pf', './tests/dhclient.pid', '-x', interface], stderr=subprocess.DEVNULL)
+        subprocess.call(['sudo', 'ip', 'netns', 'exec', namespace, './tests/dhclient', '-cf', './tests/dhclient.conf', '-sf', './tests/dhclient-script', '-pf', './tests/dhclient.pid', '-x', interface], stderr=subprocess.DEVNULL)
 
 
 def get_ip_address(ifname):
@@ -125,21 +125,21 @@ def setup_veth_namespace(i):
     A = f"veth{i}a"
     B = f"veth{i}b"
     if not os.path.exists(f"/run/netns/{NS}"):
-        subprocess.check_call(["ip", "netns", "add", NS])
+        subprocess.check_call(["sudo", "ip", "netns", "add", NS])
     if not os.path.exists(f"/sys/class/net/{A}"):
-        subprocess.check_call(["ip", "link", "add", A, "type", "veth", "peer", "name", B, "netns", NS])
+        subprocess.check_call(["sudo", "ip", "link", "add", A, "type", "veth", "peer", "name", B, "netns", NS])
 
-    subprocess.check_call(["ip", "addr", "flush", "dev", A])
-    subprocess.check_call(["ip", "link", "set", A, "down"])
-    subprocess.check_call(["ip", "netns", "exec", NS, "ip", "addr", "flush", "dev", B])
-    subprocess.check_call(["ip", "netns", "exec", NS, "ip", "link", "set", B, "down"])
+    subprocess.check_call(["sudo", "ip", "addr", "flush", "dev", A])
+    subprocess.check_call(["sudo", "ip", "link", "set", A, "down"])
+    subprocess.check_call(["sudo", "ip", "netns", "exec", NS, "ip", "addr", "flush", "dev", B])
+    subprocess.check_call(["sudo", "ip", "netns", "exec", NS, "ip", "link", "set", B, "down"])
 
     # Setup fake resolv.conf for our network namespaces.
     # See man ip-netns for reference.
     # TL;DR is that empty file is enough for `ip netns` to bind mount it over /etc/resolv.conf
     # This file will be filled by `test-dhclient-hook`
-    os.makedirs(f"/etc/netns/{NS}", exist_ok=True)
-    Path(f"/etc/netns/{NS}/resolv.conf").touch()
+    subprocess.check_call(["sudo", "mkdir", "-p", f"/etc/netns/{NS}"])
+    subprocess.check_call(["sudo", "touch", f"/etc/netns/{NS}/resolv.conf"])
     return NS, A, B
 
 
@@ -187,13 +187,13 @@ def test_e2e():
 
 def test_dhcp():
     NS, A, B = setup_veth_namespace(0)
-    subprocess.check_call(["ip", "netns", "exec", NS, "ip", "link", "set", B, "up"])
+    subprocess.check_call(['sudo', "ip", "netns", "exec", NS, "ip", "link", "set", B, "up"])
     with run_systemd({'LAN': A}):
         # Start dhammer
         # 200 requests / second over 10 seconds
         # Linux has limits for its ARP table size.
         # See /proc/sys/net/ipv4/neigh/default/gc_thresh{1,2,3}.
-        subprocess.check_call(['ip', 'netns', 'exec', NS, './tests/dhammer.v2.0.0.linux.amd64', 'dhcpv4', '--interface', B, '--mac-count', '1000', '--rps', '200', '--maxlife', '10'])
+        subprocess.check_call(['sudo', 'ip', 'netns', 'exec', NS, './tests/dhammer.v2.0.0.linux.amd64', 'dhcpv4', '--interface', B, '--mac-count', '1000', '--rps', '200', '--maxlife', '10'])
 
 
 def test_dns():
@@ -202,7 +202,7 @@ def test_dns():
         ip = get_ip_address(A)
         # Start dnsblast
         # 1000 queries at a rate of 100 QPS.
-        subprocess.check_call(['ip', 'netns', 'exec', NS, './tests/dnsblast.linux.amd64', ip, '1000', '100'])
+        subprocess.check_call(['sudo', 'ip', 'netns', 'exec', NS, './tests/dnsblast.linux.amd64', ip, '1000', '100'])
 
 
 def test_tcp():
@@ -210,9 +210,9 @@ def test_tcp():
     with run_systemd({'LAN': A}), run_dhclient(NS, B):
         ip = get_ip_address(A)
         # Start iperf server
-        iperf = subprocess.Popen(['iperf', '-s', '-e', '-B', f'{ip}%{A}'])
+        iperf = subprocess.Popen(['iperf3', '-s', '-B', f'{ip}%{A}'])
         # Start iperf client
-        subprocess.check_call(['ip', 'netns', 'exec', NS, 'iperf', '-c', ip, '-t', '10', '-e'])
+        subprocess.check_call(['sudo', 'ip', 'netns', 'exec', NS, 'iperf3', '-c', ip, '-t', '10'])
         # Stop iperf server
         iperf.kill()
         
@@ -222,9 +222,9 @@ def test_udp():
     with run_systemd({'LAN': A}), run_dhclient(NS, B):
         ip = get_ip_address(A)
         # Start iperf server
-        iperf = subprocess.Popen(['iperf', '-s', '-u', '-e', '-B', f'{ip}%{A}'])
+        iperf = subprocess.Popen(['iperf3', '-s', '-B', f'{ip}%{A}'])
         # Start iperf client
-        subprocess.check_call(['ip', 'netns', 'exec', NS, 'iperf', '-c', ip, '-u', '-b', '1000M', '-t', '10', '-e'])
+        subprocess.check_call(['sudo', 'ip', 'netns', 'exec', NS, 'iperf3', '-c', ip, '-u', '-b', '1000M', '-t', '10'])
         # Stop iperf server
         iperf.kill()
 

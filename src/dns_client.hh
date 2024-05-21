@@ -1,11 +1,13 @@
 #pragma once
 
+#include "dns_utils.hh"
+#include "expirable.hh"
 #include "fn.hh"
 #include "ip.hh"
-#include "optional.hh"
 #include "status.hh"
 #include "str.hh"
-#include "webui.hh"
+#include <chrono>
+#include <unordered_set>
 
 namespace maf::dns {
 
@@ -22,6 +24,9 @@ struct LookupBase {
   // Eventually either `OnAnswer` or `OnExpired` will be called.
   void Start(Str domain, U16 type);
 
+  // Called if the DNS client cannot be started.
+  virtual void OnStartupFailure(Status &) = 0;
+
   // Called when we receive a DNS response. Receives the full DNS response.
   virtual void OnAnswer(const Message &) = 0;
 
@@ -36,31 +41,50 @@ struct LookupIPv4 : LookupBase {
 
   void Start(Str domain);
 
+  void OnStartupFailure(Status &) override;
   void OnAnswer(const Message &) override;
   void OnExpired() override;
 };
 
 const Str *LocalReverseLookup(IP ip);
+void Override(const Str &domain, IP ip);
 
 void StartClient(Status &);
 void StopClient();
 
-struct Table : webui::Table {
-  struct Row {
-    Str question;
-    Str domain;
-    U16 type;
-    Str expiration;
-    Optional<std::chrono::steady_clock::time_point> expiration_time;
-  };
-  std::vector<Row> rows;
-  Table();
-  void Update(RenderOptions &) override;
-  int Size() const override;
-  void Get(int row, int col, Str &out) const override;
-  Str RowID(int row) const override;
-};
+struct Entry : Expirable {
+  Question question;
+  Entry(std::chrono::steady_clock::duration ttl, const Question &question)
+      : Expirable(ttl), question(question) {
+    cache.insert(this);
+  }
+  Entry(const Question &question) : Expirable(), question(question) {
+    cache.insert(this);
+  }
+  virtual ~Entry() { cache.erase(cache.find(this)); }
 
-extern Table table;
+  struct QuestionHash {
+    using is_transparent = std::true_type;
+
+    size_t operator()(const Question &q) const {
+      return std::hash<Str>()(q.domain_name) ^ std::hash<Type>()(q.type) ^
+             std::hash<Class>()(q.class_);
+    }
+    size_t operator()(const Entry *e) const { return (*this)(e->question); }
+  };
+
+  struct QuestionEqual {
+    using is_transparent = std::true_type;
+
+    bool operator()(const Entry *a, const Entry *b) const {
+      return a->question == b->question;
+    }
+    bool operator()(const Question &a, const Entry *b) const {
+      return a == b->question;
+    }
+  };
+
+  static std::unordered_set<Entry *, QuestionHash, QuestionEqual> cache;
+};
 
 } // namespace maf::dns

@@ -5,7 +5,7 @@
 namespace maf::epoll {
 
 void UDPListener::NotifyRead(Status &status) {
-  while (true) {
+  while (fd != -1) {
     sockaddr_in clientaddr;
     socklen_t clilen = sizeof(struct sockaddr);
     SSize len = recvfrom(fd, recvbuf, sizeof(recvbuf), 0,

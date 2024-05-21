@@ -17,6 +17,10 @@ def slug_from_path(path):
     return re.sub(r'[^a-zA-Z0-9]', '_', str(path))
 
 
+def escape_string(s):
+    return s.replace('\\', '\\\\').replace('"', '\\"')
+
+
 hh_path = fs_utils.generated_dir / 'embedded.hh'
 cc_path = fs_utils.generated_dir / 'embedded.cc'
 
@@ -30,7 +34,7 @@ def gen(embedded_paths):
 
 #include "../../src/virtual_fs.hh"
 
-namespace gatekeeper::embedded {{
+namespace maf::embedded {{
 
 extern std::unordered_map<maf::StrView, maf::fs::VFile*> index;
 ''',
@@ -39,7 +43,7 @@ extern std::unordered_map<maf::StrView, maf::fs::VFile*> index;
             slug = slug_from_path(path)
             print(f'extern maf::fs::VFile {slug};', file=hh)
         print(f'''
-}}  // namespace gatekeeper::embedded''', file=hh)
+}}  // namespace maf::embedded''', file=hh)
 
     with cc_path.open('w') as cc:
         print(f'''#include "embedded.hh"
@@ -48,13 +52,14 @@ using namespace std::string_literals;
 using namespace maf;
 using namespace maf::fs;
 
-namespace gatekeeper::embedded {{''',
+namespace maf::embedded {{''',
               file=cc)
         for path in embedded_paths:
             slug = slug_from_path(path)
+            escaped_path = escape_string(str(path))
             print(f'''
 VFile {slug} = {{
-  .path = "{path}"s,
+  .path = "{escaped_path}"sv,
   .content = ''',
                   file=cc,
                   end='')
@@ -65,18 +70,19 @@ VFile {slug} = {{
                 print('\n    ' + cc_embed.bytes_to_c_string(chunk),
                       file=cc,
                       end='')
-            print(f'''s,
+            print(f'''sv,
 }};''', file=cc)
         print('''std::unordered_map<StrView, VFile*> index = {''', file=cc)
         for path in embedded_paths:
             slug = slug_from_path(path)
             print(f'  {{ {slug}.path, &{slug} }},', file=cc)
         print('};', file=cc)
-        print('\n}  // namespace gatekeeper::embedded', file=cc)
+        print('\n}  // namespace maf::embedded', file=cc)
 
 
 def hook_srcs(srcs: dict[str, src.File], recipe: make.Recipe):
     paths = list(Path('static').glob('**/*'))
+    paths = list(Path('assets').glob('**/*'))
     paths.append(Path('gatekeeper.service'))
 
     # retain only files
@@ -85,7 +91,7 @@ def hook_srcs(srcs: dict[str, src.File], recipe: make.Recipe):
     fs_utils.generated_dir.mkdir(exist_ok=True)
 
     recipe.add_step(partial(gen, paths), [hh_path, cc_path],
-                    paths,
+                    paths + [Path(__file__)],
                     desc='Embedding static files',
                     shortcut='embedded')
     recipe.generated.add(hh_path)

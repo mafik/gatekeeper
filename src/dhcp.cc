@@ -553,7 +553,7 @@ Str Base::ToStr() const {
   default:
     const char *data = (const char *)(this) + sizeof(*this);
     return "\"" + options::ToStr(code) + "\" " + ::ToStr(length) +
-           " bytes: " + BytesToHex(Span<>(data, length));
+           " bytes: " + BytesToHex(Span<>(const_cast<char *>(data), length));
   }
 }
 
@@ -945,7 +945,8 @@ void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
     ERROR << "DHCP server received an INFORM packet with a mismatching "
              "source IP: "
           << ToStr(source_ip) << " (source IP) vs " << ToStr(packet.client_ip)
-          << " (DHCP client_ip)" << "\n"
+          << " (DHCP client_ip)"
+          << "\n"
           << packet.ToStr();
     return;
   }

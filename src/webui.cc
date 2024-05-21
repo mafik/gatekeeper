@@ -13,6 +13,7 @@
 #include "config.hh"
 #include "dhcp.hh"
 #include "dns_client.hh"
+#include "dns_table.hh"
 #include "etc.hh"
 #include "format.hh"
 #include "http.hh"

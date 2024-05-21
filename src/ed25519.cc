@@ -3617,7 +3617,7 @@ Public Public::FromPrivate(const Private &sk) {
   sc25519 scsk;
   ge25519 gepk;
 
-  SHA512 az(Span<>(sk.bytes, 32));
+  SHA512 az(Span<>(const_cast<char *>(sk.bytes), 32));
   az[0] &= 248;
   az[31] &= 127;
   az[31] |= 64;
@@ -3644,7 +3644,7 @@ Signature::Signature(StrView m, const Private &sk, const Public &A) {
   sc25519 sck, scs, scsk;
   ge25519 ger;
 
-  SHA512 az(Span<>(sk.bytes, 32));
+  SHA512 az(Span<>(const_cast<char *>(sk.bytes), 32));
   az[0] &= 248;
   az[31] &= 127;
   az[31] |= 64;
@@ -3660,7 +3660,7 @@ Signature::Signature(StrView m, const Private &sk, const Public &A) {
 
   SHA512 hram = SHA512::Builder()
                     .Update(Span<>(R, 32))
-                    .Update(Span<>(A.bytes, 32))
+                    .Update(Span<>(const_cast<char *>(A.bytes), 32))
                     .Update(m)
                     .Finalize();
   /* hram: 64-byte H(R,A,m) */
@@ -3716,8 +3716,8 @@ bool Signature::Verify(std::string_view message, const Public &A) const {
   sc25519_from32bytes(&scs, S);
 
   SHA512 hram = SHA512::Builder()
-                    .Update(Span<>(R, 32))
-                    .Update(Span<>(A.bytes, 32))
+                    .Update(Span<>(const_cast<char *>(R), 32))
+                    .Update(Span<>(const_cast<char *>(A.bytes), 32))
                     .Update(message)
                     .Finalize();
 

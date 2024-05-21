@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-python3 run_py "$@"
+base_dir=$(dirname "$0")
+
+exec python3 "$base_dir/run_py" "$@"

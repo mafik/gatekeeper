@@ -12,6 +12,10 @@ import shutil
 import tempfile
 import hashlib
 import fs_utils
+import args as cmdline_args
+
+if platform == 'win32':
+    import windows
 
 HASH_DIR = fs_utils.build_dir / 'hashes'
 HASH_DIR.mkdir(parents=True, exist_ok=True)
@@ -21,8 +25,11 @@ def Popen(args, **kwargs):
     '''Wrapper around subprocess.Popen which captures STDERR into a temporary file.'''
     f = tempfile.TemporaryFile()
     str_args = [str(x) for x in args]
+    if cmdline_args.args.verbose:
+        print(' $ \033[90m' + ' '.join(str_args) + '\033[0m')
     p = subprocess.Popen(str_args,
                          stdin=subprocess.DEVNULL,
+                         #stdout=f,
                          stderr=f,
                          **kwargs)
     p.stderr = f
@@ -248,10 +255,10 @@ class Recipe:
                 )
                 pid, status = wait_for_pid()
                 if pid == watcher.pid:
-                    self.interrupt()
                     print(
                         'Sources have been modified. Interrupting the build process...'
                     )
+                    self.interrupt()
                     return False
                 step = self.pid_to_step[pid]
                 if status:
@@ -260,10 +267,13 @@ class Recipe:
                         orig_command = ' > \033[90m' + \
                             ' '.join(step.builder.args) + '\033[0m\n'
                         print(orig_command)
-                    step.builder.stderr.seek(0)
-                    stderr = step.builder.stderr.read().decode('utf-8')
-                    for line in stderr.split('\n'):
-                        print('  ' + step.stderr_prettifier(line))
+                    if step.builder.stderr:
+                        step.builder.stderr.seek(0)
+                        stderr = step.builder.stderr.read().decode('utf-8')
+                        for line in stderr.split('\n'):
+                            print('  ' + step.stderr_prettifier(line))
+                    else:
+                        print('  (no stderr)')
                     self.interrupt()
                     return False
                 step.builder = None
@@ -295,12 +305,20 @@ class Recipe:
         start_time = time.time()
         deadline = start_time + 3
         active = [step.builder for step in self.steps if step.builder]
-        if platform != 'win32':
+        if platform == 'win32':
+            # Plan:
+            # For each process, get its PID. Then find it's HWND and send a WM_CLOSE message.
+            for task in active:
+                windows.close_window(pid=task.pid)
+        else:
             for task in active:
                 task.send_signal(signal.SIGINT)
         for task in active:
             time_left = deadline - time.time()
             if time_left > 0:
-                task.wait(time_left)
+                try:
+                    task.wait(time_left)
+                except subprocess.TimeoutExpired:
+                    pass # wait for other tasks before killing
         for task in active:
             task.kill()

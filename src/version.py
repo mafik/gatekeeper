@@ -53,8 +53,8 @@ def hook_srcs(srcs: dict[str, src.File], recipe: make.Recipe):
     ],
                     desc='Generating version file',
                     shortcut='version')
-    recipe.generated.add(hh_path)
-    recipe.generated.add(cc_path)
+    recipe.generated.add(str(hh_path))
+    recipe.generated.add(str(cc_path))
 
     hh_file = src.File(hh_path)
     hh_file.link_args[''].append('-Wl,--script=src/version.x')

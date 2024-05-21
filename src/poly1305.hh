@@ -1,6 +1,5 @@
 #pragma once
 
-#include "int.hh"
 #include "span.hh"
 
 namespace maf {
@@ -31,7 +30,7 @@ struct Poly1305 {
     Poly1305 Finalize();
   };
 
-  operator Span<>() const { return Span<>(bytes, 16); }
+  operator Span<>() const { return Span<>(const_cast<char *>(bytes), 16); }
 };
 
 } // namespace maf

@@ -12,6 +12,8 @@ import sys
 
 class File:
     path: Path
+    system_includes: list[str]
+    comment_libs: list[str]
     direct_includes: list[str]
     transitive_includes: set['File']
     link_args: dict[str, list[str]]
@@ -21,6 +23,8 @@ class File:
 
     def __init__(self, path):
         self.path = path
+        self.system_includes = []
+        self.comment_libs = []
         self.direct_includes = []
         self.link_args = defaultdict(list)
         self.compile_args = defaultdict(list)
@@ -61,7 +65,7 @@ class File:
             # ?: at the beginning of a group means that it's non-capturing
             # ?P<...> ate the beginning of a group assigns it a name
             match = re.match(
-                r'^#(?P<el>el(?P<else>se)?)?(?P<end>end)?if(?P<neg1>n)?(?:def)? (?P<neg2>!)?(?:defined)?(?:\()?(?P<id>[a-zA-Z0-9_]+)(?:\))?', line)
+                r'^#(?P<el>el(?P<else>se)?)?(?P<end>end)?if(?P<neg1>n)?(?:def)? ?(?P<neg2>!)?(?:defined)?(?:\()?(?P<id>[a-zA-Z0-9_]+)?(?:\))?', line)
             if match:
                 test = match.group('id') in current_defines
                 if match.group('neg1') or match.group('neg2'):
@@ -81,6 +85,18 @@ class File:
                 continue
 
             # Actual scanning starts here
+            match = re.match(r'^#include <([a-zA-Z0-9_/\.-]+)>', line)
+            if match:
+                # system include
+                self.system_includes.append(match.group(1))
+                continue
+
+            match = re.match(r'^#pragma comment\(lib, "([a-zA-Z0-9_/\.-]+)"\)', line)
+            if match:
+                # extra library
+                self.comment_libs.append(match.group(1))
+                continue
+
 
             match = re.match(r'^#include \"([a-zA-Z0-9_/\.-]+\.hh?)\"', line)
             if match:
@@ -90,7 +106,7 @@ class File:
                 self.direct_includes.append(str(dep))
 
             match = re.match(
-                r'^#pragma maf add (?P<build_type>debug|release|) ?(?P<target>link|compile|run) argument "(?P<arg>.+)"', line)
+                r'^#pragma maf add (?P<build_type>debug|release|fast|) ?(?P<target>link|compile|run) argument "(?P<arg>.+)"', line)
             if match:
                 build_type, target, arg = match.groups()
                 if target == 'link':
@@ -121,6 +137,9 @@ class File:
             if inc in self.transitive_includes:
                 continue
             self.transitive_includes.add(inc)
+            for sys in inc.system_includes:
+                if sys not in self.system_includes:
+                    self.system_includes.append(sys)
             self.main = self.main or inc.main  # propagate `main` flag from headers to sources
             include_queue.extend(inc.direct_includes)
 
