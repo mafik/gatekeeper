@@ -84,6 +84,7 @@ def hook_recipe(recipe):
     CFLAGS = build_type.CFLAGS()
     for bad_flag in BAD_CFLAGS:
       CFLAGS = list(filter(lambda x: not x.startswith(bad_flag), CFLAGS))
+    CFLAGS += ['-fvtable-gc', '-fno-signaling-nans']
     CFLAGS = ' '.join(CFLAGS)
 
 
@@ -155,6 +156,7 @@ def hook_recipe(recipe):
           '--enable-threads=posix',
           '--enable-shared',
           '--enable-__cxa_atexit',
+          f'--enable-cxx-flags={CFLAGS}',
           '--disable-bootstrap',
           '--disable-cet',
           '--disable-default-pie',

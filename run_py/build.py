@@ -65,8 +65,10 @@ class BuildType:
 base = BuildType('Base', is_default=True)
 
 base.compile_args += ['-static', '-std=gnu++2c', '-fcolor-diagnostics', '-ffunction-sections',
-    '-fdata-sections', '-funsigned-char', '-D_FORTIFY_SOURCE=2', '-Wformat',
-    '-Wformat-security', '-Werror=format-security', '-fno-plt', '-Wno-vla-extension', '-Wno-trigraphs']
+    '-fdata-sections', '-funsigned-char', '-fno-signed-zeros', '-fno-semantic-interposition',
+    '-fno-plt', '-fno-strict-aliasing', '-fno-exceptions',
+    '-D_FORTIFY_SOURCE=2', '-Wformat',
+    '-Wformat-security', '-Werror=format-security', '-Wno-vla-extension', '-Wno-trigraphs']
 
 if 'CXXFLAGS' in os.environ:
     base.compile_args += os.environ['CXXFLAGS'].split()
@@ -82,9 +84,8 @@ fast = BuildType('Fast', base)
 fast.compile_args += ['-O1']
 
 # Build type intended for practical usage (slow to build but very high performance)
-# TODO: enable -fno-signed-zeros -fno-signaling-nans -fno-trapping-math -fno-semantic-interposition  -fstrict-aliasing -fno-exceptions -ffunction-sections -fvtable-gc
 release = BuildType('Release', base)
-release.compile_args += ['-O3', '-DNDEBUG', '-flto', '-fstack-protector']
+release.compile_args += ['-O3', '-DNDEBUG', '-flto', '-fstack-protector', '-fno-trapping-math']
 release.link_args += ['-flto']
 
 # Build type intended for debugging

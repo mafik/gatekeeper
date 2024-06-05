@@ -40,7 +40,9 @@ public:
 
     void return_void() {}
 
+#if defined(__cpp_exceptions)
     void unhandled_exception() { throw; }
+#endif
 
     Ref Get() { return ref_.Get(); }
 
