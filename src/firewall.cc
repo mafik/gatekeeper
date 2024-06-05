@@ -22,6 +22,7 @@
 #include "netfilter.hh"
 #include "netlink.hh"
 #include "nfqueue.hh"
+#include "span.hh"
 #include "status.hh"
 #include "traffic_log.hh"
 
@@ -41,7 +42,8 @@ using namespace std::string_literals;
 // All firewall rules are cleaned up on shutdown.
 namespace gatekeeper::firewall {
 
-static constexpr bool kLogPackets = false;
+static constexpr bool kLogNatPackets = false;
+static constexpr bool kLogPassthroughPackets = false;
 static constexpr char kTableName[] = "gatekeeper";
 
 // Equivalent to:
@@ -400,6 +402,23 @@ struct RecordTrafficPipe : epoll::Listener {
 
 RecordTrafficPipe pipe;
 
+static void LogPacket(U32 packet_id, IP_Header &ip, TCP_Header &tcp,
+                      UDP_Header &udp, Span<> payload, const char *action) {
+  Str protocol_string = ToStr(ip.proto);
+  if (ip.proto == ProtocolID::TCP) {
+    protocol_string +=
+        f(" %5d -> %-5d", tcp.source_port.Get(), tcp.destination_port.Get());
+  } else if (ip.proto == ProtocolID::UDP) {
+    protocol_string +=
+        f(" %5d -> %-5d", udp.source_port.Get(), udp.destination_port.Get());
+  }
+  packet_id = Big(packet_id).big_endian;
+  LOG << f("#%04x ", packet_id) << f("%15s", ToStr(ip.source_ip).c_str())
+      << " => " << f("%-15s", ToStr(ip.destination_ip).c_str()) << " ("
+      << protocol_string << "): " << f("%4d", payload.size()) << " B, "
+      << action;
+}
+
 void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
   Netlink::Attr *attrs[NFQA_MAX + 1]{};
   for (auto &attr : attr_seq) {
@@ -434,21 +453,6 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
   TCP_Header &tcp = *(TCP_Header *)(&inet);
   UDP_Header &udp = *(UDP_Header *)(&inet);
 
-  if constexpr (kLogPackets) {
-    Str protocol_string = ToStr(ip.proto);
-    if (ip.proto == ProtocolID::TCP) {
-      protocol_string +=
-          f(" %5d -> %-5d", tcp.source_port, tcp.destination_port);
-    } else if (ip.proto == ProtocolID::UDP) {
-      protocol_string +=
-          f(" %5d -> %-5d", udp.source_port, udp.destination_port);
-    }
-    U32 packet_id = Big(phdr.packet_id).big_endian;
-    LOG << f("#%04x ", packet_id) << f("%15s", ToStr(ip.source_ip).c_str())
-        << " => " << f("%-15s", ToStr(ip.destination_ip).c_str()) << " ("
-        << protocol_string << "): " << f("%4d", payload.size()) << " B";
-  }
-
   auto &checksum = ip.proto == ProtocolID::TCP ? tcp.checksum : udp.checksum;
   int socket_type = ip.proto == ProtocolID::TCP ? SOCK_STREAM : SOCK_DGRAM;
 
@@ -465,6 +469,10 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
       // Found a matching entry. Keep this entry for the next 30 minutes.
       (*it)->UpdateExpiration(30min);
       // Mangle the destination IP to point at the LAN IP
+      if constexpr (kLogNatPackets) {
+        Str action = f("symmetric NAT to %s", ToStr((*it)->local_ip).c_str());
+        LogPacket(phdr.packet_id, ip, tcp, udp, payload, action.c_str());
+      }
       ip.destination_ip = (*it)->local_ip;
       packet_modified = true;
     } else {
@@ -472,6 +480,9 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
       FullConeNAT &fullcone =
           FullConeNAT::Lookup(ip.proto, inet.destination_port);
       if (fullcone.lan_host_ip.addr != 0) {
+        if constexpr (kLogNatPackets) {
+          LogPacket(phdr.packet_id, ip, tcp, udp, payload, "fullcone NAT");
+        }
         ip.destination_ip = fullcone.lan_host_ip;
         packet_modified = true;
       }
@@ -512,6 +523,10 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     } else {
       (*it)->UpdateExpiration(30min);
     }
+
+    if constexpr (kLogNatPackets) {
+      LogPacket(phdr.packet_id, ip, tcp, udp, payload, "source NAT");
+    }
     // Mangle the source IP to point back at our WAN IP
     ip.source_ip = wan_ip;
     packet_modified = true;
@@ -524,6 +539,9 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     queue->SendWithAttr(verdict, *attrs[NFQA_PAYLOAD], status);
   } else {
     queue->Send(verdict, status);
+    if constexpr (kLogPassthroughPackets) {
+      LogPacket(phdr.packet_id, ip, tcp, udp, payload, "passthrough");
+    }
   }
   if (!status.Ok()) {
     status() += "Couldn't send verdict";
