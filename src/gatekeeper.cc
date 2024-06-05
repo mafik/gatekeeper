@@ -470,6 +470,12 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   LOG << "Found WAN interface " << wan.name << " with IP " << wan_ip;
+  wan.EnableForwarding(status);
+  if (!status.Ok()) {
+    ERROR << "Couldn't enable forwarding on the WAN interface: " << status
+          << ". Nothing will work so exiting early.";
+    return 1;
+  }
 
   lan_network = lan.Network(status);
   if (OK(status)) {

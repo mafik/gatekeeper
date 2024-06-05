@@ -186,9 +186,7 @@ void Interface::Configure(maf::IP ip, maf::Network network, Status &status) {
     AppendErrorMessage(status) += "Couldn't configure interface " + name;
     return;
   }
-  // Enable forwarding
-  Path path = "/proc/sys/net/ipv4/conf/" + name + "/forwarding";
-  fs::Write(fs::real, path, "1", status);
+  EnableForwarding(status);
 }
 
 void Interface::Deconfigure(Status &status) {
@@ -199,6 +197,11 @@ void Interface::Deconfigure(Status &status) {
     return;
   }
   BringInterfaceDown(fd, *this, status);
+}
+
+void Interface::EnableForwarding(Status &status) {
+  Path path = "/proc/sys/net/ipv4/conf/" + name + "/forwarding";
+  fs::Write(fs::real, path, "1", status);
 }
 
 void Interface::UpdateIndex(maf::Status &status) {
