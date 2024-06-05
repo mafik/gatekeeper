@@ -16,7 +16,10 @@ union __attribute__((__packed__)) IP {
   U8 bytes[4];
   Big<U16> halves[2];
   IP() : addr(0) {}
+  IP(const IP &) = default;
+  IP(IP &&other) : addr(other.addr) {}
   IP(U8 a, U8 b, U8 c, U8 d) : bytes{a, b, c, d} {}
+  IP &operator=(const IP &) = default;
   // Constructor for address in network byte order
   constexpr IP(U32 addr) : addr(addr) {}
   static IP FromInterface(std::string_view interface_name, Status &status);

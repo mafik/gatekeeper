@@ -11,9 +11,14 @@ namespace maf {
 struct MAC {
   U8 bytes[6];
   MAC() : bytes{0, 0, 0, 0, 0, 0} {}
+  MAC(const MAC &) = default;
+  MAC(MAC &&other)
+      : bytes{other.bytes[0], other.bytes[1], other.bytes[2],
+              other.bytes[3], other.bytes[4], other.bytes[5]} {}
   MAC(U8 a, U8 b, U8 c, U8 d, U8 e, U8 f) : bytes{a, b, c, d, e, f} {}
   MAC(char s[6])
       : bytes{(U8)s[0], (U8)s[1], (U8)s[2], (U8)s[3], (U8)s[4], (U8)s[5]} {}
+  MAC &operator=(const MAC &) = default;
   static MAC FromInterface(StrView interface_name);
   static MAC Broadcast() { return MAC(0xff, 0xff, 0xff, 0xff, 0xff, 0xff); }
   Str ToStr() const;
