@@ -22,9 +22,9 @@ jobs:
     - name: Update APT repositories
       run: sudo apt update
     - name: Install dependencies
-      run: sudo apt install -y inotify-tools
+      run: sudo apt install -y inotify-tools libgmock-dev
     - name: Run test
       run: sudo --preserve-env=PATH ./run test_e2e
-    - name: Debug with tmate on failure
-      if: ${{ failure() }}
-      uses: mxschmitt/action-tmate@v3
+    # - name: Debug with tmate on failure
+    #   if: ${{ failure() }}
+    #   uses: mxschmitt/action-tmate@v3
