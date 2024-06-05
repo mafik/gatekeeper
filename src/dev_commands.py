@@ -45,10 +45,15 @@ def net_reset():
 
 def dogfood():
     '''Copy the binary to maf's router and run it.'''
-    sh('scp build/release_gatekeeper root@protectli:/opt/gatekeeper/gatekeeper.new',
+    sh('scp build/debug_gatekeeper root@protectli:/opt/gatekeeper/gatekeeper.new',
        check=True)
-    sh('ssh root@protectli "mv /opt/gatekeeper/gatekeeper{,.old} && mv /opt/gatekeeper/gatekeeper{.new,} && systemctl restart gatekeeper"',
-       check=True)
+    try:
+        sh('ssh root@protectli "mv /opt/gatekeeper/gatekeeper{,.old} && mv /opt/gatekeeper/gatekeeper{.new,} && systemctl restart gatekeeper"',
+        check=True)
+    except subprocess.CalledProcessError:
+        print('Failed to restart gatekeeper. Reverting changes.')
+        sh('ssh root@protectli "mv /opt/gatekeeper/gatekeeper{.old,} && systemctl restart gatekeeper"',
+        check=True)
 
 
 @contextmanager
@@ -57,7 +62,7 @@ def dns_blocker():
     Start a "blocker" of port 53.
     Gatekeeper should kill it during startup.
     '''
-    blocker = subprocess.Popen(["nc", "-lup", "53"])
+    blocker = subprocess.Popen(['nc', '-lup', '53'])
     try:
         yield blocker
     finally:
@@ -71,29 +76,29 @@ def run_systemd(env):
     '''
     # This seems to mess with the DHCP server used by Ubuntu's NetworkManager
     # TODO: figure out why this happens (Wireshark) & fix it
-    subprocess.check_call(["systemctl", "reset-failed"])
-    args = ["systemd-run", "--service-type=notify", "--same-dir", "--unit=gatekeeper-e2e", "--quiet"]
+    subprocess.check_call(['systemctl', 'reset-failed'])
+    args = ['systemd-run', '--service-type=notify', '--same-dir', '--unit=gatekeeper-e2e', '--quiet']
     for k, v in env.items():
-        args.append(f"--setenv={k}={v}")
-    args += ["build/debug_gatekeeper"]
+        args.append(f'--setenv={k}={v}')
+    args += ['build/debug_gatekeeper']
     p = subprocess.run(args)
-    p.invocation_id = subprocess.check_output(["systemctl", "show", "--value", "-p", "InvocationID", "gatekeeper-e2e"]).decode().strip()
+    p.invocation_id = subprocess.check_output(['systemctl', 'show', '--value', '-p', 'InvocationID', 'gatekeeper-e2e']).decode().strip()
     if p.returncode != 0:
-        print("Gatekeeper failed to start. Status code: ", p.returncode)
-        print("Gatekeeper log:")
-        subprocess.run(["journalctl", "_SYSTEMD_INVOCATION_ID=" + p.invocation_id])
+        print('Gatekeeper failed to start. Status code: ', p.returncode)
+        print('Gatekeeper log:')
+        subprocess.run(['journalctl', '_SYSTEMD_INVOCATION_ID=' + p.invocation_id])
         sys.exit(1)
     try:
-        print("Use 'journalctl _SYSTEMD_INVOCATION_ID=" + p.invocation_id + "' to see Gatekeeper logs")
+        print('Use "journalctl _SYSTEMD_INVOCATION_ID=' + p.invocation_id + '" to see Gatekeeper logs')
         yield p
     finally:
-        subprocess.run(["systemctl", "stop", "gatekeeper-e2e"])
+        subprocess.run(['systemctl', 'stop', 'gatekeeper-e2e'])
         # If Gatekeeper crashes it may leave its nft table active.
         # This breaks the internet on the test machine.
         # So we delete it here.
-        subprocess.run(["nft",  "delete", "table", "gatekeeper"], stderr=subprocess.DEVNULL)
-        subprocess.run(["ip", "link", "set", "lan", "down"], stderr=subprocess.DEVNULL)
-        subprocess.run(["brctl", "delbr", "lan"], stderr=subprocess.DEVNULL)
+        subprocess.run(['nft',  'delete', 'table', 'gatekeeper'], stderr=subprocess.DEVNULL)
+        subprocess.run(['ip', 'link', 'set', 'lan', 'down'], stderr=subprocess.DEVNULL)
+        subprocess.run(['brctl', 'delbr', 'lan'], stderr=subprocess.DEVNULL)
 
 
 @contextmanager
@@ -121,65 +126,65 @@ def get_ip_address(ifname):
     
 
 def setup_veth_namespace(i):
-    NS = f"ns{i}"
-    A = f"veth{i}a"
-    B = f"veth{i}b"
-    if not os.path.exists(f"/run/netns/{NS}"):
-        subprocess.check_call(["sudo", "ip", "netns", "add", NS])
-    if not os.path.exists(f"/sys/class/net/{A}"):
-        subprocess.check_call(["sudo", "ip", "link", "add", A, "type", "veth", "peer", "name", B, "netns", NS])
+    NS = f'ns{i}'
+    A = f'veth{i}a'
+    B = f'veth{i}b'
+    if not os.path.exists(f'/run/netns/{NS}'):
+        subprocess.check_call(['sudo', 'ip', 'netns', 'add', NS])
+    if not os.path.exists(f'/sys/class/net/{A}'):
+        subprocess.check_call(['sudo', 'ip', 'link', 'add', A, 'type', 'veth', 'peer', 'name', B, 'netns', NS])
 
-    subprocess.check_call(["sudo", "ip", "addr", "flush", "dev", A])
-    subprocess.check_call(["sudo", "ip", "link", "set", A, "down"])
-    subprocess.check_call(["sudo", "ip", "netns", "exec", NS, "ip", "addr", "flush", "dev", B])
-    subprocess.check_call(["sudo", "ip", "netns", "exec", NS, "ip", "link", "set", B, "down"])
+    subprocess.check_call(['sudo', 'ip', 'addr', 'flush', 'dev', A])
+    subprocess.check_call(['sudo', 'ip', 'link', 'set', A, 'down'])
+    subprocess.check_call(['sudo', 'ip', 'netns', 'exec', NS, 'ip', 'addr', 'flush', 'dev', B])
+    subprocess.check_call(['sudo', 'ip', 'netns', 'exec', NS, 'ip', 'link', 'set', B, 'down'])
 
     # Setup fake resolv.conf for our network namespaces.
     # See man ip-netns for reference.
     # TL;DR is that empty file is enough for `ip netns` to bind mount it over /etc/resolv.conf
     # This file will be filled by `test-dhclient-hook`
-    subprocess.check_call(["sudo", "mkdir", "-p", f"/etc/netns/{NS}"])
-    subprocess.check_call(["sudo", "touch", f"/etc/netns/{NS}/resolv.conf"])
+    subprocess.check_call(['sudo', 'mkdir', '-p', f'/etc/netns/{NS}'])
+    subprocess.check_call(['sudo', 'touch', f'/etc/netns/{NS}/resolv.conf'])
     return NS, A, B
 
 
 def test_e2e():
     if os.geteuid() != 0:
-        raise Exception("This script must be run as root")
+        raise Exception('This script must be run as root')
     
     for i in range(4):
         setup_veth_namespace(i)
 
     # Start Gatekeeper
-    env = {"LAN": " ".join([f"veth{i}a" for i in range(4)])}
+    env = {'LAN': ' '.join([f'veth{i}a' for i in range(4)])}
     with dns_blocker() as blocker, run_systemd(env), run_dhclient('ns0', 'veth0b'):
        
         # Collect test results
         GATEKEEPER_IP = get_ip_address('lan')
         if GATEKEEPER_IP is None:
-            print("DHCP issue. Gatekeeper IP is None")
+            print('DHCP issue. Gatekeeper IP is None')
             sys.exit(1)
-        CLIENT_IP = subprocess.check_output(f"ip netns exec ns0 hostname -I | xargs", shell=True).decode().strip()
-        TEST_DOMAIN = "www.google.com"
-        CURL_EXAMPLE_STATUS = subprocess.call(["ip", "netns", "exec", "ns0", "curl", "-v", "--no-progress-meter", "--connect-timeout", "5", "--max-time", "10", TEST_DOMAIN], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        CURL_1337 = subprocess.check_output(["ip", "netns", "exec", "ns0", "curl", "-s", "http://" + GATEKEEPER_IP + ":1337"]).decode().strip()
-        NFT_RULES = subprocess.check_output(["nft", "list", "ruleset"]).decode().strip()
+        CLIENT_IP = subprocess.check_output(f'ip netns exec ns0 hostname -I | xargs', shell=True).decode().strip()
+        TEST_DOMAIN = 'www.google.com'
+        CURL_EXAMPLE_STATUS = subprocess.call(['ip', 'netns', 'exec', 'ns0', 'curl', '-v', '--no-progress-meter', '--connect-timeout', '5', '--max-time', '10', TEST_DOMAIN], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        CURL_1337 = subprocess.check_output(['ip', 'netns', 'exec', 'ns0', 'curl', '-s', 'http://' + GATEKEEPER_IP + ':1337']).decode().strip()
+        NFT_RULES = subprocess.check_output(['nft', 'list', 'ruleset']).decode().strip()
 
         if blocker.poll() == None: # DNS blocker is still running
-            print("Startup issue. Gatekeeper failed to kill another process listening on DNS port")
+            print('Startup issue. Gatekeeper failed to kill another process listening on DNS port')
             sys.exit(1)
 
-    # replace the last segment of $GATEKEEPER_IP with "2"
-    EXPECTED_CLIENT_IP = ".".join(GATEKEEPER_IP.split(".")[:-1]) + ".2"
+    # replace the last segment of $GATEKEEPER_IP with '2'
+    EXPECTED_CLIENT_IP = '.'.join(GATEKEEPER_IP.split('.')[:-1]) + '.2'
     
     if CLIENT_IP != EXPECTED_CLIENT_IP:
-        print("DHCP issue. Client IP is [{}] but expected [{}].".format(CLIENT_IP, EXPECTED_CLIENT_IP))
+        print('DHCP issue. Client IP is [{}] but expected [{}].'.format(CLIENT_IP, EXPECTED_CLIENT_IP))
         sys.exit(1)
-    if "Gatekeeper" not in CURL_1337:
-        print("Web UI issue. http://{}:1337 should contain [Gatekeeper]. Got [{}].".format(GATEKEEPER_IP, CURL_1337))
+    if 'Gatekeeper' not in CURL_1337:
+        print('Web UI issue. http://{}:1337 should contain [Gatekeeper]. Got [{}].'.format(GATEKEEPER_IP, CURL_1337))
         sys.exit(1)
     if CURL_EXAMPLE_STATUS != 0:
-        print("DNS / NAT issue. Curl {} should return status code 0 but returned {}.".format(TEST_DOMAIN, CURL_EXAMPLE_STATUS))
+        print('DNS / NAT issue. Curl {} should return status code 0 but returned {}.'.format(TEST_DOMAIN, CURL_EXAMPLE_STATUS))
         print('Netfilter rules (`nft list ruleset`):')
         print(NFT_RULES)
         sys.exit(1)
@@ -187,7 +192,7 @@ def test_e2e():
 
 def test_dhcp():
     NS, A, B = setup_veth_namespace(0)
-    subprocess.check_call(['sudo', "ip", "netns", "exec", NS, "ip", "link", "set", B, "up"])
+    subprocess.check_call(['sudo', 'ip', 'netns', 'exec', NS, 'ip', 'link', 'set', B, 'up'])
     with run_systemd({'LAN': A}):
         # Start dhammer
         # 200 requests / second over 10 seconds
@@ -239,4 +244,4 @@ def hook_final(srcs, objs, bins, recipe: make.Recipe):
     recipe.add_step(test_dns, [], deps)
     recipe.add_step(test_tcp, [], deps)
     recipe.add_step(test_udp, [], deps)
-    recipe.add_step(dogfood, [], ['build/release_gatekeeper'])
+    recipe.add_step(dogfood, [], deps)
