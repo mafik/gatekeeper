@@ -179,7 +179,7 @@ def test_e2e():
             sys.exit(1)
         CLIENT_IP = subprocess.check_output("ip netns exec ns0 ip route get 1 | awk '{print $(NF-2);exit}'", shell=True).decode().strip()
         TEST_DOMAIN = 'www.google.com'
-        CURL_EXAMPLE_STATUS = subprocess.call(['ip', 'netns', 'exec', 'ns0', 'curl', '-v', '--no-progress-meter', '--connect-timeout', '5', '--max-time', '10', TEST_DOMAIN])
+        CURL_EXAMPLE_STATUS = subprocess.call(['ip', 'netns', 'exec', 'ns0', 'curl', '-v', '--no-progress-meter', '--connect-timeout', '5', '--max-time', '10', TEST_DOMAIN], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         CURL_1337 = subprocess.check_output(['ip', 'netns', 'exec', 'ns0', 'curl', '-s', 'http://' + GATEKEEPER_IP + ':1337']).decode().strip()
         NFT_RULES = subprocess.check_output(['nft', 'list', 'ruleset']).decode().strip()
 
