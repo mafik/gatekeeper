@@ -44,3 +44,5 @@ build
 
 tests/dhclient
 tests/dhclient.pid
+
+compile_commands.json
