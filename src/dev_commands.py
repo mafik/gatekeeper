@@ -148,6 +148,19 @@ def setup_veth_namespace(i):
     return NS, A, B
 
 
+def test_env():
+    if os.geteuid() != 0:
+        raise Exception('This script must be run as root')
+    
+    for i in range(4):
+        setup_veth_namespace(i)
+
+    # Start Gatekeeper
+    env = {'LAN': ' '.join([f'veth{i}a' for i in range(4)])}
+    with run_systemd(env), run_dhclient('ns0', 'veth0b'):
+        input('Press Enter to continue...')
+
+
 def test_e2e():
     if os.geteuid() != 0:
         raise Exception('This script must be run as root')
@@ -164,9 +177,9 @@ def test_e2e():
         if GATEKEEPER_IP is None:
             print('DHCP issue. Gatekeeper IP is None')
             sys.exit(1)
-        CLIENT_IP = subprocess.check_output(f'ip netns exec ns0 hostname -I | xargs', shell=True).decode().strip()
+        CLIENT_IP = subprocess.check_output("ip netns exec ns0 ip route get 1 | awk '{print $(NF-2);exit}'", shell=True).decode().strip()
         TEST_DOMAIN = 'www.google.com'
-        CURL_EXAMPLE_STATUS = subprocess.call(['ip', 'netns', 'exec', 'ns0', 'curl', '-v', '--no-progress-meter', '--connect-timeout', '5', '--max-time', '10', TEST_DOMAIN], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        CURL_EXAMPLE_STATUS = subprocess.call(['ip', 'netns', 'exec', 'ns0', 'curl', '-v', '--no-progress-meter', '--connect-timeout', '5', '--max-time', '10', TEST_DOMAIN])
         CURL_1337 = subprocess.check_output(['ip', 'netns', 'exec', 'ns0', 'curl', '-s', 'http://' + GATEKEEPER_IP + ':1337']).decode().strip()
         NFT_RULES = subprocess.check_output(['nft', 'list', 'ruleset']).decode().strip()
 
@@ -239,6 +252,7 @@ def hook_final(srcs, objs, bins, recipe: make.Recipe):
     recipe.add_step(debug, [], deps)
     recipe.add_step(gdb, [], deps)
     recipe.add_step(net_reset, [], deps)
+    recipe.add_step(test_env, [], deps)
     recipe.add_step(test_e2e, [], deps)
     recipe.add_step(test_dhcp, [], deps)
     recipe.add_step(test_dns, [], deps)
