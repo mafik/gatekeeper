@@ -24,6 +24,8 @@ using chrono::steady_clock;
 
 namespace dhcp {
 
+constexpr auto kLeaseTime = 60s * 30;
+constexpr auto kRetentionTime = 24h;
 const IP kBroadcastIP(255, 255, 255, 255);
 const U16 kServerPort = 67;
 const U16 kClientPort = 68;
@@ -676,7 +678,9 @@ struct __attribute__((__packed__)) PacketView : Header {
   }
   MAC effective_mac() const {
     if (auto *opt = FindOption<options::ClientIdentifier>()) {
-      return opt->hardware_address;
+      if (opt->type == 1) {
+        return opt->hardware_address;
+      }
     }
     return client_mac_address;
   }
@@ -717,9 +721,7 @@ IP ChooseIP(Server &server, const PacketView &request, string &error) {
     if (auto it = server.entries_by_ip.find(requested_ip);
         it != server.entries_by_ip.end()) {
       Server::Entry *entry = *it;
-      if ((entry->mac != mac) &&
-          (entry->expiration ? entry->expiration > steady_clock::now()
-                             : true)) {
+      if (entry->mac != mac) {
         // Requested IP is taken by another client.
         ok = false;
       }
@@ -865,6 +867,7 @@ void Server::StopListening() {
 }
 
 void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
+  Expirable::Expire();
   if (buf.size() < sizeof(PacketView)) {
     ERROR << "DHCP server received a packet that is too short: " << buf.size()
           << " bytes:\n"
@@ -907,7 +910,6 @@ void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
     entry->last_activity = steady_clock::now();
   }
 
-  int request_lease_time_seconds = 60;
   switch (packet.MessageType()) {
   case options::MessageType::Value::DISCOVER:
     response_type = options::MessageType::Value::OFFER;
@@ -920,7 +922,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
     } else {
       response_type = options::MessageType::Value::ACK;
     }
-    lease_time = request_lease_time_seconds * 1s;
+    lease_time = kLeaseTime;
     break;
   case options::MessageType::Value::INFORM:
     response_type = options::MessageType::Value::ACK;
@@ -994,7 +996,7 @@ void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
   options::SubnetMask(lan_network.netmask).write_to(buffer);
   options::Router(lan_ip).write_to(buffer);
   if (lease_time > 0s) {
-    options::IPAddressLeaseTime(request_lease_time_seconds).write_to(buffer);
+    options::IPAddressLeaseTime(kLeaseTime / 1s).write_to(buffer);
   }
   options::DomainName::Make(kLocalDomain)->write_to(buffer);
   options::ServerIdentifier(lan_ip).write_to(buffer);
@@ -1042,11 +1044,13 @@ void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
       entry->UpdateIP(chosen_ip);
       delete entry_from_ip;
     }
+    auto now = steady_clock::now();
     // Update the entry.
     entry->hostname = hostname;
-    entry->last_activity = steady_clock::now();
-    if (entry->expiration.has_value()) {
-      entry->UpdateExpiration(24h);
+    entry->last_activity = now;
+    auto new_expiration = now + kRetentionTime;
+    if (entry->expiration.has_value() && entry->expiration < new_expiration) {
+      entry->UpdateExpiration(new_expiration);
     }
   }
 }
