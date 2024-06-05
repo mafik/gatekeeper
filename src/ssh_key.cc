@@ -56,7 +56,7 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
   }
   buf = buf.subspan(kSshKeyMagic.size());
   auto ConsumeSizedSpan = [&](Span<> &buf_arg) -> Span<> {
-    U32 len = ConsumeBigEndian<U32>(buf_arg);
+    U32 len = buf_arg.Consume<Big<U32>>();
     Span<> ret = buf_arg.subspan(0, len);
     buf_arg.RemovePrefix(len);
     return ret;
@@ -64,7 +64,7 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
   StrView cipher_name = StrViewOf(ConsumeSizedSpan(buf));
   StrView kdf_name = StrViewOf(ConsumeSizedSpan(buf));
   Span<> kdf = ConsumeSizedSpan(buf);
-  U32 num_keys = ConsumeBigEndian<U32>(buf);
+  U32 num_keys = buf.Consume<Big<U32>>();
   if (num_keys != 1) {
     AppendErrorMessage(status) += "Key at " + Str(path) +
                                   " should have exactly one key, got " +
@@ -77,8 +77,8 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
     Span<> priv = ConsumeSizedSpan(buf);
 
     // Parse `priv`
-    U32 check1 = ConsumeBigEndian<U32>(priv);
-    U32 check2 = ConsumeBigEndian<U32>(priv);
+    U32 check1 = priv.Consume<Big<U32>>();
+    U32 check2 = priv.Consume<Big<U32>>();
     StrView key_type = StrViewOf(ConsumeSizedSpan(priv));
     if (key_type == "ssh-ed25519"sv) {
       Span<> pub0 = ConsumeSizedSpan(priv);
