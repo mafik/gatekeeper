@@ -35,7 +35,8 @@ GLIBC_CONFIGURE_OPTS = [
   '--enable-bind-now',
   f'--host={TRIPLE}',
   '--disable-werror',
-  '--disable-mathvec'
+  '--disable-mathvec',
+  '--without-selinux'
 ]
 
 BAD_CFLAGS = ['-fcolor-diagnostics', '-flto', '-Wno-vla-extension', '--gcc-toolchain']
@@ -148,7 +149,8 @@ def hook_recipe(recipe):
         '/usr/local/lib64',
         '/usr/lib',
         '/usr/local/lib',
-        '/usr/lib/gcc/x86_64-pc-linux-gnu/13/'
+        '/usr/lib/gcc/x86_64-pc-linux-gnu/13/',
+        '/usr/lib/x86_64-linux-gnu/'
       ]
       LDFLAGS = ' '.join(f'-Wl,--rpath={x}' for x in rpaths)
       LDFLAGS += f' -Wl,--dynamic-linker={prefix}/lib/ld-linux-x86-64.so.2'
