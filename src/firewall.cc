@@ -617,12 +617,13 @@ void Start(Status &status) {
       int toks =
           sscanf(port_forwarding, "%hhu.%hhu.%hhu.%hhu:%hu%n", &ip.bytes[0],
                  &ip.bytes[1], &ip.bytes[2], &ip.bytes[3], &port, &pos);
-      if (toks != 6) {
+      if (toks != 5) {
         break;
       }
       port_forwarding += pos;
       FullConeNAT::Lookup(ProtocolID::TCP, port).lan_host_ip = ip;
       FullConeNAT::Lookup(ProtocolID::UDP, port).lan_host_ip = ip;
+      LOG << "Forwarding port " << port << " to " << ip;
     }
   }
 
