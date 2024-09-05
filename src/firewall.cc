@@ -609,6 +609,23 @@ void Start(Status &status) {
   sa.sa_handler = sig_handler;
   sigaction(SIGUSR1, &sa, nullptr);
 
+  if (char *port_forwarding = getenv("PORT_FORWARDING")) {
+    while (true) {
+      int pos;
+      IP ip;
+      U16 port;
+      int toks =
+          sscanf(port_forwarding, "%hhu.%hhu.%hhu.%hhu:%hu%n", &ip.bytes[0],
+                 &ip.bytes[1], &ip.bytes[2], &ip.bytes[3], &port, &pos);
+      if (toks != 6) {
+        break;
+      }
+      port_forwarding += pos;
+      FullConeNAT::Lookup(ProtocolID::TCP, port).lan_host_ip = ip;
+      FullConeNAT::Lookup(ProtocolID::UDP, port).lan_host_ip = ip;
+    }
+  }
+
   loop = std::thread(Loop);
 }
 
