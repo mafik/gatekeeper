@@ -1,6 +1,6 @@
 #include "config.hh"
 
-using namespace maf;
+using namespace automat;
 
 // Domain used to access hosts in the local network. Hardcoded to "lan".
 const std::string kLocalDomain = "lan";

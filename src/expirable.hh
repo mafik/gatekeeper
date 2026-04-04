@@ -4,7 +4,7 @@
 
 #include "optional.hh"
 
-namespace maf {
+namespace automat {
 
 // Mixin class that can be used to automatically delete objects after a certain
 // expiration time.
@@ -41,4 +41,4 @@ private:
   void RemoveFromExpirationQueue() const;
 };
 
-} // namespace maf
+} // namespace automat

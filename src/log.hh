@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+// SPDX-License-Identifier: MIT
 #pragma once
 
 // Functions for logging human-readable messages.
@@ -31,7 +33,7 @@
 #include "status.hh"
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 enum class LogLevel { Ignore, Info, Error, Fatal };
 
@@ -53,12 +55,18 @@ void DefaultLogger(const LogEntry& e);
 
 // The default logger prints to stdout (or JavaScript console when running under
 // Emscripten).
-extern std::vector<Logger> loggers;
+std::vector<Logger>& GetLoggers();
 
-#define LOG maf::LogEntry(maf::LogLevel::Info, std::source_location::current())
+#define LOG LogEntry(LogLevel::Info, std::source_location::current())
 
-#define ERROR maf::LogEntry(maf::LogLevel::Error, std::source_location::current())
-#define FATAL maf::LogEntry(maf::LogLevel::Fatal, std::source_location::current())
+#define ERROR LogEntry(LogLevel::Error, std::source_location::current())
+#define FATAL LogEntry(LogLevel::Fatal, std::source_location::current())
+
+#define ERROR_ONCE                                                                             \
+  static bool LOG_##__COUNTER__ = true;                                                        \
+  automat::LogEntry((LOG_##__COUNTER__ ? (LOG_##__COUNTER__ = false, automat::LogLevel::Error) \
+                                       : automat::LogLevel::Ignore),                           \
+                    std::source_location::current())
 
 const LogEntry& operator<<(const LogEntry&, StrView);
 const LogEntry& operator<<(const LogEntry&, Status& status);
@@ -71,10 +79,17 @@ void LOG_Indent(int n = 2);
 
 void LOG_Unindent(int n = 2);
 
+struct LOG_IndentGuard {
+  LOG_IndentGuard(int n = 2) : n(n) { LOG_Indent(n); }
+  ~LOG_IndentGuard() { LOG_Unindent(n); }
+
+  int n;
+};
+
 #define EVERY_N_SEC(n)                                                                          \
   static std::chrono::steady_clock::time_point last_log_time;                                   \
   if (std::chrono::steady_clock::now() - last_log_time > std::chrono::steady_clock::duration(n) \
           ? (last_log_time = std::chrono::steady_clock::now(), true)                            \
           : false)
 
-}  // namespace maf
+}  // namespace automat

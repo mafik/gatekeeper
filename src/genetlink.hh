@@ -11,7 +11,7 @@
 #include "str.hh"
 #include "vec.hh"
 
-namespace maf {
+namespace automat {
 
 struct GenericNetlink {
   using Command = U8;
@@ -51,4 +51,4 @@ struct GenericNetlink {
 Str ToStr(const GenericNetlink::Cmd &);
 static_assert(Stringer<GenericNetlink::Cmd>);
 
-} // namespace maf
+} // namespace automat

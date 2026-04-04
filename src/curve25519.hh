@@ -7,7 +7,7 @@
 // Establishing shared secrets according to https://cr.yp.to/ecdh.html.
 //
 // This is a C++ wrapper around the curve25519-donna C library (public-domain).
-namespace maf::curve25519 {
+namespace automat::curve25519 {
 
 struct Private {
   Arr<char, 32> bytes;
@@ -35,4 +35,4 @@ struct Shared {
   operator Span<>() { return bytes; }
 };
 
-} // namespace maf::curve25519
+} // namespace automat::curve25519

@@ -12,9 +12,9 @@
 #include "status.hh"
 
 using namespace std;
-using namespace maf;
+using namespace automat;
 
-namespace maf::dns {
+namespace automat::dns {
 
 struct ProxyLookup : LookupBase {
   IP client_ip;
@@ -210,4 +210,4 @@ void StartServer(Status &status) {
 
 void StopServer() { server.StopListening(); }
 
-} // namespace maf::dns
+} // namespace automat::dns

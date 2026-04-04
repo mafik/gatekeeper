@@ -2,7 +2,7 @@
 
 #include "int.hh"
 
-namespace maf {
+namespace automat {
 
 Vec<StrView> SplitOnChars(StrView s, StrView chars) {
   Vec<StrView> result;
@@ -24,4 +24,4 @@ Vec<StrView> SplitOnChars(StrView s, StrView chars) {
   return result;
 }
 
-} // namespace maf
+} // namespace automat

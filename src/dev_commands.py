@@ -13,6 +13,8 @@ from functools import wraps
 from pathlib import Path
 from contextlib import contextmanager
 
+import build_variant
+
 
 @wraps(subprocess.run)
 def sh(*args, **kwargs):
@@ -26,14 +28,14 @@ def run(args: str):
                           'LAN': 'enxe8802ee74415'
                       })
 
-gatekeeper_bin = 'debug_gatekeeper'
+gatekeeper_bin = build_variant.BASE / 'gatekeeper'
 
 def debug():
-    return run(f'build/{gatekeeper_bin}')
+    return run(str(gatekeeper_bin))
 
 
 def gdb():
-    return run(f'gdb build/{gatekeeper_bin} -q -ex run')
+    return run(f'gdb {gatekeeper_bin} -q -ex run')
 
 
 def net_reset():
@@ -46,7 +48,7 @@ def net_reset():
 
 def dogfood():
     '''Copy the binary to maf's router and run it.'''
-    sh(f'scp build/{gatekeeper_bin} root@protectli:/opt/gatekeeper/gatekeeper.new',
+    sh(f'scp {gatekeeper_bin} root@protectli:/opt/gatekeeper/gatekeeper.new',
        check=True)
     try:
         sh('ssh root@protectli "mv /opt/gatekeeper/gatekeeper{,.old} && mv /opt/gatekeeper/gatekeeper{.new,} && systemctl restart gatekeeper"',
@@ -81,7 +83,7 @@ def run_systemd(env):
     args = ['systemd-run', '--service-type=notify', '--same-dir', '--unit=gatekeeper-e2e', '--quiet']
     for k, v in env.items():
         args.append(f'--setenv={k}={v}')
-    args += ['build/' + gatekeeper_bin]
+    args += [str(gatekeeper_bin)]
     p = subprocess.run(args)
     p.invocation_id = subprocess.check_output(['systemctl', 'show', '--value', '-p', 'InvocationID', 'gatekeeper-e2e']).decode().strip()
     if p.returncode != 0:
@@ -249,7 +251,7 @@ def test_udp():
 
 
 def hook_final(srcs, objs, bins, recipe: make.Recipe):
-    deps = ['build/' + gatekeeper_bin]
+    deps = [str(gatekeeper_bin)]
     recipe.add_step(debug, [], deps)
     recipe.add_step(gdb, [], deps)
     recipe.add_step(net_reset, [], deps)

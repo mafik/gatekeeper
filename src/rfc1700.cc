@@ -1,6 +1,6 @@
 #include "rfc1700.hh"
 
-namespace maf::rfc1700 {
+namespace automat::rfc1700 {
 
 const char *kHardwareTypeNames[] = {"Not hardware address",
                                     "Ethernet (10Mb)",
@@ -32,4 +32,4 @@ Str HardwareTypeToStr(U8 type) {
   return "Unknown hardware type " + ToStr(type);
 }
 
-} // namespace maf::rfc1700
+} // namespace automat::rfc1700

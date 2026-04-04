@@ -3,7 +3,7 @@
 #include "status.hh"
 
 // Public-key signature system according to http://ed25519.cr.yp.to/.
-namespace maf::ed25519 {
+namespace automat::ed25519 {
 
 struct Private {
   char bytes[32];
@@ -35,4 +35,4 @@ struct Signature {
   bool Verify(StrView message, const Public &) const;
 };
 
-} // namespace maf::ed25519
+} // namespace automat::ed25519

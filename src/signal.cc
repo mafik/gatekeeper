@@ -4,7 +4,7 @@
 #include <csignal>
 #include <sys/signalfd.h>
 
-using namespace maf;
+using namespace automat;
 
 SignalHandler::SignalHandler(int signal, Status &status) : signal(signal) {
   sigset_t mask;

@@ -16,7 +16,7 @@
 #include "span.hh"
 #include "status.hh"
 
-namespace maf::tls {
+namespace automat::tls {
 
 // Nice introduction to TLS 1.3: https://tls13.xargs.org/
 
@@ -95,7 +95,7 @@ struct RecordWrapper {
     Size tag_begin = buf.size();
     buf.insert(buf.end(), 16, 0); // Poly1305 tag
     Size tag_end = buf.size();
-    buf.Span()
+    ((Span<>)buf)
         .RemovePrefix(record_length_offset)
         .PutRef(Big<U16>(tag_end - record_begin));
     XorIV(iv, counter);
@@ -232,7 +232,7 @@ struct Phase3 : Phase {
   void ProcessRecord(RecordHeader &record) override {
     if (record.type != 23) {
       AppendErrorMessage(conn) +=
-          f("Received TLS record type %d but expected 23 "
+          f("Received TLS record type {} but expected 23 "
             "(Application Data Record)",
             record.type);
       return;
@@ -247,7 +247,7 @@ struct Phase3 : Phase {
     if (true_type == 21) { // Alert
       if (data.size() != 2) {
         AppendErrorMessage(conn) +=
-            f("Received TLS Alert with length %d but expected 2", data.size());
+            f("Received TLS Alert with length {} but expected 2", data.size());
         return;
       }
       U8 level = data[0];
@@ -269,7 +269,7 @@ struct Phase3 : Phase {
       conn.NotifyReceived();
     } else {
       AppendErrorMessage(conn) +=
-          f("Received unknown TLS record type %d", true_type);
+          f("Received unknown TLS record type {}", true_type);
     }
   }
 
@@ -316,7 +316,7 @@ struct Phase2 : Phase {
       return;
     }
     if (type != 23) { // Application Data
-      AppendErrorMessage(conn) += f("Received TLS record type %d", type);
+      AppendErrorMessage(conn) += f("Received TLS record type {}", type);
       return;
     }
     Span<> data;
@@ -328,7 +328,7 @@ struct Phase2 : Phase {
 
     if (true_type != 22) { // Handshake
       AppendErrorMessage(conn) +=
-          f("Received TLS record type %d but expected 22 (Handshake Record)",
+          f("Received TLS record type {} but expected 22 (Handshake Record)",
             true_type);
       return;
     }
@@ -383,7 +383,7 @@ struct Phase2 : Phase {
         }
       } else {
         AppendErrorMessage(conn) +=
-            f("TLS handshake failed because of unknown message type %d",
+            f("TLS handshake failed because of unknown message type {}",
               handshake_type);
         return;
       }
@@ -556,13 +556,13 @@ struct Phase1 : Phase {
     send_tcp.insert(send_tcp.end(), client_public.bytes.begin(),
                     client_public.bytes.end());
 
-    send_tcp.Span()
+    ((Span<>)send_tcp)
         .RemovePrefix(extensions_length_offset)
         .PutRef(Big<U16>(send_tcp.size() - extensions_begin));
-    send_tcp.Span()
+    ((Span<>)send_tcp)
         .RemovePrefix(handshake_length_offset)
         .PutRef(Big<U24>(send_tcp.size() - handshake_begin));
-    send_tcp.Span()
+    ((Span<>)send_tcp)
         .RemovePrefix(record_length_offset)
         .PutRef(Big<U16>(send_tcp.size() - record_begin));
 
@@ -578,14 +578,14 @@ struct Phase1 : Phase {
     U24 handshake_length = server_hello.Consume<Big<U24>>();
     if (handshake_length > server_hello.size()) {
       AppendErrorMessage(conn) +=
-          f("TLS Handshake Header claims length %d but there are "
-            "only %d bytes left in the record",
-            handshake_length, server_hello.size());
+          f("TLS Handshake Header claims length {} but there are "
+            "only {} bytes left in the record",
+            (unsigned)handshake_length, server_hello.size());
       return;
     }
     if (handshake_type != 2) {
       AppendErrorMessage(conn) +=
-          f("Received TLS handshake type %d but expected 2 "
+          f("Received TLS handshake type {} but expected 2 "
             "(Server Hello)",
             handshake_type);
       return;
@@ -616,8 +616,8 @@ struct Phase1 : Phase {
       U16 extension_length = server_hello.Consume<Big<U16>>();
       if (extension_length > server_hello.size()) {
         AppendErrorMessage(conn) +=
-            f("Server hello extension_length is %d but there are "
-              "only %d bytes left",
+            f("Server hello extension_length is {} but there are "
+              "only {} bytes left",
               extension_length, server_hello.size());
         return;
       }
@@ -633,7 +633,7 @@ struct Phase1 : Phase {
         U16 length = extension_data.Consume<Big<U16>>();
         if (length != extension_data.size()) {
           AppendErrorMessage(conn) += f(
-              "Server Hello key share length is %d but there are %d bytes left",
+              "Server Hello key share length is {} but there are {} bytes left",
               length, extension_data.size());
           return;
         }
@@ -642,7 +642,7 @@ struct Phase1 : Phase {
           if (length != 32) {
             AppendErrorMessage(conn) +=
                 f("Server Hello key share group is x25519 but "
-                  "length is %d instead of 32",
+                  "length is {} instead of 32",
                   length);
             return;
           }
@@ -651,7 +651,7 @@ struct Phase1 : Phase {
         }
         default: {
           AppendErrorMessage(conn) +=
-              f("Server Hello key share group is %d but only "
+              f("Server Hello key share group is {} but only "
                 "x25519 is supported",
                 group);
           return;
@@ -660,7 +660,7 @@ struct Phase1 : Phase {
         break;
       }
       } // switch (extension_type)
-    }   // while (!server_hello.empty())
+    } // while (!server_hello.empty())
 
     sha_builder.Update(handshake);
     curve25519::Shared shared_secret =
@@ -675,7 +675,7 @@ struct Phase1 : Phase {
       ProcessHandshake(conn, record.Contents());
     } else {
       AppendErrorMessage(conn) +=
-          f("Received TLS record type %d but expected 22 "
+          f("Received TLS record type {} but expected 22 "
             "(TLS Handshake)",
             record.type);
     }
@@ -728,7 +728,7 @@ void Connection::TCP_Connection::NotifyReceived() {
       return;
     }
     if (!OK(conn)) {
-      ERROR << f("%p ", &conn) << ErrorMessage(conn);
+      ERROR << f("{} ", (void *)&conn) << ErrorMessage(conn);
       conn.Close();
       return;
     }
@@ -748,4 +748,4 @@ const char *Connection::TCP_Connection::Name() const {
   return "tls::Connection::TCP_Connection";
 }
 
-} // namespace maf::tls
+} // namespace automat::tls

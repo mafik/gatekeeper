@@ -7,7 +7,7 @@
 
 #include "int.hh"
 
-using namespace maf;
+using namespace automat;
 
 // Note: if int128 is needed on other platforms, then `_BigInt(128)` might help.
 
@@ -489,7 +489,7 @@ int curve25519_donna(char *mypublic, const char *secret,
 
 } // namespace
 
-namespace maf::curve25519 {
+namespace automat::curve25519 {
 
 static void Sanitize(Private &key) {
   key.bytes[0] &= 248;
@@ -541,4 +541,4 @@ Shared Shared::FromPrivateAndPublic(const Private &private_key,
 bool Public::operator==(const Public &other) const {
   return bytes == other.bytes;
 }
-} // namespace maf::curve25519
+} // namespace automat::curve25519

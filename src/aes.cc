@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-namespace maf {
+namespace automat {
 
 // Public domain AES implementation from WaterJuice
 namespace {
@@ -1332,4 +1332,4 @@ U64 AES::WrapKey(Span<U64> key) {
   return a;
 }
 
-} // namespace maf
+} // namespace automat

@@ -4,7 +4,7 @@
 #include "span.hh"
 #include "vec.hh"
 
-namespace maf {
+namespace automat {
 
 template <typename Hash> Hash HKDF_Extract(Span<> salt, Span<> ikm) {
   return HMAC<Hash>(salt, ikm);
@@ -34,4 +34,4 @@ Vec<> HKDF(Span<> salt, Span<> ikm, Span<> info, Size len) {
   return out;
 }
 
-} // namespace maf
+} // namespace automat

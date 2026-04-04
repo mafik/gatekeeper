@@ -10,7 +10,7 @@
 #include "ssh_key.hh"
 #include "vec.hh"
 
-using namespace maf;
+using namespace automat;
 
 #pragma maf add run argument "~/.ssh/id_ed25519"
 

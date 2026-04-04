@@ -1,4 +1,6 @@
 '''Pythonic replacement for GNU Make.'''
+# SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+# SPDX-License-Identifier: MIT
 
 from pathlib import Path
 from collections import defaultdict
@@ -17,24 +19,43 @@ import args as cmdline_args
 if platform == 'win32':
     import windows
 
-HASH_DIR = fs_utils.build_dir / 'hashes'
+# Hash directory for the current build variant
+import build_variant
+if build_variant.current:
+    HASH_DIR = build_variant.current.BASE / 'hashes'
+else:
+    HASH_DIR = fs_utils.build_dir / 'hashes'
 HASH_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def Popen(args, **kwargs):
     '''Wrapper around subprocess.Popen which captures STDERR into a temporary file.'''
     f = tempfile.TemporaryFile()
-    str_args = [str(x) for x in args]
+    str_args = []
+    for x in args:
+        if callable(x):
+            str_args += x()
+        else:
+            str_args.append(str(x))
+
     if cmdline_args.args.verbose:
         print(' $ \033[90m' + ' '.join(str_args) + '\033[0m')
+    if 'stdout' in kwargs:
+        if isinstance(kwargs['stdout'], Path):
+            kwargs['stdout'] = kwargs['stdout'].open('w')
+        else:
+            # keep kwargs['stdout'] as is
+            pass
+    elif not cmdline_args.args.verbose:
+        kwargs['stdout'] = f
     p = subprocess.Popen(str_args,
                          stdin=subprocess.DEVNULL,
-                         #stdout=f,
                          stderr=f,
                          **kwargs)
     p.stderr = f
+    if 'env' in kwargs:
+        p.env = kwargs['env']
     return p
-
 
 def hexdigest(path):
     path = Path(path)
@@ -57,11 +78,18 @@ class Step:
                  id,
                  desc=None,
                  shortcut=None,
+                 cleanup=None,
                  stderr_prettifier=lambda x: x):
         if not desc:
-            desc = f'Running {build_func.__name__}'
+            if hasattr(build_func, '__name__'):
+                desc = f'Running {build_func.__name__}'
+            else:
+                raise ValueError(f'Step from module {build_func.__module__} is missing a required "desc" parameter')
         if not shortcut:
-            shortcut = build_func.__name__
+            if hasattr(build_func, '__name__'):
+                shortcut = f'{build_func.__name__}'
+            else:
+                raise ValueError(f'Step from module {build_func.__module__} is missing a required "shortcut" parameter')
         if '/' in shortcut:
             raise ValueError(f'Slashes not allowed in step shortcuts: {shortcut}')
         self.desc = desc
@@ -72,6 +100,7 @@ class Step:
         self.builder = None  # Popen instance while this step is being built
         self.id = id
         self.stderr_prettifier = stderr_prettifier
+        self.cleanup = cleanup
 
     def __repr__(self):
         return f'{self.desc}'
@@ -101,6 +130,9 @@ class Step:
         updated_inputs = []
         for inp in self.inputs:
             p = Path(inp)
+            # Prevent infinite rebuild loops when outputting to an input directory.
+            if p.is_dir() and any(Path(out).is_relative_to(p) and Path(out).exists() for out in self.outputs):
+                continue
             if p.exists() and p.stat().st_mtime < build_time:
                 continue
             if not p.exists():
@@ -127,12 +159,18 @@ class Step:
     def build_if_needed(self):
         if len(self.inputs) == 0 and any(not Path(out).exists()
                                          for out in self.outputs):
+            if cmdline_args.args.verbose:
+                print(f'Running "{self.shortcut}" because some of the outputs don\'t exist')
+            return self.build_and_log([])
+        if len(self.outputs) == 0:
+            if cmdline_args.args.verbose:
+                print(f'Running "{self.shortcut}" because it has no outputs (phony target)')
             return self.build_and_log([])
         updated_inputs = self.dirty_inputs()
         if len(updated_inputs) > 0:
+            if cmdline_args.args.verbose:
+                print(f'Running "{self.shortcut}" because {str(updated_inputs)} changed')
             return self.build_and_log(updated_inputs)
-        if len(self.outputs) == 0:
-            return self.build_and_log([])
 
 
 class Recipe:
@@ -162,18 +200,27 @@ class Recipe:
 
     def add_step(self, *args, **kwargs):
         self.steps.append(Step(*args, id=len(self.steps), **kwargs))
+        return self.steps[-1]
 
     # prunes the list of steps and only leaves the steps that are required for some target
-    def set_target(self, target):
-        out_index = dict()
-        target_step = None
+    def set_target(self, target, *extra_targets):
+        out_index = defaultdict(list)
+        new_steps = set()
+        q = []
         for step in self.steps:
             if step.shortcut == target:
-                target_step = step
+                q.append(step)
             for output in step.outputs:
-                out_index[output] = step
+                out_index[output].append(step)
 
-        if target_step == None:
+        if len(q) == 0:
+            for step in self.steps:
+                for output in step.outputs:
+                    if str(Path(output).relative_to(fs_utils.project_root)) == target:
+                        q.append(step)
+                        break
+
+        if len(q) == 0:
             from difflib import get_close_matches
             close = get_close_matches(target, [s.shortcut for s in self.steps])
             if close:
@@ -186,15 +233,20 @@ class Recipe:
                     f'{target} is not a valid target. Valid targets: {targets}.'
                 )
 
-        new_steps = set()
-        q = [target_step]
+        # Only add extra_targets after the main one was found
+        for step in self.steps:
+            if step.shortcut in extra_targets:
+                q.append(step)
+
         while q:
             step = q.pop()
+            if step in new_steps:
+                continue
             new_steps.add(step)
             for input in step.inputs:
                 if input in out_index:
-                    dep = out_index[input]
-                    q.append(dep)
+                    for dep in out_index[input]:
+                        q.append(dep)
                 elif not Path(input).exists():
                     raise Exception(
                         f'"{step.desc}" requires `{input}` but it doesn\'t exist and there is no recipe to build it.'
@@ -214,6 +266,8 @@ class Recipe:
 
         for a in self.steps:
             for b in self.steps:
+                if a == b:
+                    continue
                 if b.outputs & a.inputs:
                     a.blocker_count += 1
             if a.blocker_count == 0:
@@ -232,9 +286,10 @@ class Recipe:
                 status = step.builder.poll()
                 if status != None:
                     return pid, status
-            status = watcher.poll()
-            if status != None:
-                return watcher.pid, status
+            if watcher:
+                status = watcher.poll()
+                if status != None:
+                    return watcher.pid, status
             return 0, 0
 
         def wait_for_pid():
@@ -250,30 +305,27 @@ class Recipe:
         while ready_steps or self.pid_to_step:
             if len(ready_steps) == 0 or len(
                     self.pid_to_step) >= desired_parallelism:
-                running_names = ', '.join(
-                    [r.shortcut for r in self.pid_to_step.values()])
-                print(
-                    f'Waiting for one of {len(self.pid_to_step)} running steps ({running_names})...'
-                )
                 while True:
                     pid, status = wait_for_pid()
-                    if pid == watcher.pid:
-                        if cmdline_args.args.live:
-                            print(
-                                'Sources have been modified. Interrupting the build process...'
-                            )
-                            self.interrupt()
-                            return False
-                        else:
-                            print('Sources have been modified but the build is not in live mode. Continuing the build...')
-                            continue
+                    if watcher and pid == watcher.pid:
+                        print('Sources have been modified. Interrupting the build process...')
+                        self.interrupt()
+                        return False
                     break
+                if pid not in self.pid_to_step:
+                    print('Warning: unregistered child process has finished. PID=', pid, ', exit status=', status, '. Make sure that all the steps in the build graph properly return their PIDs! You can use the `./run_py/monitor_new_pids.py` while this command is running to identify extra processes.')
+                    continue
                 step = self.pid_to_step[pid]
                 if status:
                     print(f'{step.desc} finished with an error:\n')
                     if hasattr(step.builder, 'args'):
+                        env = ''
+                        if hasattr(step.builder, 'env'):
+                            for k, v in step.builder.env.items():
+                                env += f'   {k}={v}\n'
+                            env = env.strip() + '\n   '
                         orig_command = ' > \033[90m' + \
-                            ' '.join(step.builder.args) + '\033[0m\n'
+                            env + ' '.join(step.builder.args) + '\033[0m\n'
                         print(orig_command)
                     if step.builder.stderr:
                         step.builder.stderr.seek(0)
@@ -282,6 +334,11 @@ class Recipe:
                             print('  ' + step.stderr_prettifier(line))
                     else:
                         print('  (no stderr)')
+                    if step.cleanup:
+                        try:
+                            step.cleanup()
+                        except Exception as e:
+                            print(f'Cleanup failed: {e}')
                     self.interrupt()
                     return False
                 step.builder = None
@@ -296,6 +353,10 @@ class Recipe:
                         self.pid_to_step[builder.pid] = next
                     else:
                         on_step_finished(next)
+                except PermissionError as err:
+                    print(f'{next.desc} failed due to a permission error.', err)
+                    self.interrupt()
+                    return False
                 except subprocess.CalledProcessError as err:
                     print(f'{next.desc} finished with an error.', err)
                     self.interrupt()

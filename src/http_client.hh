@@ -8,7 +8,7 @@
 #include "stream.hh"
 #include "unique_ptr.hh"
 
-namespace maf::http {
+namespace automat::http {
 
 enum class Protocol : U8 {
   kHttp,
@@ -68,4 +68,4 @@ struct Get : RequestBase {
   void OnClosed() override;
 };
 
-} // namespace maf::http
+} // namespace automat::http

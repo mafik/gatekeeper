@@ -2,7 +2,7 @@
 
 #include "int.hh"
 
-namespace maf {
+namespace automat {
 
 Str Base64Encode(Span<> buf) {
   Str ret;
@@ -109,4 +109,4 @@ Vec<> Base64Decode(StrView encoded_string) {
   return ret;
 }
 
-} // namespace maf
+} // namespace automat

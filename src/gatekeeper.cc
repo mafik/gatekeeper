@@ -39,7 +39,7 @@
 
 using namespace std;
 using namespace gatekeeper;
-using namespace maf;
+using namespace automat;
 
 Optional<SignalHandler> sigabrt; // systemd watchdog
 Optional<SignalHandler> sigterm; // systemctl stop & systemd timeout
@@ -101,14 +101,14 @@ static Str GetEnvDefault(const char *name, Fn<Str()> default_fn,
   if (persist_default) {
     Status status;
     if (setenv(name, default_value.c_str(), 1) == -1) {
-      AppendErrorMessage(status) += f("Couldn't save %s in env", name);
+      AppendErrorMessage(status) += f("Couldn't save {} in env", name);
       FATAL << status;
     }
     if (systemd::IsRunningUnderSystemd()) {
       systemd::OverrideEnvironment("gatekeeper", name, default_value, status);
       if (!OK(status)) {
         AppendErrorMessage(status) +=
-            f("Couldn't save %s in systemd service environment", name);
+            f("Couldn't save {} in systemd service environment", name);
         FATAL << status;
       }
     }
@@ -548,7 +548,7 @@ int main(int argc, char *argv[]) {
   LOG << "Gatekeeper running at http://" << lan_ip << ":1337/";
   systemd::Ready();
   if (not systemd::IsRunningUnderSystemd()) {
-    Str url = f("http://%s:1337/", ToStr(lan_ip).c_str());
+    Str url = f("http://{}:1337/", ToStr(lan_ip));
     Status status_ignored;
     xdg::Open(url, status_ignored);
   }

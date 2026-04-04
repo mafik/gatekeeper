@@ -11,7 +11,7 @@
 #include "optional.hh"
 #include "str.hh"
 
-namespace maf::nl80211 {
+namespace automat::nl80211 {
 
 struct Bitrate {
   U32 bitrate;         // Bitrate in units of 100 kbps.
@@ -454,4 +454,4 @@ Str DfsStateToStr(DFS::State);
 Str BandToStr(nl80211_band);
 Str DFSRegionToStr(nl80211_dfs_regions);
 
-} // namespace maf::nl80211
+} // namespace automat::nl80211

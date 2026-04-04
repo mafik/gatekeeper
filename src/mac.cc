@@ -7,7 +7,7 @@
 
 #include "format.hh"
 
-using namespace maf;
+using namespace automat;
 
 static_assert(sizeof(MAC) == 6, "MAC must be 6 bytes");
 
@@ -22,6 +22,6 @@ MAC MAC::FromInterface(std::string_view interface_name) {
 }
 
 std::string MAC::ToStr() const {
-  return f("%02x:%02x:%02x:%02x:%02x:%02x", bytes[0], bytes[1], bytes[2],
+  return f("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", bytes[0], bytes[1], bytes[2],
            bytes[3], bytes[4], bytes[5]);
 }

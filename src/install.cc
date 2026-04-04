@@ -14,7 +14,7 @@
 #include "virtual_fs.hh"
 #include "webui.hh"
 
-using namespace maf;
+using namespace automat;
 
 namespace gatekeeper::install {
 

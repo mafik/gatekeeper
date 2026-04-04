@@ -4,7 +4,7 @@
 #include "span.hh"
 #include "vec.hh"
 
-namespace maf {
+namespace automat {
 
 // Class used to construct buffers of data.
 struct BufferBuilder {
@@ -61,4 +61,4 @@ struct BufferBuilder {
   Size Size() const { return buffer.size(); }
 };
 
-} // namespace maf
+} // namespace automat

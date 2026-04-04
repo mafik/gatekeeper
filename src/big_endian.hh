@@ -6,13 +6,13 @@
 
 namespace std {
 
-template <> constexpr maf::U24 byteswap(maf::U24 x) noexcept {
+template <> constexpr automat::U24 byteswap(automat::U24 x) noexcept {
   return (x & 0x0000ff) << 16 | (x & 0x00ff00) | (x & 0xff0000) >> 16;
 }
 
 } // namespace std
 
-namespace maf {
+namespace automat {
 
 // A type that can be operated just like any other integral type, but its memory
 // representation is big-endian.
@@ -41,4 +41,4 @@ static_assert(Big<U24>(0x112233).big_endian == 0x332211);
 static_assert(Big<U32>(0x11223344).big_endian == 0x44332211);
 static_assert(Big<U64>(0x1122334455667788).big_endian == 0x8877665544332211);
 
-} // namespace maf
+} // namespace automat

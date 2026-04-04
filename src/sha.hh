@@ -3,7 +3,7 @@
 #include "int.hh"
 #include "span.hh"
 
-namespace maf {
+namespace automat {
 
 struct SHA1 {
   constexpr static size_t kBlockSize = 64;
@@ -85,4 +85,4 @@ struct SHA512 {
   operator Span<>() { return bytes; }
 };
 
-} // namespace maf
+} // namespace automat

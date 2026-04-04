@@ -5,9 +5,9 @@
 #include "format.hh"
 #include "hex.hh"
 
-using namespace maf;
+using namespace automat;
 
-namespace maf::dns {
+namespace automat::dns {
 
 using namespace std;
 
@@ -36,7 +36,7 @@ Str ToStr(Type t) {
   case Type::ANY:
     return "ANY";
   default:
-    return f("UNKNOWN(%hu)", t);
+    return f("UNKNOWN({})", (U16)t);
   }
 }
 
@@ -47,7 +47,7 @@ Str ToStr(Class c) {
   case Class::ANY:
     return "ANY";
   default:
-    return f("UNKNOWN(%hu)", c);
+    return f("UNKNOWN({})", (U16)c);
   }
 }
 
@@ -147,7 +147,7 @@ Str ToStr(Header::OperationCode code) {
   case Header::OperationCode::UPDATE:
     return "UPDATE";
   default:
-    return f("UNKNOWN(%d)", code);
+    return f("UNKNOWN({})", (int)code);
   }
 }
 
@@ -157,7 +157,7 @@ void Header::write_to(string &buffer) {
 
 Str Header::ToStr() const {
   Str r = "dns::Header {\n";
-  r += "  id: " + f("0x%04hx", id) + "\n";
+  r += "  id: " + f("0x{:04x}", id.Get()) + "\n";
   r += "  reply: " + ::ToStr(reply) + "\n";
   r += "  opcode: " + Str(dns::ToStr(opcode)) + "\n";
   r += "  authoritative: " + ::ToStr(authoritative) + "\n";
@@ -352,8 +352,8 @@ Str Record::pretty_value() const {
     SOA soa;
     size_t parsed = soa.LoadFrom(data.data(), data.size(), 0);
     if (parsed == data.size()) {
-      return f("%s %s %d %d %d %d %d", soa.primary_name_server.c_str(),
-               soa.mailbox.c_str(), soa.serial_number, soa.refresh_interval,
+      return f("{} {} {} {} {} {} {}", soa.primary_name_server,
+               soa.mailbox, soa.serial_number, soa.refresh_interval,
                soa.retry_interval, soa.expire_limit, soa.minimum_ttl);
     }
   }
@@ -442,4 +442,4 @@ void Message::ForEachRecord(Fn<void(const Record &)> f) const {
   }
 }
 
-} // namespace maf::dns
+} // namespace automat::dns

@@ -5,7 +5,7 @@
 #include "int.hh"
 #include "span.hh"
 
-namespace maf {
+namespace automat {
 
 struct linux_dirent64 {
   U64 d_ino;     /* 64-bit inode number */
@@ -37,4 +37,4 @@ struct DirectoryScanner {
   EndIterator end();
 };
 
-} // namespace maf
+} // namespace automat

@@ -1,6 +1,6 @@
 #include "args.hh"
 
-namespace maf {
+namespace automat {
 
 int argc;
 char **argv;
@@ -10,4 +10,4 @@ __attribute__((constructor)) void InitArgs(int _argc, char **_argv) {
   argv = _argv;
 }
 
-} // namespace maf
+} // namespace automat

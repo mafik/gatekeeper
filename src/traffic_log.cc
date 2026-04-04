@@ -6,14 +6,14 @@
 #include "atexit.hh"
 #include "webui.hh"
 
-using namespace maf;
+using namespace automat;
 using namespace std;
 
 namespace gatekeeper {
 
 struct TrafficEndpoints {
   MAC local_host;
-  maf::IP remote_ip;
+  automat::IP remote_ip;
 };
 
 struct OrderByHosts {
@@ -63,8 +63,8 @@ void TrafficLog::Init() {
   });
 }
 
-void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,
-                   maf::U32 down) {
+void RecordTraffic(MAC local_host, automat::IP remote_ip, automat::U32 up,
+                   automat::U32 down) {
   auto now = chrono::system_clock::now();
   // Limit resolution of traffic logs to 0.1 second
   now -= chrono::duration_cast<chrono::system_clock::duration>(
@@ -106,7 +106,7 @@ void RecordTraffic(MAC local_host, maf::IP remote_ip, maf::U32 up,
   }
 }
 
-void QueryTraffic(maf::Fn<void(const TrafficLog &)> callback) {
+void QueryTraffic(automat::Fn<void(const TrafficLog &)> callback) {
   for (const auto &log : traffic_logs) {
     callback(*log);
   }

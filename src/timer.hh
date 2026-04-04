@@ -4,8 +4,8 @@
 
 #include "epoll.hh"
 
-struct Timer : maf::epoll::Listener {
-  maf::Status status;
+struct Timer : automat::epoll::Listener {
+  automat::Status status;
   std::function<void()> handler;
 
   Timer();
@@ -17,7 +17,7 @@ struct Timer : maf::epoll::Listener {
 
   // Calls `handler` whenever the timer triggers. Part of the epoll::Listener
   // interface.
-  void NotifyRead(maf::Status &) override;
+  void NotifyRead(automat::Status &) override;
 
   const char *Name() const override;
 };

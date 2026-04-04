@@ -10,7 +10,7 @@
 #include <cctype>
 #include <iterator>
 
-namespace maf {
+namespace automat {
 
 static const auto kASCIIPasswordChars = "abcdefghijklmnopqrstuvwxyz"
                                         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -64,4 +64,4 @@ Str RandomPassword52bit() {
   return password;
 }
 
-} // namespace maf
+} // namespace automat

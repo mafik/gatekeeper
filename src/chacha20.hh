@@ -4,7 +4,7 @@
 #include "int.hh"
 #include "span.hh"
 
-namespace maf {
+namespace automat {
 
 // RFC 7539 altered the original ChaCha20 specification to use a 96-bit nonce.
 // It is kept in a separate namespace so that if 64-bit nonce is ever needed
@@ -32,4 +32,4 @@ struct ChaCha20 {
 
 using ChaCha20 = rfc7539::ChaCha20;
 
-} // namespace maf
+} // namespace automat

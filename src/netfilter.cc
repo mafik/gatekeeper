@@ -6,7 +6,7 @@
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink.h>
 
-namespace maf::netfilter {
+namespace automat::netfilter {
 
 // Structs used as templates for netlink communication.
 namespace messages {
@@ -424,4 +424,4 @@ err:
               std::string(chain_name) + "\"";
 }
 
-} // namespace maf::netfilter
+} // namespace automat::netfilter

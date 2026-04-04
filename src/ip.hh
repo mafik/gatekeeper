@@ -8,7 +8,7 @@
 #include "status.hh"
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 union __attribute__((__packed__)) IP {
   U32 addr; // network byte order
@@ -65,10 +65,10 @@ struct Network {
 Str ToStr(const Network &);
 static_assert(Stringer<Network>);
 
-} // namespace maf
+} // namespace automat
 
-template <> struct std::hash<maf::IP> {
-  std::size_t operator()(const maf::IP &ip) const {
-    return std::hash<maf::U32>()(ip.addr);
+template <> struct std::hash<automat::IP> {
+  std::size_t operator()(const automat::IP &ip) const {
+    return std::hash<automat::U32>()(ip.addr);
   }
 };

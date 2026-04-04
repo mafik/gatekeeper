@@ -6,8 +6,8 @@
 #include <chrono>
 #include <optional>
 
-namespace maf {
+namespace automat {
 Str FormatDuration(std::optional<std::chrono::steady_clock::duration> d_opt,
                    const char *never = "∞");
 
-}; // namespace maf
+}; // namespace automat

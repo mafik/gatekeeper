@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+// SPDX-License-Identifier: MIT
 #pragma once
 
 #include <compare>
@@ -10,7 +12,7 @@
 #include "status.hh"
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 constexpr Size DynamicExtent = std::dynamic_extent;
 
@@ -19,8 +21,10 @@ template <class T = char, Size Extent = DynamicExtent>
 struct Span : std::span<T, Extent> {
   using std::span<T, Extent>::span;
 
-  inline Span(const Str& s) : Span(const_cast<char*>(s.data()), s.size() / sizeof(T)) {}
-  inline Span(StrView s) : Span(const_cast<char*>(s.data()), s.size() / sizeof(T)) {}
+  inline Span(const Str& s)
+      : Span(reinterpret_cast<T*>(const_cast<char*>(s.data())), s.size() / sizeof(T)) {}
+  inline Span(StrView s)
+      : Span(reinterpret_cast<T*>(const_cast<char*>(s.data())), s.size() / sizeof(T)) {}
 
   // Arrays
   template <Size N>
@@ -40,6 +44,11 @@ struct Span : std::span<T, Extent> {
     return *this;
   }
 
+  auto Resize(Size n) {
+    *this = this->first(n);
+    return *this;
+  }
+
   template <Size ExtentRhs>
   constexpr inline bool StartsWith(Span<T, ExtentRhs> prefix) {
     if (this->size() < prefix.size()) {
@@ -51,12 +60,14 @@ struct Span : std::span<T, Extent> {
   template <typename U>
   U& As(Status& status) {
     if (this->size() < sizeof(U)) {
-      AppendErrorMessage(status) +=
-          f("Span too small to contain %s (%x vs %x)", typeid(U).name(), this->size(), sizeof(U));
+      AppendErrorMessage(status) += f("Span too small to contain {} ({:x} vs {:x})",
+                                      typeid(U).name(), this->size(), sizeof(U));
       // TODO: return nullptr
     }
     return *(U*)this->data();
   }
+
+  void Zero() { memset(this->data(), 0, this->size() * sizeof(T)); }
 
   // Unchecked version of As. Use only when you know the span is big enough.
   template <typename U>
@@ -65,11 +76,16 @@ struct Span : std::span<T, Extent> {
   }
 
   template <typename U>
+  Span<U> AsSpanOf() {
+    return Span<U>((U*)this->data(), this->size_bytes() / sizeof(U));
+  }
+
+  template <typename U>
   U& Consume(Status& status) {
     U& ret = *(U*)this->data();
     if (this->size() < sizeof(U)) {
-      AppendErrorMessage(status) +=
-          f("Span too small to contain %s (%x vs %x)", typeid(U).name(), this->size(), sizeof(U));
+      AppendErrorMessage(status) += f("Span too small to contain {} ({:x} vs {:x})",
+                                      typeid(U).name(), this->size(), sizeof(U));
       this->RemovePrefix(this->size());
       // TODO: return nullptr
     } else {
@@ -83,7 +99,7 @@ struct Span : std::span<T, Extent> {
   template <typename U>
   U& Consume() {
     U* ret = (U*)this->data();
-    RemovePrefix(sizeof(U));
+    RemovePrefix(sizeof(U) / sizeof(T));
     return *ret;
   }
 
@@ -98,7 +114,7 @@ struct Span : std::span<T, Extent> {
   Span<> ConsumeSpan(Size n, Status& status) {
     Span<> ret = this->first(n);
     if (this->size() < n) {
-      AppendErrorMessage(status) += f("Span too small (%x vs %x)", this->size(), n);
+      AppendErrorMessage(status) += f("Span too small ({:x} vs {:x})", this->size(), n);
       this->RemovePrefix(this->size());
     } else {
       this->RemovePrefix(n);
@@ -141,11 +157,11 @@ inline Span<T, DynamicExtent> SpanOfArr(T* arr, Size n) {
   return Span<T, DynamicExtent>(arr, n);
 }
 
-}  // namespace maf
+}  // namespace automat
 
 template <>
-struct std::hash<maf::Span<>> {
-  std::size_t operator()(maf::Span<> span) const {
-    return std::hash<std::string_view>()(StrViewOf(span));
+struct std::hash<automat::Span<>> {
+  std::size_t operator()(automat::Span<> span) const {
+    return std::hash<std::string_view>()(automat::StrViewOf(span));
   }
 };

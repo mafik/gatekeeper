@@ -1,10 +1,10 @@
 #pragma once
 
-namespace maf {
+namespace automat {
 
 enum class ControlFlow {
   Continue,
   Stop,
 };
 
-} // namespace maf
+} // namespace automat

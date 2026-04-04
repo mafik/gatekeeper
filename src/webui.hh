@@ -47,7 +47,7 @@ struct Table {
   void RenderJSON(std::string &json);
 };
 
-void Start(maf::Status &);
+void Start(automat::Status &);
 void Stop();
 
 // Similar to Stop - but doesn't terminate existing connections.
@@ -60,7 +60,7 @@ void FlushAndClose();
 //
 // This allows the web UI to update in real time.
 void RecordTraffic(std::chrono::system_clock::time_point time,
-                   maf::MAC local_host, maf::IP remote_ip, maf::U32 up,
-                   maf::U32 down);
+                   automat::MAC local_host, automat::IP remote_ip,
+                   automat::U32 up, automat::U32 down);
 
 } // namespace webui

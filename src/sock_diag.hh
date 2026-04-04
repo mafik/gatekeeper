@@ -6,7 +6,7 @@
 #include "int.hh"
 #include "ip.hh"
 
-namespace maf {
+namespace automat {
 
 struct PacketSocketDescription {
   U16 protocol;
@@ -34,4 +34,4 @@ void ScanUdpSockets(Fn<void(InternetSocketDescription &)> callback,
 void ScanTcpSockets(Fn<void(InternetSocketDescription &)> callback,
                     Status &status);
 
-} // namespace maf
+} // namespace automat

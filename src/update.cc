@@ -15,7 +15,7 @@
 #include "timer.hh"
 #include "virtual_fs.hh"
 
-namespace maf::update {
+namespace automat::update {
 
 Config config;
 Status status;
@@ -211,4 +211,4 @@ void Start() {
 
 void Stop() { timer.reset(); }
 
-} // namespace maf::update
+} // namespace automat::update

@@ -24,8 +24,9 @@
 #include "span.hh"
 #include "status.hh"
 #include "systemd.hh"
+#include "time.hh"
 
-namespace maf::wifi {
+namespace automat::wifi {
 
 // #define DEBUG_WIFI 1
 
@@ -957,4 +958,4 @@ void EAPOLReceiver::NotifyRead(Status &epoll_status) {
   }
 }
 
-} // namespace maf::wifi
+} // namespace automat::wifi

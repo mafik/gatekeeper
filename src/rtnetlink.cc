@@ -1,6 +1,6 @@
 #include "rtnetlink.hh"
 
-namespace maf::rtnetlink {
+namespace automat::rtnetlink {
 
 void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
               Status &status) {
@@ -56,10 +56,11 @@ void GetRoute(Netlink &netlink_route, std::function<void(Route &)> callback,
 
 Str ToStr(const Route &r) {
   return "Route{dst=" + ToStr(r.dst) + ", dst_mask=" + ToStr(r.dst_mask) +
-         ", oif=" + (r.oif ? maf::ToStr(*r.oif) : "none") +
-         ", prefsrc=" + (r.prefsrc ? maf::ToStr(*r.prefsrc) : "none") +
-         ", gateway=" + (r.gateway ? maf::ToStr(*r.gateway) : "none") +
-         ", priority=" + (r.priority ? maf::ToStr(*r.priority) : "none") + "}";
+         ", oif=" + (r.oif ? automat::ToStr(*r.oif) : "none") +
+         ", prefsrc=" + (r.prefsrc ? automat::ToStr(*r.prefsrc) : "none") +
+         ", gateway=" + (r.gateway ? automat::ToStr(*r.gateway) : "none") +
+         ", priority=" + (r.priority ? automat::ToStr(*r.priority) : "none") +
+         "}";
 }
 
-} // namespace maf::rtnetlink
+} // namespace automat::rtnetlink

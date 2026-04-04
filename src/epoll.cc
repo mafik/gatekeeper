@@ -10,7 +10,7 @@
 #include "log.hh"
 #endif
 
-namespace maf::epoll {
+namespace automat::epoll {
 
 thread_local int fd = 0;
 thread_local int listener_count = 0;
@@ -143,4 +143,4 @@ void Loop(Status &status) {
   }
 }
 
-} // namespace maf::epoll
+} // namespace automat::epoll

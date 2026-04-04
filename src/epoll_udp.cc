@@ -2,7 +2,7 @@
 #include "status.hh"
 #include <cstring>
 
-namespace maf::epoll {
+namespace automat::epoll {
 
 void UDPListener::NotifyRead(Status &status) {
   while (fd != -1) {
@@ -25,4 +25,4 @@ void UDPListener::NotifyRead(Status &status) {
   }
 }
 
-} // namespace maf::epoll
+} // namespace automat::epoll

@@ -7,7 +7,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-namespace maf {
+namespace automat {
 
 const IP IP::kZero;
 
@@ -47,11 +47,11 @@ IP IP::NetmaskFromPrefixLength(int prefix_length) {
 }
 
 Str ToStr(IP ip) {
-  return f("%d.%d.%d.%d", ip.bytes[0], ip.bytes[1], ip.bytes[2], ip.bytes[3]);
+  return f("{}.{}.{}.{}", ip.bytes[0], ip.bytes[1], ip.bytes[2], ip.bytes[3]);
 }
 
 Str ToStr(const Network &n) {
   return ToStr(n.ip) + "/" + ToStr(std::countr_one(n.netmask.addr));
 }
 
-} // namespace maf
+} // namespace automat

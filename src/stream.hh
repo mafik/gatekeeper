@@ -3,7 +3,7 @@
 #include "status.hh"
 #include "vec.hh"
 
-namespace maf {
+namespace automat {
 
 struct Stream {
   Vec<> inbox;
@@ -32,4 +32,4 @@ struct Stream {
   virtual operator Status &() = 0;
 };
 
-}; // namespace maf
+}; // namespace automat

@@ -5,6 +5,6 @@
 namespace gatekeeper::install {
 
 bool CanInstall();
-void Install(maf::Status &status);
+void Install(automat::Status &status);
 
 } // namespace gatekeeper::install

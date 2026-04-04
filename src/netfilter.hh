@@ -7,7 +7,7 @@
 // Utilities for interacting with the Linux Netfilter framework.
 //
 // See https://en.wikipedia.org/wiki/Netfilter.
-namespace maf::netfilter {
+namespace automat::netfilter {
 
 enum class Family : U8 {
   UNSPEC = 0,
@@ -58,4 +58,4 @@ void FlushChain(Netlink &, Family, const char *table_name,
 void NewRule(Netlink &, Family, const char *table_name, const char *chain_name,
              std::string_view rule, Status &status);
 
-} // namespace maf::netfilter
+} // namespace automat::netfilter

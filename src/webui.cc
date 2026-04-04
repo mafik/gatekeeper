@@ -28,7 +28,7 @@
 
 namespace webui {
 
-using namespace maf;
+using namespace automat;
 using namespace std;
 using namespace http;
 using namespace gatekeeper;
@@ -501,7 +501,7 @@ struct DevicesTable : Table {
     if (row < 0 || row >= rows.size()) {
       return "";
     }
-    return f("devices-%08x", rows[row].ip.addr);
+    return f("devices-{:08x}", rows[row].ip.addr);
   }
 };
 
@@ -563,7 +563,7 @@ struct LogsTable : Table {
     if (row < 0 || row >= messages.size()) {
       return "";
     }
-    return f("log-%d", row);
+    return f("log-{}", row);
   }
 };
 
@@ -1170,7 +1170,7 @@ string ANSIToHTML(string_view buf) {
 }
 
 void SetupLogging() {
-  loggers.push_back([](const LogEntry &e) {
+  GetLoggers().push_back([](const LogEntry &e) {
     messages.emplace_back(ANSIToHTML(e.buffer));
     while (messages.size() > 20) {
       messages.pop_front();

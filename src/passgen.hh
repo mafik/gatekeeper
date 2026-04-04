@@ -2,7 +2,7 @@
 
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 // Pick a random password with approximately 52 bits of entropy.
 //
@@ -10,4 +10,4 @@ namespace maf {
 // to remember.
 Str RandomPassword52bit();
 
-} // namespace maf
+} // namespace automat

@@ -3,7 +3,7 @@
 #include "optional.hh"
 #include "webui.hh"
 
-namespace maf::dns {
+namespace automat::dns {
 
 struct Table : webui::Table {
   struct Row {
@@ -23,4 +23,4 @@ struct Table : webui::Table {
 
 extern Table table;
 
-} // namespace maf::dns
+} // namespace automat::dns

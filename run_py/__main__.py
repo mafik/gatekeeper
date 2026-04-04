@@ -1,62 +1,67 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+# SPDX-License-Identifier: MIT
 
 '''Run Automat.'''
 
-import build
-import subprocess
-import debian_deps
 from args import args
 from sys import platform, exit
 
+if platform == 'win32':
+    import windows_deps
+    windows_deps.check_and_install()
+
+import build
+import subprocess
+
+import debian_deps
+debian_deps.check_and_install()
+
 recipe = build.recipe()
 
-if args.verbose:
-    print('Build graph')
-    for step in recipe.steps:
-        print(' Step', step.shortcut)
-        print('  Inputs:')
-        for inp in sorted(str(x) for x in step.inputs):
-            print('    ', inp)
-        print('  Outputs: ', step.outputs)
+from dashboard import Dashboard
+dashboard = Dashboard(recipe)
+dashboard.start()
+if dashboard.exception:
+  print(f"Dashboard failed to start: {dashboard.exception}")
+else:
+  print(f"Dashboard running at: http://localhost:{dashboard.port}/")
 
-if __name__ == '__main__':
-    debian_deps.check_and_install()
-    
-    if args.fresh:
-        print('Cleaning old build results:')
-        recipe.clean()
+if args.fresh:
+    print('Cleaning old build results:')
+    recipe.clean()
 
-    active_recipe = None
+active_recipe = None
 
-    while True:
-        recipe.set_target(args.target)
-        if platform == 'linux':
-            events = 'CLOSE_WRITE'
-        elif platform == 'win32':
-            events = 'create,modify,delete,move'
-        else:
-            raise Exception(
-                f'Unknown platfrorm: "{platform}". Expected either "linux" or "win32". Automat is not supported on this platform yet!')
-
-        # TODO: include inotify-win in the build scripts for Windows
+while True:
+    extra_targets = []
+    if args.compile_commands:
+        extra_targets.append('compile_commands.json')
+    recipe.set_target(args.target, *extra_targets)
+    if args.live:
         watcher = subprocess.Popen(
-            ['inotifywait', '-qe', events, 'src/'], stdout=subprocess.DEVNULL)
+            ['python', 'run_py/inotify.py', 'src/', 'assets/'], stdout=subprocess.DEVNULL)
+    else:
+        watcher = None
 
+    try:
         ok = recipe.execute(watcher)
-        if ok:
-            if active_recipe:
-                active_recipe.interrupt()
-            active_recipe = recipe
-        if not args.live:
-            watcher.kill()
-            break
+    except KeyboardInterrupt:
+        exit(2)
+    if ok:
+        if active_recipe:
+            active_recipe.interrupt()
+        active_recipe = recipe
+    if watcher:
         try:
             print('Watching src/ for changes...')
             watcher.wait()
         except KeyboardInterrupt:
             watcher.kill()
             break
-        # Reload the recipe because dependencies may have changed
-        recipe = build.recipe()
-    if not ok:
-        exit(1)
+    else:
+        break
+    # Reload the recipe because dependencies may have changed
+    recipe = build.recipe()
+if not ok:
+    exit(1)

@@ -2,7 +2,7 @@
 
 #include "ed25519.hh"
 
-namespace maf {
+namespace automat {
 
 struct SignatureNote {
   int namesz = 4;
@@ -14,4 +14,4 @@ struct SignatureNote {
 
 extern const SignatureNote kSignatureNote;
 
-} // namespace maf
+} // namespace automat

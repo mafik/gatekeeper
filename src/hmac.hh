@@ -4,7 +4,7 @@
 #include "span.hh"
 #include <cstring>
 
-namespace maf {
+namespace automat {
 
 template <typename Hash> Arr<char, Hash::kBlockSize> HMAC_FixedKey(Span<> key) {
   Arr<char, Hash::kBlockSize> fixed_key;
@@ -37,4 +37,4 @@ template <typename Hash> Hash HMAC(Span<> key, Span<> m) {
       .Finalize();
 }
 
-} // namespace maf
+} // namespace automat

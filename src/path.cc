@@ -1,4 +1,8 @@
+// SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+// SPDX-License-Identifier: MIT
 #include "path.hh"
+
+#include <sys/stat.h>
 
 #if defined(__linux__)
 #include <pwd.h>
@@ -6,13 +10,14 @@
 #endif  // defined(__linux__)
 
 #if defined(_WIN32)
+#include <direct.h>
 #include <windows.h>
 #endif  // defined(_WIN32)
 
 #include "int.hh"
 #include "status.hh"
 
-namespace maf {
+namespace automat {
 
 #if defined(__linux__)
 Path Path::ExpandUser() const {
@@ -48,7 +53,7 @@ Path Path::ReadLink(Status& status) const {
 }
 
 Path Path::ExecutablePath() {
-  static Path executable_path = []() {
+  static Path executable_path = [] {
     char path[PATH_MAX];
     SSize len = readlink("/proc/self/exe", path, sizeof(path));
     if (len < 0) {
@@ -129,8 +134,46 @@ void Path::Rename(const Path& to, Status& status) const {
   }
 }
 
+void Path::MakeDirs(Status& status, bool make_parents) const {
+  if (str.empty()) {
+    return;
+  }
+#if defined(__linux__)
+  int ret = mkdir(str.c_str(), 0777);
+#elif defined(_WIN32)
+  int ret = _mkdir(str.c_str());
+#endif
+  if (ret < 0) {
+    if (errno == EEXIST) {
+      // Directory already exists - not an error
+      errno = 0;
+      return;
+    }
+    if (make_parents && errno == ENOENT) {
+      // Parent directory doesn't exist - create it first
+      auto parent = Parent();
+      if (!parent.str.empty()) {
+        errno = 0;
+        parent.MakeDirs(status);
+        if (!OK(status)) {
+          return;
+        }
+        // Retry creating this directory
+        MakeDirs(status, false);
+        return;
+      }
+    }
+    AppendErrorMessage(status) = "mkdir(" + str + ") failed";
+  }
+}
+
 Str Path::Name() const {
-  auto slash_pos = str.rfind("/");
+#if defined(_WIN32)
+  constexpr char kSeparator = '\\';
+#else
+  constexpr char kSeparator = '/';
+#endif
+  auto slash_pos = str.rfind(kSeparator);
   if (slash_pos == StrView::npos) {
     return str;
   } else {
@@ -166,4 +209,4 @@ Path Path::WithStem(StrView stem) const {
   return Path(str.substr(0, stem_begin) + Str(stem) + str.substr(stem_end));
 }
 
-}  // namespace maf
+}  // namespace automat

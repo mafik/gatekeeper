@@ -18,7 +18,7 @@
 
 // #define DEBUG_HTTP
 
-using namespace maf;
+using namespace automat;
 
 namespace http {
 
@@ -191,7 +191,7 @@ static int ConsumeHttpRequest(Connection &c) {
     std::string sha_buf;
     sha_buf += websocket_key;
     sha_buf += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-    maf::SHA1 sha_sum(sha_buf);
+    automat::SHA1 sha_sum(sha_buf);
     auto sha_b64 = Base64Encode(sha_sum);
 
     response.WriteStatus("101 Switching Protocols");

@@ -1,6 +1,6 @@
 #include "chacha20.hh"
 
-namespace maf::rfc7539 {
+namespace automat::rfc7539 {
 
 ChaCha20::ChaCha20(Span<char, 32> key, U32 counter, Span<char, 12> nonce)
     : constant{0x65, 0x78, 0x70, 0x61, 0x6E, 0x64, 0x20, 0x33,
@@ -173,4 +173,4 @@ void ChaCha20::Crypt(Span<> mem) {
   }
 }
 
-} // namespace maf::rfc7539
+} // namespace automat::rfc7539

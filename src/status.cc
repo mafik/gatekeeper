@@ -1,24 +1,25 @@
+// SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+// SPDX-License-Identifier: MIT
 #include "status.hh"
 
 #include <cstring>
 
 #include "format.hh"
 
-namespace maf {
+namespace automat {
 
 Status::Status() : errsv(0) {}
 
-Str &Status::operator()(const std::source_location location_arg) {
+Str& Status::operator()(const std::source_location location_arg) {
   if (errsv == 0) {
     errsv = errno;
     errno = 0;
   }
-  entry.reset(new Entry{
-      .next = std::move(entry), .location = location_arg, .message = {}});
+  entry.reset(new Entry{.next = std::move(entry), .location = location_arg, .message = {}});
   return entry->message;
 }
 
-void AppendErrorAdvice(Status &status, StrView advice) {
+void AppendErrorAdvice(Status& status, StrView advice) {
   if (status.entry) {
     status.entry->advice += advice;
   }
@@ -28,7 +29,7 @@ bool Status::Ok() const { return errsv == 0 && entry == nullptr; }
 
 Str Status::ToStr() const {
   Str ret;
-  for (Entry *i = entry.get(); i != nullptr; i = i->next.get()) {
+  for (Entry* i = entry.get(); i != nullptr; i = i->next.get()) {
     if (!ret.empty()) {
       ret += " ";
     }
@@ -36,8 +37,8 @@ Str Status::ToStr() const {
     if (!ret.empty()) {
       ret += " ";
     }
-    auto &location = i->location;
-    ret += f("(%s:%d).", location.file_name(), location.line());
+    auto& location = i->location;
+    ret += f("({}:{}).", location.file_name(), location.line());
   }
   if (errsv) {
     if (!ret.empty()) {
@@ -54,4 +55,4 @@ void Status::Reset() {
   entry.reset();
 }
 
-} // namespace maf
+}  // namespace automat

@@ -18,7 +18,7 @@
 // - ecdsa_secp256r1_sha256 signatures
 // - secp256r1 key exchange
 // - TLS Cookies
-namespace maf::tls {
+namespace automat::tls {
 
 struct Connection;
 struct RecordHeader;
@@ -61,4 +61,4 @@ struct Connection : Stream {
   operator Status &() override { return tcp_connection; }
 };
 
-} // namespace maf::tls
+} // namespace automat::tls

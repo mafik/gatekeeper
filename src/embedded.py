@@ -1,4 +1,6 @@
 '''Generates embedded.hh and embedded.cc, with contents of all the static files.'''
+# SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+# SPDX-License-Identifier: MIT
 
 # Note: command for crushing png files
 # pngcrush -ow -rem alla -brute -reduce static/*
@@ -8,6 +10,7 @@ import fs_utils
 import cc_embed
 import make
 import src
+import subprocess
 
 from pathlib import Path
 from functools import partial
@@ -34,25 +37,25 @@ def gen(embedded_paths):
 
 #include "../../src/virtual_fs.hh"
 
-namespace maf::embedded {{
+namespace automat::embedded {{
 
-extern std::unordered_map<maf::StrView, maf::fs::VFile*> index;
+extern std::unordered_map<StrView, fs::VFile*> index;
 ''',
               file=hh)
         for path in embedded_paths:
             slug = slug_from_path(path)
-            print(f'extern maf::fs::VFile {slug};', file=hh)
+            print(f'extern fs::VFile {slug};', file=hh)
         print(f'''
-}}  // namespace maf::embedded''', file=hh)
+}}  // namespace automat::embedded''', file=hh)
 
     with cc_path.open('w') as cc:
         print(f'''#include "embedded.hh"
 
 using namespace std::string_literals;
-using namespace maf;
-using namespace maf::fs;
+using namespace automat;
+using namespace automat::fs;
 
-namespace maf::embedded {{''',
+namespace automat::embedded {{''',
               file=cc)
         for path in embedded_paths:
             slug = slug_from_path(path)
@@ -77,27 +80,29 @@ VFile {slug} = {{
             slug = slug_from_path(path)
             print(f'  {{ {slug}.path, &{slug} }},', file=cc)
         print('};', file=cc)
-        print('\n}  // namespace maf::embedded', file=cc)
+        print('\n}  // namespace automat::embedded', file=cc)
 
+main_step = None
 
 def hook_srcs(srcs: dict[str, src.File], recipe: make.Recipe):
-    paths = list(Path('static').glob('**/*'))
-    paths += list(Path('assets').glob('**/*'))
-    paths.append(Path('gatekeeper.service'))
 
-    # retain only files
-    paths = [path for path in paths if path.is_file()]
+    result = subprocess.run(['git', 'ls-files'], capture_output=True, text=True)
+    paths = [Path(p) for p in result.stdout.splitlines() if Path(p).is_file()]
 
     fs_utils.generated_dir.mkdir(exist_ok=True)
 
-    recipe.add_step(partial(gen, paths), [hh_path, cc_path],
+    global main_step
+
+    main_step = recipe.add_step(partial(gen, paths), [hh_path, cc_path],
                     paths + [Path(__file__)],
                     desc='Embedding static files',
                     shortcut='embedded')
-    recipe.generated.add(hh_path)
-    recipe.generated.add(cc_path)
+    recipe.generated.add(str(hh_path))
+    recipe.generated.add(str(cc_path))
 
     hh_file = src.File(hh_path)
     srcs[str(hh_path)] = hh_file
     cc_file = src.File(cc_path)
+    # Help with dependency tracking by informing the build system that we're including virtual_fs.hh
+    cc_file.direct_includes.append(str(fs_utils.src_dir / 'virtual_fs.hh'))
     srcs[str(cc_path)] = cc_file

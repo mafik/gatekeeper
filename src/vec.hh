@@ -1,17 +1,24 @@
+// SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+// SPDX-License-Identifier: MIT
 #pragma once
+
+#include <llvm/ADT/SmallVector.h>
 
 #include <vector>
 
 #include "span.hh"
 
-namespace maf {
+namespace automat {
+
+template <typename T, unsigned N = llvm::CalculateSmallVectorDefaultInlinedElements<T>::value>
+using SmallVec = llvm::SmallVector<T, N>;
 
 template <typename T = char>
 struct Vec : std::vector<T> {
   using std::vector<T>::vector;
   using iterator = typename std::vector<T>::iterator;
 
-  Span<> Span() { return {this->data(), this->size()}; }
+  operator Span<T>() { return {this->data(), this->size()}; }
 
   template <typename U>
   void Append(const U& u) {
@@ -52,4 +59,21 @@ struct Vec : std::vector<T> {
   iterator EraseIndex(int i) { return this->erase(this->begin() + i); }
 };
 
-}  // namespace maf
+template <typename T, typename... Args>
+Vec<T> MakeVec(Args&&... t) {
+  Vec<T> vec;
+  vec.reserve(sizeof...(Args));
+  (vec.emplace_back(std::move(t)), ...);
+  return vec;
+}
+
+template <typename T>
+void FastRemove(std::vector<T>& vec, const T& value) {
+  auto it = std::find(vec.begin(), vec.end(), value);
+  if (it != vec.end()) {
+    *it = std::move(vec.back());
+    vec.pop_back();
+  }
+}
+
+}  // namespace automat

@@ -10,7 +10,7 @@
 #include <string_view>
 #include <unordered_map>
 
-// TODO: move this to maf::epoll::http
+// TODO: move this to automat::epoll::http
 namespace http {
 
 // Request wraps the HTTP request buffer and provides easy access to its
@@ -87,7 +87,7 @@ struct Server;
 
 // Connection stores all of the data related to a single network
 // connection.
-struct Connection : maf::epoll::Listener {
+struct Connection : automat::epoll::Listener {
   // Pointer to the Server instance that this Connection belongs to.
   Server *server;
 
@@ -112,7 +112,7 @@ struct Connection : maf::epoll::Listener {
   std::string response_buffer;
 
   // Description of the last error.
-  maf::Status status;
+  automat::Status status;
 
   // Textual representation of the remote IP address of this Connection. This
   // comes from the OS network layer. The actual origin IP may be different if
@@ -136,7 +136,7 @@ struct Connection : maf::epoll::Listener {
   void Flush();
 
   // Close this WebSocket connection with an optional code & message.
-  void Close(maf::U16 code, std::string_view reason);
+  void Close(automat::U16 code, std::string_view reason);
 
   // Close the TCP connection that is the base for this Connection.
   //
@@ -145,11 +145,11 @@ struct Connection : maf::epoll::Listener {
 
   // Reads data whenever it becomes available. Part of the epoll::Listener
   // interface.
-  void NotifyRead(maf::Status &) override;
+  void NotifyRead(automat::Status &) override;
 
   // Writes data whenever it becomes available. Part of the epoll::Listener
   // interface.
-  void NotifyWrite(maf::Status &) override;
+  void NotifyWrite(automat::Status &) override;
 
   // Part of the epoll::Listener interface.
   const char *Name() const override;
@@ -162,7 +162,7 @@ struct Connection : maf::epoll::Listener {
 //
 // In order to accept new connections, receive & send data, epoll::Loop() must
 // be called.
-struct Server : maf::epoll::Listener {
+struct Server : automat::epoll::Listener {
   // Handler called whenever a HTTP request is made.
   std::function<void(Response &, Request &)> handler;
 
@@ -186,8 +186,8 @@ struct Server : maf::epoll::Listener {
   // TODO: WebSocket fuzz
 
   struct Config {
-    maf::IP ip = INADDR_ANY;
-    maf::U16 port = 80;
+    automat::IP ip = INADDR_ANY;
+    automat::U16 port = 80;
     std::optional<std::string> interface;
   };
 
@@ -195,14 +195,14 @@ struct Server : maf::epoll::Listener {
   //
   // To actually accept new connections, make sure to Poll the `epoll`
   // instance after listening.
-  void Listen(Config config, maf::Status &);
+  void Listen(Config config, automat::Status &);
 
   // Stop listening.
   void StopListening();
 
   // Accepts new connection whenever they arrive. Part of the epoll::Listener
   // interface.
-  void NotifyRead(maf::Status &) override;
+  void NotifyRead(automat::Status &) override;
 
   // Part of the epoll::Listener interface.
   const char *Name() const override;

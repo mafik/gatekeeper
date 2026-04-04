@@ -7,7 +7,7 @@
 #include "int.hh"
 #include "status.hh"
 
-namespace maf {
+namespace automat {
 
 struct ProcessScanner {
   U32 pid;
@@ -39,4 +39,4 @@ Generator<U32> ScanOpenedSockets(U32 pid, Status &);
 // Returns the name of the process with the given pid or "" in case of error.
 Str GetProcessName(U32 pid, Status &);
 
-} // namespace maf
+} // namespace automat

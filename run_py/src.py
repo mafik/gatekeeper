@@ -1,4 +1,6 @@
 '''Functions related to the `src/` directory.'''
+# SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+# SPDX-License-Identifier: MIT
 
 from collections import defaultdict
 from pathlib import Path
@@ -14,7 +16,7 @@ class File:
     path: Path
     system_includes: list[str]
     comment_libs: list[str]
-    direct_includes: list[str]
+    direct_includes: list[str] # absolute paths as strings
     transitive_includes: set['File']
     link_args: dict[str, list[str]]
     compile_args: dict[str, list[str]]
@@ -57,7 +59,7 @@ class File:
         if_stack = [True]
         current_defines = clang.default_defines.copy()
 
-        for line in open(self.path, encoding='utf-8').readlines():
+        for line in self.path.open(encoding='utf-8').readlines():
 
             # Minimal preprocessor. This allows us to skip platform-specific imports.
 
@@ -85,24 +87,23 @@ class File:
                 continue
 
             # Actual scanning starts here
-            match = re.match(r'^#include <([a-zA-Z0-9_/\.-]+)>', line)
+            match = re.match(r'^#include <([a-zA-Z0-9_/\.\-+]+)>', line)
             if match:
                 # system include
                 self.system_includes.append(match.group(1))
                 continue
 
-            match = re.match(r'^#pragma comment\(lib, "([a-zA-Z0-9_/\.-]+)"\)', line)
+            match = re.match(r'^#pragma comment\(lib, "([a-zA-Z0-9_/\.\-+]+)"\)', line)
             if match:
                 # extra library
                 self.comment_libs.append(match.group(1))
                 continue
 
 
-            match = re.match(r'^#include \"([a-zA-Z0-9_/\.-]+\.hh?)\"', line)
+            match = re.match(r'^#include \"([a-zA-Z0-9_/\.\-+]+\.hh?)\"', line)
             if match:
-                # relative to current source file
                 dep = self.path.parent / match.group(1)
-                dep = fs_utils.relative_to_root(dep)  # normalize
+                dep = dep.resolve()
                 self.direct_includes.append(str(dep))
 
             match = re.match(
@@ -156,27 +157,53 @@ def scan() -> dict[str, File]:
     for ext in ['.cc', '.hh', '.h', '.c']:
         paths.extend(fs_utils.src_dir.glob(f'**/*{ext}'))
 
-    for path_abs in paths:
-        path = path_abs.relative_to(fs_utils.project_root)
+    for path in paths:
         file = File(path)
         result[str(path)] = file
         file.scan_contents()
 
     return result
 
+# Extension loading utilities:
+# - 'load_extensions' returns the list of extensions in the order from the base to derived ones
+# - 'load_extension' utility for derived extensions that allow them to load their bases
+#
+# The point is to allow "derived extensions" to build upon "base extensions".
+#
+# For example the 'embedded' base extension exposes 'main_step' that is then used as a dependency
+# by the 'krita' derived extension.
+
+loaded_extensions = {}
+extensions_list: list[ModuleType] | None = None
 
 def load_extensions() -> list[ModuleType]:
-    extensions = []
+    global extensions_list
+    if extensions_list is not None:
+      return extensions_list
+    extensions_list = []
     old_dont_write_bytecode = sys.dont_write_bytecode
     sys.dont_write_bytecode = True
     for path in fs_utils.src_dir.glob('*.py'):
-        spec = importlib.util.spec_from_file_location(path.stem, path)
-        if not spec:
-            continue
-        module = importlib.util.module_from_spec(spec)
-        if not spec.loader:
-            continue
-        extensions.append(module)
-        spec.loader.exec_module(module)
+        try:
+            load_extension(path.stem)
+        except Exception as e:
+            print(f'Failed to load extension {path.stem}: {e}')
     sys.dont_write_bytecode = old_dont_write_bytecode
-    return extensions
+    return extensions_list
+
+def load_extension(name: str) -> ModuleType:
+    global extensions_list
+    if extensions_list is None:
+        raise RuntimeError('load_extension may only be called from within an extension')
+    if name in loaded_extensions:
+        return loaded_extensions[name]
+    spec = importlib.util.spec_from_file_location(name, fs_utils.src_dir / f'{name}.py')
+    if not spec:
+        raise ImportError(f'No module named {name}')
+    module = importlib.util.module_from_spec(spec)
+    if not spec.loader:
+        raise ImportError(f'No loader for {name}')
+    spec.loader.exec_module(module)
+    loaded_extensions[name] = module
+    extensions_list.append(module)
+    return module

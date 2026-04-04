@@ -5,7 +5,7 @@
 
 #include "netfilter.hh"
 
-namespace maf::netfilter {
+namespace automat::netfilter {
 
 // Number of the nfqueue used to intercept messages.
 constexpr Big<U16> kQueueNumber = 1337;
@@ -103,4 +103,4 @@ struct Verdict : nlmsghdr {
 
 #pragma GCC diagnostic pop
 
-} // namespace maf::netfilter
+} // namespace automat::netfilter

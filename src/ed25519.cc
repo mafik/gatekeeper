@@ -9,7 +9,7 @@
 #include "hex.hh"
 #include "int.hh"
 
-using namespace maf;
+using namespace automat;
 
 // From https://ed25519.cr.yp.to/
 namespace {
@@ -3579,7 +3579,7 @@ void ge25519_scalarmult_base(ge25519_p3 *r, const sc25519 *s) {
 
 } // namespace
 
-namespace maf::ed25519 {
+namespace automat::ed25519 {
 
 Private Private::FromDevUrandom(Status &status) {
   Private result = {};
@@ -3915,4 +3915,4 @@ void RFCTest() {
 
 #endif // MAF_ED25519_TEST
 
-} // namespace maf::ed25519
+} // namespace automat::ed25519

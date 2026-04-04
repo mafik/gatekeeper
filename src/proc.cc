@@ -12,7 +12,7 @@
 #include "status.hh"
 #include "virtual_fs.hh"
 
-namespace maf {
+namespace automat {
 
 static void SkipNonProcesses(ProcessScanner &scanner) {
   for (auto &ent : scanner.dir_scanner) {
@@ -50,7 +50,7 @@ ProcessScanner::Iterator ProcessScanner::begin() { return Iterator(*this); }
 ProcessScanner::EndIterator ProcessScanner::end() { return {}; }
 
 Generator<std::pair<U32, StrView>> ScanOpenedFiles(U32 pid, Status &status) {
-  Str dir = f("/proc/%d/fd", pid);
+  Str dir = f("/proc/{}/fd", pid);
   FD proc(open(dir.c_str(), O_RDONLY | O_DIRECTORY));
   if (proc < 0) {
     if (errno == ENOENT) {
@@ -101,7 +101,7 @@ Generator<U32> ScanOpenedSockets(U32 pid, Status &status) {
 }
 
 Str GetProcessName(U32 pid, Status &status) {
-  Path path = f("/proc/%d/comm", pid);
+  Path path = f("/proc/{}/comm", pid);
   Str process_name = fs::Read(fs::real, path, status);
   if (!OK(status)) {
     return "";
@@ -112,4 +112,4 @@ Str GetProcessName(U32 pid, Status &status) {
   return process_name;
 }
 
-} // namespace maf
+} // namespace automat

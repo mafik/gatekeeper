@@ -8,7 +8,7 @@
 #include "netlink.hh"
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 void ScanPacketSockets(Fn<void(PacketSocketDescription &)> callback,
                        Status &status) {
@@ -100,4 +100,4 @@ void ScanTcpSockets(Fn<void(InternetSocketDescription &)> callback,
   ScanInternetSockets(IPPROTO_TCP, callback, status);
 }
 
-} // namespace maf
+} // namespace automat

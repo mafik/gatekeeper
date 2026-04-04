@@ -4,7 +4,7 @@
 
 namespace gatekeeper {
 
-void HookSignals(maf::Status &status);
+void HookSignals(automat::Status &status);
 void UnhookSignals();
 
 extern const char *kKnownEnvironmentVariables[];

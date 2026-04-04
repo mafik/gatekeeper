@@ -6,7 +6,7 @@
 #include "span.hh"
 #include <netinet/in.h>
 
-namespace maf {
+namespace automat {
 
 template <typename Hash>
 void PBKDF2(Span<> out, Span<> password, Span<> salt, U32 iterations) {
@@ -30,4 +30,4 @@ void PBKDF2(Span<> out, Span<> password, Span<> salt, U32 iterations) {
   }
 }
 
-} // namespace maf
+} // namespace automat

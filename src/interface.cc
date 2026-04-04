@@ -11,7 +11,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-namespace maf {
+namespace automat {
 
 static void PrepareFD(FD &fd) {
   if (fd < 0) {
@@ -102,7 +102,7 @@ static void DeleteBridge(FD &fd, const char *bridge_name, Status &status) {
   }
 }
 
-void DeleteBridge(const char *bridge_name, maf::Status &status) {
+void DeleteBridge(const char *bridge_name, automat::Status &status) {
   FD fd;
   DeleteBridge(fd, bridge_name, status);
 }
@@ -133,7 +133,7 @@ bool Interface::IsWireless() {
 
 IP Interface::IP(Status &status) { return IP::FromInterface(name, status); }
 
-maf::IP Interface::Netmask(Status &status) {
+automat::IP Interface::Netmask(Status &status) {
   return IP::NetmaskFromInterface(name, status);
 }
 
@@ -153,7 +153,8 @@ void Interface::BringDown(Status &status) const {
   BringInterfaceDown(fd, *this, status);
 }
 
-void Interface::Configure(maf::IP ip, maf::Network network, Status &status) {
+void Interface::Configure(automat::IP ip, automat::Network network,
+                          Status &status) {
   FD fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   // Assign IP
   SetInterfaceIPv4(fd, *this, ip, status);
@@ -191,7 +192,7 @@ void Interface::Configure(maf::IP ip, maf::Network network, Status &status) {
 
 void Interface::Deconfigure(Status &status) {
   FD fd;
-  SetInterfaceIPv4(fd, *this, maf::IP(0, 0, 0, 0), status);
+  SetInterfaceIPv4(fd, *this, automat::IP(0, 0, 0, 0), status);
   if (!OK(status)) {
     AppendErrorMessage(status) += "Couldn't clear IP of interface " + name;
     return;
@@ -204,7 +205,7 @@ void Interface::EnableForwarding(Status &status) {
   fs::Write(fs::real, path, "1", status);
 }
 
-void Interface::UpdateIndex(maf::Status &status) {
+void Interface::UpdateIndex(automat::Status &status) {
   FD fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   ifreq ifr = {};
   strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
@@ -285,4 +286,4 @@ Interface BridgeInterfaces(const Vec<Interface> &interfaces,
   return bridge;
 }
 
-} // namespace maf
+} // namespace automat

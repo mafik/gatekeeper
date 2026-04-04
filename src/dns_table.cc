@@ -4,7 +4,7 @@
 
 using namespace std;
 
-namespace maf::dns {
+namespace automat::dns {
 
 Table::Table() : webui::Table("dns", "DNS", {"Expiration", "Entry"}) {}
 
@@ -80,4 +80,4 @@ std::string Table::RowID(int row) const {
 
 Table table;
 
-} // namespace maf::dns
+} // namespace automat::dns

@@ -7,7 +7,7 @@
 #include "status.hh"
 #include "vec.hh"
 
-namespace maf {
+namespace automat {
 
 struct Interface {
   std::string name = "";
@@ -15,12 +15,12 @@ struct Interface {
 
   bool IsLoopback();
   bool IsWireless();
-  maf::IP IP(Status &);
-  maf::IP Netmask(Status &);
+  automat::IP IP(Status &);
+  automat::IP Netmask(Status &);
   Network Network(Status &);
   void BringUp(Status &) const;
   void BringDown(Status &) const;
-  void Configure(maf::IP, maf::Network, Status &);
+  void Configure(automat::IP, automat::Network, Status &);
   void Deconfigure(Status &);
   void EnableForwarding(Status &);
 
@@ -37,4 +37,4 @@ Interface BridgeInterfaces(const Vec<Interface> &interfaces,
 
 void DeleteBridge(const char *bridge_name, Status &status);
 
-} // namespace maf
+} // namespace automat

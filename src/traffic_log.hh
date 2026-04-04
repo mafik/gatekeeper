@@ -10,20 +10,20 @@
 namespace gatekeeper {
 
 struct TrafficBytes {
-  maf::U32 up = 0;
-  maf::U32 down = 0;
+  automat::U32 up = 0;
+  automat::U32 down = 0;
 };
 
 struct TrafficLog {
-  maf::MAC local_host;
-  maf::IP remote_ip;
+  automat::MAC local_host;
+  automat::IP remote_ip;
   mutable std::map<std::chrono::system_clock::time_point, TrafficBytes> entries;
   static void Init();
 };
 
-void RecordTraffic(maf::MAC local_host, maf::IP remote_ip, maf::U32 up,
-                   maf::U32 down);
+void RecordTraffic(automat::MAC local_host, automat::IP remote_ip,
+                   automat::U32 up, automat::U32 down);
 
-void QueryTraffic(maf::Fn<void(const TrafficLog &)> callback);
+void QueryTraffic(automat::Fn<void(const TrafficLog &)> callback);
 
 } // namespace gatekeeper

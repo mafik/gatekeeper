@@ -12,7 +12,7 @@
 #include "netlink.hh"
 #include "status.hh"
 
-namespace maf::nl80211 {
+namespace automat::nl80211 {
 
 #ifndef NDEBUG
 #define NL80211_WARN
@@ -65,15 +65,15 @@ Netlink::Netlink(Status &status) : gn("nl80211"sv, NL80211_CMD_MAX, status) {
   }
 }
 
-using Attr = ::maf::Netlink::Attr;
-using Attrs = ::maf::Netlink::Attrs;
+using Attr = ::automat::Netlink::Attr;
+using Attrs = ::automat::Netlink::Attrs;
 
 Str Bitrate::ToStr() const {
   Str ret;
   if (bitrate % 10) {
-    ret += f("%d.%d Mbps", bitrate / 10, bitrate % 10);
+    ret += f("{}.{} Mbps", bitrate / 10, bitrate % 10);
   } else {
-    ret += f("%d Mbps", bitrate / 10);
+    ret += f("{} Mbps", bitrate / 10);
   }
   if (short_preamble) {
     ret += " (short preamble)";
@@ -680,12 +680,12 @@ Vec<Interface> Netlink::GetInterfaces(Status &status) {
 }
 
 Str Regulation::Rule::Describe() const {
-  Str ret = f("%d - %d kHz:\n", start_kHz, end_kHz);
-  ret += f("  max bandwidth: %d MHz\n", max_bandwidth_kHz / 1000);
-  ret += f("  max antenna gain: %d dBi\n", max_antenna_gain_mBi / 100);
-  ret += f("  max EIRP: %d dBm\n", max_eirp_mBm / 100);
+  Str ret = f("{} - {} kHz:\n", start_kHz, end_kHz);
+  ret += f("  max bandwidth: {} MHz\n", max_bandwidth_kHz / 1000);
+  ret += f("  max antenna gain: {} dBi\n", max_antenna_gain_mBi / 100);
+  ret += f("  max EIRP: {} dBm\n", max_eirp_mBm / 100);
   if (dfs_cac_time_ms) { // 0 means "use default DFS CAC time"
-    ret += f("  DFS CAC time: %d s\n", dfs_cac_time_ms / 1000);
+    ret += f("  DFS CAC time: {} s\n", dfs_cac_time_ms / 1000);
   }
   if (flags.any()) {
     ret += f("  flags:");
@@ -1126,7 +1126,7 @@ static Str CipherSuiteToStrShort(CipherSuite cipher) {
   case CipherSuite::BIP:
     return "BIP";
   default:
-    return f("%08x", (U32)cipher);
+    return f("{:08x}", (U32)cipher);
   }
 }
 
@@ -1165,7 +1165,7 @@ static Str IftypeToStrShort(nl80211_iftype iftype) {
 
 Str Interface::Describe() const {
   Str ret;
-  ret += f("Interface %d \"%s\":\n", index, name.c_str());
+  ret += f("Interface {} \"{}\":\n", index, name);
   Str body;
   body += "Type: " + IftypeToStrShort(type) + "\n";
   body += "MAC: " + mac.ToStr() + "\n";
@@ -1195,9 +1195,9 @@ Str Frequency::Describe() const {
   Str ret;
   ret += ToStr(frequency) + " MHz";
   if (offset) {
-    ret += f(" (+%d kHz)", offset);
+    ret += f(" (+{} kHz)", offset);
   }
-  ret += f(" %.0f", max_tx_power_100dbm / 100.0) + " dBm";
+  ret += f(" {:.0f}", max_tx_power_100dbm / 100.0) + " dBm";
   if (disabled) {
     ret += " [disabled]";
   }
@@ -1206,7 +1206,7 @@ Str Frequency::Describe() const {
   }
   if (radar) {
     if (dfs.has_value()) {
-      ret += f(" [%s, scan time = %d s]",
+      ret += f(" [{}, scan time = {} s]",
                DfsStateToStrShort(dfs->state).c_str(), dfs->cac_time_ms / 1000);
     } else {
       ret += " [radar]";
@@ -1277,7 +1277,7 @@ Str Band::Describe() const {
   if (ht.has_value()) {
     body += "High Throughput:";
     body += " capabilities=";
-    body += f("%04hx", ht->capa);
+    body += f("{:04x}", ht->capa);
     body += ", A-MPDU factor=";
     body += ToStr(ht->ampdu_factor);
     body += ", A-MPDU density=";
@@ -1289,7 +1289,7 @@ Str Band::Describe() const {
   if (vht.has_value()) {
     body += "Very High Throughput:";
     body += " capabilities=";
-    body += f("%08x", vht->capa);
+    body += f("{:08x}", vht->capa);
     body += ", VHT mcs set=";
     body += BytesToHex(Span<>((char *)vht->mcs_set.begin(), 8));
     body += "\n";
@@ -1299,7 +1299,7 @@ Str Band::Describe() const {
 }
 
 Str InterfaceCombination::Describe() const {
-  Str ret = f("%d interfaces on %d channel", maxnum, num_channels);
+  Str ret = f("{} interfaces on {} channel", maxnum, num_channels);
   if (num_channels > 1) {
     ret += "s";
   }
@@ -1343,16 +1343,16 @@ Str Channel::Describe() const {
     ret += "160 MHz VHT";
     break;
   default:
-    ret += f("NL80211_CHAN_WIDTH_NUMBER_%d", width);
+    ret += f("NL80211_CHAN_WIDTH_NUMBER_{}", (int)width);
     break;
   }
   ret += " channel ";
-  ret += f("%d (%d MHz)", ChannelNumber(), frequency_MHz);
+  ret += f("{} ({} MHz)", ChannelNumber(), frequency_MHz);
   if (center_frequency1_MHz) {
-    ret += f(" (center frequency 1: %d MHz)", center_frequency1_MHz);
+    ret += f(" (center frequency 1: {} MHz)", center_frequency1_MHz);
   }
   if (center_frequency2_MHz) {
-    ret += f(" (center frequency 2: %d MHz)", center_frequency2_MHz);
+    ret += f(" (center frequency 2: {} MHz)", center_frequency2_MHz);
   }
   return ret;
 }
@@ -1528,7 +1528,7 @@ Vec<Channel> Wiphy::GetChannels(const Regulation &reg) const {
 
 Str Wiphy::Describe() const {
   Str ret;
-  ret += f("Wiphy %d \"%s\":\n", index, name.c_str());
+  ret += f("Wiphy {} \"{}\":\n", index, name);
   Str body;
   body += "Bands:\n";
   for (auto &band : bands) {
@@ -1770,7 +1770,7 @@ Str Wiphy::Describe() const {
         }
         body += " ";
         body += IftypeToStrShort(iftype);
-        body += f(": %04hx", tx_frame_types[iftype_i]);
+        body += f(": {:04x}", tx_frame_types[iftype_i]);
       }
     }
   }
@@ -1788,7 +1788,7 @@ Str Wiphy::Describe() const {
         }
         body += " ";
         body += IftypeToStrShort(iftype);
-        body += f(": %04hx", rx_frame_types[iftype_i]);
+        body += f(": {:04x}", rx_frame_types[iftype_i]);
       }
     }
   }
@@ -1812,7 +1812,7 @@ Str Wiphy::Describe() const {
     body += "Vendor commands:\n";
     for (auto &cmd : vendor_commands) {
       body += "  OUI " +
-              f("%02x:%02x:%02x", (cmd.vendor_id >> 16) & 0xff,
+              f("{:02x}:{:02x}:{:02x}", (cmd.vendor_id >> 16) & 0xff,
                 (cmd.vendor_id >> 8) & 0xff, cmd.vendor_id & 0xff) +
               ", subcommand " + ToStr(cmd.subcommand) + "\n";
     }
@@ -1883,7 +1883,7 @@ Str ChanWidthToStr(nl80211_chan_width chan_width) {
     CASE(NL80211_CHAN_WIDTH_8);
     CASE(NL80211_CHAN_WIDTH_16);
   default:
-    return f("NL80211_CHAN_WIDTH_UNKNOWN_%d", chan_width);
+    return f("NL80211_CHAN_WIDTH_UNKNOWN_{}", (int)chan_width);
   }
 }
 
@@ -1949,7 +1949,7 @@ Str ExtFeatureToStr(nl80211_ext_feature_index ext_feature) {
     CASE(NL80211_EXT_FEATURE_PROT_RANGE_NEGO_AND_MEASURE);
     CASE(NL80211_EXT_FEATURE_BSS_COLOR);
   default:
-    return f("NL80211_EXT_FEATURE_%d", (int)ext_feature);
+    return f("NL80211_EXT_FEATURE_{}", (int)ext_feature);
   }
 }
 
@@ -1975,7 +1975,7 @@ Str WoWLANTriggerToStr(nl80211_wowlan_triggers trigger) {
     CASE(NL80211_WOWLAN_TRIG_NET_DETECT);
     CASE(NL80211_WOWLAN_TRIG_NET_DETECT_RESULTS);
   default:
-    return f("NL80211_WOWLAN_TRIG_%d", (int)trigger);
+    return f("NL80211_WOWLAN_TRIG_{}", (int)trigger);
   }
 }
 
@@ -1995,7 +1995,7 @@ Str IftypeToStr(nl80211_iftype iftype) {
     CASE(NL80211_IFTYPE_OCB);
     CASE(NL80211_IFTYPE_NAN);
   default:
-    return f("NL80211_IFTYPE_%d", (int)iftype);
+    return f("NL80211_IFTYPE_{}", (int)iftype);
   }
 }
 
@@ -2006,7 +2006,7 @@ Str ChannelTypeToStr(nl80211_channel_type type) {
     CASE(NL80211_CHAN_HT40MINUS);
     CASE(NL80211_CHAN_HT40PLUS);
   default:
-    return f("NL80211_CHAN_%d", (int)type);
+    return f("NL80211_CHAN_{}", (int)type);
   }
 }
 
@@ -2016,7 +2016,7 @@ Str IfaceLimitAttrToStr(nl80211_iface_limit_attrs attr) {
     CASE(NL80211_IFACE_LIMIT_MAX);
     CASE(NL80211_IFACE_LIMIT_TYPES);
   default:
-    return f("NL80211_IFACE_LIMIT_%d", (int)attr);
+    return f("NL80211_IFACE_LIMIT_{}", (int)attr);
   }
 }
 
@@ -2031,7 +2031,7 @@ Str IfaceCombinationAttrToStr(nl80211_if_combination_attrs attr) {
     CASE(NL80211_IFACE_COMB_RADAR_DETECT_REGIONS);
     CASE(NL80211_IFACE_COMB_BI_MIN_GCD);
   default:
-    return f("NL80211_IFACE_COMB_%d", (int)attr);
+    return f("NL80211_IFACE_COMB_{}", (int)attr);
   }
 }
 
@@ -2044,7 +2044,7 @@ Str CipherSuiteToStr(CipherSuite cipher) {
     CASE(CipherSuite::WEP104);
     CASE(CipherSuite::BIP);
   default:
-    return f("CipherSuite::CIPHER_%u", (U32)cipher);
+    return f("CipherSuite::CIPHER_{}", (U32)cipher);
   }
 }
 
@@ -2197,7 +2197,7 @@ Str CmdToStr(U8 cmd) {
     CASE(NL80211_CMD_COLOR_CHANGE_ABORTED);
     CASE(NL80211_CMD_COLOR_CHANGE_COMPLETED);
   default:
-    return f("NL80211_CMD_%d", cmd);
+    return f("NL80211_CMD_{}", cmd);
   }
 }
 
@@ -2510,7 +2510,7 @@ Str AttrToStr(nl80211_attrs attr) {
     CASE(NL80211_ATTR_COLOR_CHANGE_COLOR);
     CASE(NL80211_ATTR_COLOR_CHANGE_ELEMS);
   default:
-    return f("NL80211_ATTR_%d", attr);
+    return f("NL80211_ATTR_{}", (int)attr);
   }
 }
 
@@ -2528,7 +2528,7 @@ Str BandAttrToStr(nl80211_band_attr attr) {
     CASE(NL80211_BAND_ATTR_EDMG_CHANNELS);
     CASE(NL80211_BAND_ATTR_EDMG_BW_CONFIG);
   default:
-    return f("NL80211_BAND_ATTR_%d", attr);
+    return f("NL80211_BAND_ATTR_{}", (int)attr);
   }
 }
 
@@ -2537,7 +2537,7 @@ Str BitrateAttrToStr(nl80211_bitrate_attr attr) {
     CASE(NL80211_BITRATE_ATTR_RATE);
     CASE(NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE);
   default:
-    return f("NL80211_BITRATE_ATTR_%d", attr);
+    return f("NL80211_BITRATE_ATTR_{}", (int)attr);
   }
 }
 
@@ -2568,7 +2568,7 @@ Str FrequencyAttrToStr(nl80211_frequency_attr attr) {
     CASE(NL80211_FREQUENCY_ATTR_8MHZ);
     CASE(NL80211_FREQUENCY_ATTR_16MHZ);
   default:
-    return f("NL80211_FREQUENCY_ATTR_%d", attr);
+    return f("NL80211_FREQUENCY_ATTR_{}", (int)attr);
   }
 }
 
@@ -2578,7 +2578,7 @@ Str BssSelectAttrToStr(nl80211_bss_select_attr attr) {
     CASE(NL80211_BSS_SELECT_ATTR_BAND_PREF);
     CASE(NL80211_BSS_SELECT_ATTR_RSSI_ADJUST);
   default:
-    return f("NL80211_BSS_SELECT_ATTR_%d", attr);
+    return f("NL80211_BSS_SELECT_ATTR_{}", (int)attr);
   }
 }
 
@@ -2592,7 +2592,7 @@ Str RegRuleAttrToStr(nl80211_reg_rule_attr attr) {
     CASE(NL80211_ATTR_POWER_RULE_MAX_EIRP);
     CASE(NL80211_ATTR_DFS_CAC_TIME);
   default:
-    return f("NL80211_REG_RULE_ATTR_%d", attr);
+    return f("NL80211_REG_RULE_ATTR_{}", (int)attr);
   }
 }
 
@@ -2602,7 +2602,7 @@ Str DfsStateToStr(nl80211_dfs_state state) {
     CASE(NL80211_DFS_UNAVAILABLE);
     CASE(NL80211_DFS_AVAILABLE);
   default:
-    return f("NL80211_DFS_%d", state);
+    return f("NL80211_DFS_{}", (int)state);
   }
 }
 
@@ -2613,7 +2613,7 @@ Str WmmRuleToStr(nl80211_wmm_rule rule) {
     CASE(NL80211_WMMR_AIFSN);
     CASE(NL80211_WMMR_TXOP);
   default:
-    return f("NL80211_WMMR_%d", rule);
+    return f("NL80211_WMMR_{}", (int)rule);
   }
 }
 
@@ -2625,7 +2625,7 @@ Str BandToStr(nl80211_band band) {
     CASE(NL80211_BAND_6GHZ);
     CASE(NL80211_BAND_S1GHZ);
   default:
-    return f("NL80211_BAND_%d", band);
+    return f("NL80211_BAND_{}", (int)band);
   }
 }
 
@@ -2636,16 +2636,16 @@ Str DFSRegionToStr(nl80211_dfs_regions region) {
     CASE(NL80211_DFS_ETSI);
     CASE(NL80211_DFS_JP);
   default:
-    return f("NL80211_DFS_%d", region);
+    return f("NL80211_DFS_{}", (int)region);
   }
 }
 
 #undef CASE
 
 Str DFS::ToStr() const {
-  return f("DFS(%s, time: "
-           "%d ms, CAC time: %d ms)",
-           nl80211::DfsStateToStr(state).c_str(), time_ms, cac_time_ms);
+  return f("DFS({}, time: "
+           "{} ms, CAC time: {} ms)",
+           nl80211::DfsStateToStr(state), time_ms, cac_time_ms);
 }
 
-} // namespace maf::nl80211
+} // namespace automat::nl80211

@@ -23,7 +23,7 @@ def gen():
     with hh_path.open('w') as hh:
         print(f'''#pragma once
 
-namespace maf {{
+namespace automat {{
 
 struct VersionNote {{
     int namesz = 4;
@@ -40,7 +40,7 @@ extern const VersionNote kVersionNote;
     with cc_path.open('w') as cc:
         print(f'''#include "version.hh"
 
-__attribute__((section(".note.maf.version"))) __attribute__((used)) const maf::VersionNote maf::kVersionNote = {{}};''',
+__attribute__((section(".note.maf.version"))) __attribute__((used)) const automat::VersionNote automat::kVersionNote = {{}};''',
               file=cc)
 
 

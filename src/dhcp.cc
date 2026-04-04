@@ -19,7 +19,7 @@
 #include "status.hh"
 
 using namespace std;
-using namespace maf;
+using namespace automat;
 using chrono::steady_clock;
 
 namespace dhcp {
@@ -1064,10 +1064,10 @@ int Table::Size() const { return 1; }
 void Table::Get(int row, int col, string &out) const {
   switch (col) {
   case 0:
-    out = f("%d", server.entries_by_ip.size());
+    out = f("{}", server.entries_by_ip.size());
     break;
   case 1:
-    out = f("%d", AvailableIPs(server));
+    out = f("{}", AvailableIPs(server));
     break;
   }
 }

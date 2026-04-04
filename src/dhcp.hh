@@ -11,7 +11,7 @@
 
 namespace dhcp {
 
-using namespace maf;
+using namespace automat;
 using namespace std;
 
 struct Server : epoll::UDPListener {

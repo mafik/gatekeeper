@@ -12,7 +12,7 @@
 #include "ssh_key.hh"
 #include "virtual_fs.hh"
 
-using namespace maf;
+using namespace automat;
 
 int main(int argc, char *argv[]) {
   if (argc != 4) {

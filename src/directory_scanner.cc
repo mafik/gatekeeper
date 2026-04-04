@@ -2,7 +2,7 @@
 
 #include <fcntl.h>
 
-namespace maf {
+namespace automat {
 
 static void ReadMoreDents(DirectoryScanner &scanner) {
   SSize ret = syscall(SYS_getdents64, scanner.dir.fd, scanner.buf.data(),
@@ -49,4 +49,4 @@ DirectoryScanner::Iterator DirectoryScanner::begin() { return Iterator(*this); }
 
 DirectoryScanner::EndIterator DirectoryScanner::end() { return {}; }
 
-} // namespace maf
+} // namespace automat

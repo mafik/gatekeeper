@@ -10,7 +10,7 @@
 #include <linux/rtnetlink.h>
 #include <string>
 
-namespace maf {
+namespace automat {
 
 static constexpr sockaddr_nl kKernelSockaddr{
     .nl_family = AF_NETLINK,
@@ -38,7 +38,7 @@ Netlink::Netlink(int protocol, Status &status) : protocol(protocol) {
   }
   fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, protocol);
   if (fd < 0) {
-    status() += "socket(AF_NETLINK, SOCK_RAW, " + f("%x", protocol) + ")";
+    status() += "socket(AF_NETLINK, SOCK_RAW, " + f("{:x}", protocol) + ")";
     return;
   }
   int sndbuf = 64 * 1024;
@@ -232,7 +232,7 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
           status() += "Netlink error had " + ToStr(end - buf_iter) +
                       " extra bytes at the end (header says " +
                       ToStr(hdr->nlmsg_len) +
-                      "B, flags=" + f("%x", hdr->nlmsg_flags) + ")";
+                      "B, flags=" + f("{:x}", hdr->nlmsg_flags) + ")";
         }
 
         errno = -err;
@@ -260,7 +260,7 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
       if (buf_iter < buf_end) {
         status() +=
             "Extra data at the end of netlink recv buffer. Message type is " +
-            f("0x%x", ((nlmsghdr *)buf)->nlmsg_type);
+            f("0x{:x}", ((nlmsghdr *)buf)->nlmsg_type);
       } else {
         status() += "Netlink parsing code overshot the end of buffer by " +
                     ToStr(buf_iter - buf_end) + " bytes";
@@ -270,4 +270,4 @@ void Netlink::Receive(ReceiveCallback callback, Status &status) {
   } // while (expect_more_messages)
 }
 
-} // namespace maf
+} // namespace automat

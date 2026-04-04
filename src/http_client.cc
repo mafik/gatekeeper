@@ -12,7 +12,7 @@
 #include "tls.hh"
 #include "unique_ptr.hh"
 
-namespace maf::http {
+namespace automat::http {
 
 // Note for future: this could be a nice place to use coroutines.
 static void ResponseReceived(RequestBase &req) {
@@ -241,4 +241,4 @@ void Get::OnClosed() {
   callback();
 };
 
-} // namespace maf::http
+} // namespace automat::http

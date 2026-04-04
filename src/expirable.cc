@@ -5,7 +5,7 @@
 
 using namespace std;
 
-namespace maf {
+namespace automat {
 
 struct OrderByExpiration {
   using is_transparent = true_type;
@@ -84,4 +84,4 @@ void Expirable::Expire() {
   }
 }
 
-} // namespace maf
+} // namespace automat

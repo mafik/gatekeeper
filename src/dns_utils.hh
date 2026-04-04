@@ -9,13 +9,14 @@
 #include "int.hh"
 #include "optional.hh"
 #include "str.hh"
+#include "time.hh"
 #include "vec.hh"
 
-namespace maf::dns {
+namespace automat::dns {
 
 // TTL used for outgoing DNS requests.
-static constexpr std::chrono::steady_clock::duration kPendingTTL = 30s;
-static constexpr std::chrono::steady_clock::duration kAuthoritativeTTL = 60s;
+static constexpr time::Duration kPendingTTL = 30s;
+static constexpr time::Duration kAuthoritativeTTL = 60s;
 
 static constexpr U16 kServerPort = 53;
 
@@ -132,4 +133,4 @@ struct Message {
   void ForEachRecord(Fn<void(const Record &)> f) const;
 };
 
-} // namespace maf::dns
+} // namespace automat::dns

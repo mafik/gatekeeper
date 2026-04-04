@@ -8,7 +8,7 @@
 #include "str.hh"
 #include "virtual_fs.hh"
 
-namespace maf {
+namespace automat {
 
 namespace iso3166 {
 
@@ -976,4 +976,4 @@ const Country *GetMachineCountry() {
   return cached_country;
 }
 
-} // namespace maf
+} // namespace automat

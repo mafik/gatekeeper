@@ -4,7 +4,7 @@
 #include <net/if_arp.h>
 #include <sys/ioctl.h>
 
-namespace maf::arp {
+namespace automat::arp {
 
 struct IOCtlRequest {
   struct sockaddr_in protocol_address;
@@ -34,4 +34,4 @@ void Set(const std::string &interface, IP ip, MAC mac, int af_inet_fd,
   }
 }
 
-} // namespace maf::arp
+} // namespace automat::arp

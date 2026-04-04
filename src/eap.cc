@@ -1,6 +1,6 @@
 #include "eap.hh"
 
-namespace maf::eap {
+namespace automat::eap {
 
 void KeyInformation::Validate(KeyInformation expected, Status &status) const {
 
@@ -50,4 +50,4 @@ void KeyInformation::Validate(KeyInformation expected, Status &status) const {
   }
 }
 
-} // namespace maf::eap
+} // namespace automat::eap

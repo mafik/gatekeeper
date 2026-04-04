@@ -10,7 +10,7 @@
 namespace etc {
 
 using std::map;
-using namespace maf;
+using namespace automat;
 
 extern map<IP, Vec<Str>> hosts;
 extern map<MAC, IP> ethers;

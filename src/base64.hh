@@ -4,7 +4,7 @@
 #include "str.hh"
 #include "vec.hh"
 
-namespace maf {
+namespace automat {
 
 constexpr char kBase64Chars[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                   "abcdefghijklmnopqrstuvwxyz"
@@ -15,4 +15,4 @@ inline bool IsBase64(int c) { return (isalnum(c) || (c == '+') || (c == '/')); }
 Str Base64Encode(Span<> buf);
 Vec<> Base64Decode(StrView buf);
 
-} // namespace maf
+} // namespace automat

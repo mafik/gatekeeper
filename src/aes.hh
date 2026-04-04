@@ -3,7 +3,7 @@
 #include "int.hh"
 #include "span.hh"
 
-namespace maf {
+namespace automat {
 
 struct AES {
   U32 eK[60];
@@ -24,4 +24,4 @@ struct AES {
   U64 WrapKey(Span<U64> key);
 };
 
-} // namespace maf
+} // namespace automat

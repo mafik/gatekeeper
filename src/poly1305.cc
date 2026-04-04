@@ -3,7 +3,7 @@
 #include "int.hh"
 
 // From https://github.com/floodyberry/poly1305-donna (public domain)
-namespace maf {
+namespace automat {
 
 #define MUL(out, x, y) out = ((U128)x * y)
 #define ADD(out, in) out += in
@@ -266,4 +266,4 @@ Poly1305 Poly1305::Builder::Finalize() {
   return ret;
 }
 
-} // namespace maf
+} // namespace automat

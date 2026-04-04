@@ -6,7 +6,7 @@
 #include "status.hh"
 #include "str.hh"
 
-namespace maf::elf {
+namespace automat::elf {
 
 struct Note {
   U32 namesz;
@@ -22,4 +22,4 @@ struct Note {
 // This function should be safe against maliciously crafted ELF files.
 Span<> FindSection(Span<> elf_contents, StrView section_name, Status &status);
 
-} // namespace maf::elf
+} // namespace automat::elf

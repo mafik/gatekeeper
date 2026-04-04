@@ -2,9 +2,9 @@
 
 #include "status.hh"
 
-namespace maf::dns {
+namespace automat::dns {
 
 void StartServer(Status &);
 void StopServer();
 
-} // namespace maf::dns
+} // namespace automat::dns

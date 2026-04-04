@@ -3,7 +3,7 @@
 using namespace std;
 using namespace std::chrono;
 
-namespace maf {
+namespace automat {
 
 string FormatDuration(optional<steady_clock::duration> d_opt,
                       const char *never) {
@@ -36,4 +36,4 @@ string FormatDuration(optional<steady_clock::duration> d_opt,
   return r;
 }
 
-} // namespace maf
+} // namespace automat

@@ -2,7 +2,7 @@
 
 #include "vec.hh"
 
-namespace maf {
+namespace automat {
 
 Vec<Fn<void()>> at_exit_functions;
 
@@ -22,4 +22,4 @@ void ExitCleanup() {
   }
 }
 
-} // namespace maf
+} // namespace automat

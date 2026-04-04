@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-namespace maf {
+namespace automat {
 
 FD::FD() : fd(-1) {}
 FD::FD(int fd) : fd(fd) {}
@@ -67,4 +67,4 @@ void FD::Close() {
 
 bool FD::Opened() const { return fd >= 0; }
 
-} // namespace maf
+} // namespace automat

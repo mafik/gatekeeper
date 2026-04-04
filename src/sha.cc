@@ -3,7 +3,7 @@
 #include <bit>
 #include <cstring>
 
-namespace maf {
+namespace automat {
 
 // From https://github.com/vog/sha1 (public domain)
 namespace {
@@ -641,4 +641,4 @@ SHA512 SHA512::Builder::Finalize() {
   return sha;
 }
 
-} // namespace maf
+} // namespace automat

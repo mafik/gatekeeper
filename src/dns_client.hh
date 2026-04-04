@@ -9,7 +9,7 @@
 #include <chrono>
 #include <unordered_set>
 
-namespace maf::dns {
+namespace automat::dns {
 
 // TODO: try to merge this with CachedEntry
 struct Message;
@@ -87,4 +87,4 @@ struct Entry : Expirable {
   static std::unordered_set<Entry *, QuestionHash, QuestionEqual> cache;
 };
 
-} // namespace maf::dns
+} // namespace automat::dns

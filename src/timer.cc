@@ -7,7 +7,7 @@
 #include <sys/timerfd.h>
 #include <unistd.h>
 
-using namespace maf;
+using namespace automat;
 
 Timer::Timer() {
   fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);

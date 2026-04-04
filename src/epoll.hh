@@ -7,7 +7,7 @@
 // TODO: Migrate const char* Name() to str Name()
 
 // C++ wrappers around the Linux epoll facility.
-namespace maf::epoll {
+namespace automat::epoll {
 
 // Base class for objects that would like to receive epoll updates.
 struct Listener {
@@ -60,4 +60,4 @@ void Del(Listener *, Status &);
 // Poll events until an error is returned or all listeners drop.
 void Loop(Status &);
 
-} // namespace maf::epoll
+} // namespace automat::epoll

@@ -5,7 +5,7 @@
 #include "int.hh"
 #include "status.hh"
 
-namespace maf::elf {
+namespace automat::elf {
 
 struct Elf64 {
   using Addr = U32;
@@ -173,4 +173,4 @@ StrView Note::Name() { return {(char *)(this + 1), (Size)namesz - 1}; }
 
 Span<> Note::Desc() { return {(char *)(this + 1) + namesz, (Size)descsz}; }
 
-} // namespace maf::elf
+} // namespace automat::elf

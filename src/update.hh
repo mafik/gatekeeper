@@ -15,7 +15,7 @@
 //
 // The I/O relies on the `epoll` module so make sure to call `epoll::Init()` at
 // app startup & `epoll::Loop()` in order for the work to be done.
-namespace maf::update {
+namespace automat::update {
 
 struct Config {
   Str url;
@@ -44,4 +44,4 @@ extern Status status;
 void Start();
 void Stop();
 
-} // namespace maf::update
+} // namespace automat::update

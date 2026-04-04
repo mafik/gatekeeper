@@ -1,10 +1,25 @@
+// SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+// SPDX-License-Identifier: MIT
 #include "log.hh"
+
+#if defined(__linux__)
+#include <unistd.h>
+#elif defined(_WIN32)
+#include <io.h>
+#endif
 
 #include "format.hh"
 
-namespace maf {
+namespace automat {
 
-std::vector<Logger> loggers;
+std::vector<Logger>& GetLoggers() {
+  static std::vector<Logger> loggers = [] {
+    std::vector<Logger> loggers;
+    loggers.emplace_back(DefaultLogger);
+    return loggers;
+  }();
+  return loggers;
+}
 
 static int indent = 0;
 
@@ -29,10 +44,11 @@ LogEntry::~LogEntry() {
   }
 
   if (log_level == LogLevel::Fatal) {
-    buffer += f(". Crashing in %s:%d [%s].", location.file_name(), location.line(),
+    buffer += f(" Crashing in {}:{} [{}].", location.file_name(), location.line(),
                 location.function_name());
   }
 
+  auto& loggers = GetLoggers();
   for (auto& logger : loggers) {
     logger(*this);
   }
@@ -53,12 +69,16 @@ void DefaultLogger(const LogEntry& e) {
   } else {
     EM_ASM({ console.log(UTF8ToString($0)); }, e.buffer.c_str());
   }
+#elif defined(__linux__)
+  auto line = e.buffer + '\n';
+  (void)write(STDOUT_FILENO, line.c_str(), line.size());
+#elif defined(_WIN32)
+  auto line = e.buffer + '\n';
+  _write(1, line.c_str(), (unsigned int)line.size());
 #else
   printf("%s\n", e.buffer.c_str());
 #endif
 }
-
-void __attribute__((__constructor__)) InitDefaultLoggers() { loggers.emplace_back(DefaultLogger); }
 
 const LogEntry& operator<<(const LogEntry& logger, StrView s) {
   logger.buffer += s;
@@ -71,4 +91,4 @@ const LogEntry& operator<<(const LogEntry& logger, Status& status) {
   return logger;
 }
 
-}  // namespace maf
+}  // namespace automat

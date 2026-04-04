@@ -4,7 +4,7 @@
 #include "str.hh"
 #include "stream.hh"
 
-namespace maf::tcp {
+namespace automat::tcp {
 
 struct Server : epoll::Listener {
   Status status;
@@ -81,4 +81,4 @@ struct Connection : epoll::Listener, Stream {
   operator Status &() override { return status; }
 };
 
-} // namespace maf::tcp
+} // namespace automat::tcp

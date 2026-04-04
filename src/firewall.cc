@@ -1,6 +1,5 @@
 #include "firewall.hh"
 
-#include <chrono>
 #include <cstddef>
 #include <fcntl.h>
 #include <linux/netfilter/nfnetlink.h>
@@ -24,9 +23,10 @@
 #include "nfqueue.hh"
 #include "span.hh"
 #include "status.hh"
+#include "time.hh"
 #include "traffic_log.hh"
 
-using namespace maf;
+using namespace automat;
 using namespace netfilter;
 using namespace std::string_literals;
 
@@ -187,7 +187,7 @@ Str ToStr(ProtocolID proto) {
   case ProtocolID::UDP:
     return "UDP";
   }
-  return f("ProtocolID(%d)", (int)proto);
+  return f("ProtocolID({})", (int)proto);
 }
 
 struct IP_Header {
@@ -407,15 +407,15 @@ static void LogPacket(U32 packet_id, IP_Header &ip, TCP_Header &tcp,
   Str protocol_string = ToStr(ip.proto);
   if (ip.proto == ProtocolID::TCP) {
     protocol_string +=
-        f(" %5d -> %-5d", tcp.source_port.Get(), tcp.destination_port.Get());
+        f(" {:5} -> {:<5}", tcp.source_port.Get(), tcp.destination_port.Get());
   } else if (ip.proto == ProtocolID::UDP) {
     protocol_string +=
-        f(" %5d -> %-5d", udp.source_port.Get(), udp.destination_port.Get());
+        f(" {:5} -> {:<5}", udp.source_port.Get(), udp.destination_port.Get());
   }
   packet_id = Big(packet_id).big_endian;
-  LOG << f("#%04x ", packet_id) << f("%15s", ToStr(ip.source_ip).c_str())
-      << " => " << f("%-15s", ToStr(ip.destination_ip).c_str()) << " ("
-      << protocol_string << "): " << f("%4d", payload.size()) << " B, "
+  LOG << f("#{:04x} ", packet_id) << f("{:>15}", ToStr(ip.source_ip))
+      << " => " << f("{:<15}", ToStr(ip.destination_ip)) << " ("
+      << protocol_string << "): " << f("{:4}", payload.size()) << " B, "
       << action;
 }
 
@@ -470,7 +470,7 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
       (*it)->UpdateExpiration(30min);
       // Mangle the destination IP to point at the LAN IP
       if constexpr (kLogNatPackets) {
-        Str action = f("symmetric NAT to %s", ToStr((*it)->local_ip).c_str());
+        Str action = f("symmetric NAT to {}", ToStr((*it)->local_ip));
         LogPacket(phdr.packet_id, ip, tcp, udp, payload, action.c_str());
       }
       ip.destination_ip = (*it)->local_ip;

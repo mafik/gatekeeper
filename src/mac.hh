@@ -6,7 +6,7 @@
 #include "int.hh"
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 struct MAC {
   U8 bytes[6];
@@ -39,18 +39,18 @@ struct MAC {
   bool IsGloballyUnique() const { return (bytes[0] & 0x02) == 0; }
 };
 
-} // namespace maf
+} // namespace automat
 
-template <> struct std::hash<maf::MAC> {
-  std::size_t operator()(const maf::MAC &mac) const {
-    return std::hash<maf::U64>()((maf::U64)mac.bytes[5] << 40 |
-                                 (maf::U64)mac.bytes[4] << 32 |
-                                 mac.bytes[3] << 24 | mac.bytes[2] << 16 |
-                                 mac.bytes[1] << 8 | mac.bytes[0]);
+template <> struct std::hash<automat::MAC> {
+  std::size_t operator()(const automat::MAC &mac) const {
+    return std::hash<automat::U64>()((automat::U64)mac.bytes[5] << 40 |
+                                     (automat::U64)mac.bytes[4] << 32 |
+                                     mac.bytes[3] << 24 | mac.bytes[2] << 16 |
+                                     mac.bytes[1] << 8 | mac.bytes[0]);
   }
 };
 
-namespace maf {
+namespace automat {
 
 // Mixin class for objects that should be indexed by MAC address.
 template <typename T> struct HashableByMAC {
@@ -86,4 +86,4 @@ template <typename T> struct HashableByMAC {
   }
 };
 
-} // namespace maf
+} // namespace automat

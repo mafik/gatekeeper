@@ -9,7 +9,7 @@
 #include "span.hh"
 #include "status.hh"
 
-namespace maf {
+namespace automat {
 
 // Netlink allows communication with the Linux kernel via a packet-oriented IPC.
 //
@@ -44,7 +44,7 @@ struct Netlink : epoll::Listener {
       T &ret = *(T *)ptr;
       if (size < sizeof(T)) {
         AppendErrorMessage(status) +=
-            f("Netlink message too small to contain %s (%d vs %d bytes)",
+            f("Netlink message too small to contain {} ({} vs {} bytes)",
               typeid(T).name(), size, sizeof(T));
       } else {
         Size header_size = NLA_ALIGN(sizeof(T));
@@ -171,7 +171,7 @@ struct Netlink : epoll::Listener {
         [&](MessageType message_type, Attrs attrs) {
           if (message_type != expected_type) {
             AppendErrorMessage(status) +=
-                "Unexpected message type: 0x" + f("%04hx", message_type);
+                "Unexpected message type: 0x" + f("{:04x}", message_type);
             return;
           }
           T &message = attrs.RemovePrefixHeader<T>(status);
@@ -182,4 +182,4 @@ struct Netlink : epoll::Listener {
   }
 };
 
-} // namespace maf
+} // namespace automat

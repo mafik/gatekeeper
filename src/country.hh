@@ -4,7 +4,7 @@
 #include "int.hh"
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 namespace iso3166 {
 
@@ -56,4 +56,4 @@ extern const Country *AF, *AL, *DZ, *AS, *AD, *AO, *AI, *AQ, *AG, *AR, *AM, *AW,
 // Returns nullptr if no country could be determined.
 const iso3166::Country *GetMachineCountry();
 
-} // namespace maf
+} // namespace automat

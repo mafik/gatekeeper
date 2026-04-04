@@ -2,7 +2,7 @@
 
 #include "span.hh"
 
-namespace maf {
+namespace automat {
 
 struct Poly1305 {
   constexpr static size_t kBlockSize = 16;
@@ -33,4 +33,4 @@ struct Poly1305 {
   operator Span<>() const { return Span<>(const_cast<char *>(bytes), 16); }
 };
 
-} // namespace maf
+} // namespace automat

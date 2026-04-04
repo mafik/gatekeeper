@@ -14,7 +14,7 @@
 #include "optional.hh"
 #include "random.hh"
 
-namespace maf::dns {
+namespace automat::dns {
 
 using namespace std;
 
@@ -286,8 +286,8 @@ struct Client : epoll::UDPListener {
 
     if (pending->id != msg.header.id) {
       err = "Received an answer with an wrong ID: " +
-            f("0x%04hx", msg.header.id) +
-            " (expected: " + f("0x%04hx", pending->id) + ")";
+            f("0x{:04x}", msg.header.id.Get()) +
+            " (expected: " + f("0x{:04x}", pending->id.Get()) + ")";
       return;
     }
     for (auto *lookup : pending->in_progress) {
@@ -436,4 +436,4 @@ const Str *LocalReverseLookup(IP ip) {
   return nullptr;
 }
 
-} // namespace maf::dns
+} // namespace automat::dns

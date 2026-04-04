@@ -1,8 +1,8 @@
 #pragma once
 
-namespace maf {
+namespace automat {
 
 extern int argc;
 extern char **argv;
 
-} // namespace maf
+} // namespace automat

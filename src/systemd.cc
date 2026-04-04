@@ -13,7 +13,7 @@
 #include "timer.hh"
 #include "virtual_fs.hh"
 
-namespace maf::systemd {
+namespace automat::systemd {
 
 std::optional<FD> notify_socket;
 std::optional<FD> journal_socket;
@@ -25,7 +25,7 @@ MaskGuard::MaskGuard(StrView unit) : unit(unit) {
     return;
   }
   if (unit_to_mask_count[this->unit]++ == 0) {
-    Str command = f("systemctl mask --now --runtime %s", this->unit.c_str());
+    Str command = f("systemctl mask --now --runtime {}", this->unit);
     int ret = system(command.c_str());
     if (ret) {
       AppendErrorMessage(status) +=
@@ -39,8 +39,8 @@ MaskGuard::~MaskGuard() {
     return;
   }
   if (--unit_to_mask_count[this->unit] == 0) {
-    Str command = f("systemctl unmask --runtime %s", unit.c_str());
-    system(command.c_str());
+    Str command = f("systemctl unmask --runtime {}", unit);
+    (void)system(command.c_str());
   }
 }
 
@@ -64,7 +64,7 @@ static void Notify(StrView msg) {
 static void LogErrorAsStatus(const LogEntry &log_entry) {
   if (log_entry.log_level >= LogLevel::Error) {
     Str status =
-        f("STATUS=%s\nERRNO=%i", log_entry.buffer.c_str(), log_entry.errsv);
+        f("STATUS={}\nERRNO={}", log_entry.buffer, log_entry.errsv);
     Notify(status.c_str());
   }
 }
@@ -115,6 +115,7 @@ static void StructuredLog(const LogEntry &log_entry) {
 }
 
 static void DisableStdoutLogging() {
+  auto &loggers = GetLoggers();
   if (auto it =
           std::find_if(loggers.begin(), loggers.end(), FnIs(DefaultLogger));
       it != loggers.end()) {
@@ -144,7 +145,7 @@ static void EnableStructuredLogging() {
           journal_socket.reset();
           return;
         }
-        loggers.push_back(StructuredLog);
+        GetLoggers().push_back(StructuredLog);
       } else {
         // STDOUT is not connected to the journal.
       }
@@ -194,14 +195,14 @@ void Init() {
     }
     DisableStdoutLogging();
     EnableStructuredLogging();
-    loggers.push_back(LogErrorAsStatus);
+    GetLoggers().push_back(LogErrorAsStatus);
     StartWatchdog();
   }
 }
 
 void OverrideEnvironment(StrView unit, StrView env, StrView value,
                          Status &status) {
-  Str path = f("/etc/systemd/system/%*s.service.d", unit.size(), unit.data());
+  Str path = f("/etc/systemd/system/{}.service.d", unit);
   if (mkdir(path.c_str(), 0755) < 0) {
     if (errno != EEXIST) {
       AppendErrorMessage(status) += "Failed to create directory " + path;
@@ -223,12 +224,11 @@ void OverrideEnvironment(StrView unit, StrView env, StrView value,
     override_conf += "\n[Service]\n";
   }
   Size service_begin = service_tag_pos + service_tag.size();
-  Str needle = f("\nEnvironment=\"%*s=", env.size(), env.data());
+  Str needle = f("\nEnvironment=\"{}=", env);
   Size needle_pos = override_conf.find(needle, service_begin);
   if (needle_pos == Str::npos) {
     override_conf.insert(service_begin,
-                         f("Environment=\"%*s=%*s\"\n", env.size(), env.data(),
-                           value.size(), value.data()));
+                         f("Environment=\"{}={}\"\n", env, value));
   } else {
     Size needle_end = override_conf.find("\"\n", needle_pos + needle.size());
     if (needle_end == Str::npos) {
@@ -237,8 +237,7 @@ void OverrideEnvironment(StrView unit, StrView env, StrView value,
       needle_end += 2;
     }
     override_conf.replace(needle_pos, needle_end - needle_pos,
-                          f("\nEnvironment=\"%*s=%*s\"\n", env.size(),
-                            env.data(), value.size(), value.data()));
+                          f("\nEnvironment=\"{}={}\"\n", env, value));
   }
   fs::Write(fs::real, path, override_conf, status);
 }
@@ -247,4 +246,4 @@ void Ready() { Notify("READY=1"); }
 
 void Stop() { StopWatchdog(); }
 
-} // namespace maf::systemd
+} // namespace automat::systemd

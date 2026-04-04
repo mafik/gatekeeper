@@ -7,7 +7,7 @@
 #include "int.hh"
 #include "str.hh"
 
-namespace maf::epoll {
+namespace automat::epoll {
 
 struct UDPListener : Listener {
   virtual void HandleRequest(StrView buf, IP source_ip, U16 source_port) = 0;
@@ -18,4 +18,4 @@ private:
   U8 recvbuf[65536] = {0};
 };
 
-} // namespace maf::epoll
+} // namespace automat::epoll

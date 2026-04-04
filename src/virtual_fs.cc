@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+// SPDX-License-Identifier: MIT
 #include "virtual_fs.hh"
 
 #include <fcntl.h>
@@ -13,7 +15,7 @@
 
 #include "../build/generated/embedded.hh"
 
-namespace maf::fs {
+namespace automat::fs {
 
 EmbeddedFS embedded;
 RealFS real;
@@ -25,8 +27,8 @@ __attribute__((constructor)) void InitFS() {
 }
 
 void EmbeddedFS::Map(const Path& path, Fn<void(StrView)> callback, Status& status) {
-  auto it = maf::embedded::index.find(path);
-  if (it == maf::embedded::index.end()) {
+  auto it = embedded::index.find(path);
+  if (it == embedded::index.end()) {
     status() += "Embedded file not found: " + Str(path);
   } else {
     callback(it->second->content);
@@ -34,8 +36,8 @@ void EmbeddedFS::Map(const Path& path, Fn<void(StrView)> callback, Status& statu
 }
 
 Str EmbeddedFS::Read(const Path& path, Status& status) {
-  auto it = maf::embedded::index.find(path);
-  if (it == maf::embedded::index.end()) {
+  auto it = embedded::index.find(path);
+  if (it == embedded::index.end()) {
     status() += "Embedded file not found: " + Str(path);
     return "";
   } else {
@@ -75,21 +77,21 @@ void RealFS::Map(const Path& path, Fn<void(StrView)> callback, Status& status) {
   HANDLE hFile = CreateFileA(path.str.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
                              OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   if (hFile == INVALID_HANDLE_VALUE) {
-    AppendErrorMessage(status) += f("Couldn't open %s\n", path.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't open {}\n", path.str);
     return;
   };
 
   LARGE_INTEGER size;
   if (!GetFileSizeEx(hFile, &size)) {
     CloseHandle(hFile);
-    AppendErrorMessage(status) += f("Couldn't get size of %s\n", path.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't get size of {}\n", path.str);
     return;
   };
 
   HANDLE hMapping = CreateFileMappingA(hFile, nullptr, PAGE_READONLY, 0, 0, nullptr);
   if (hMapping == nullptr) {
     CloseHandle(hFile);
-    AppendErrorMessage(status) += f("Couldn't create mapping for %s\n", path.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't create mapping for {}\n", path.str);
     return;
   };
 
@@ -97,7 +99,7 @@ void RealFS::Map(const Path& path, Fn<void(StrView)> callback, Status& status) {
   if (data == nullptr) {
     CloseHandle(hMapping);
     CloseHandle(hFile);
-    AppendErrorMessage(status) += f("Couldn't map %s\n", path.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't map {}\n", path.str);
     return;
   };
 
@@ -138,14 +140,14 @@ Str RealFS::Read(const Path& path, Status& status) {
   HANDLE hFile = CreateFileA(path.str.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
                              OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   if (hFile == INVALID_HANDLE_VALUE) {
-    AppendErrorMessage(status) += f("Couldn't open %s\n", path.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't open {}\n", path.str);
     return "";
   };
 
   LARGE_INTEGER size;
   if (!GetFileSizeEx(hFile, &size)) {
     CloseHandle(hFile);
-    AppendErrorMessage(status) += f("Couldn't get size of %s\n", path.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't get size of {}\n", path.str);
     return "";
   };
 
@@ -179,14 +181,14 @@ void RealFS::Write(const Path& path, StrView contents, Status& status, Mode mode
   HANDLE hFile = CreateFileA(path.str.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
                              FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   if (hFile == INVALID_HANDLE_VALUE) {
-    AppendErrorMessage(status) += f("Couldn't open/create %s\n", path.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't open/create {}\n", path.str);
     return;
   };
 
   DWORD bytes_written;
   WriteFile(hFile, contents.data(), contents.size(), &bytes_written, nullptr);
   if (bytes_written != contents.size()) {
-    AppendErrorMessage(status) += f("Couldn't write to %s\n", path.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't write to {}\n", path.str);
   }
 
   CloseHandle(hFile);
@@ -225,7 +227,7 @@ void RealFS::Copy(const Path& from, const Path& to, Status& status, Mode mode) {
 #elif defined(_WIN32)
 void RealFS::Copy(const Path& from, const Path& to, Status& status, Mode mode) {
   if (!CopyFile(from.str.c_str(), to.str.c_str(), FALSE)) {
-    AppendErrorMessage(status) += f("Couldn't copy %s to %s\n", from.str.c_str(), to.str.c_str());
+    AppendErrorMessage(status) += f("Couldn't copy {} to {}\n", from.str, to.str);
   }
 }
 #endif
@@ -298,4 +300,4 @@ void Copy(VirtualFS& from_fs, const Path& from, VirtualFS& to_fs, const Path& to
   return;
 }
 
-}  // namespace maf::fs
+}  // namespace automat::fs

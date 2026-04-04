@@ -4,7 +4,7 @@
 #include "nl80211.hh"
 #include "status.hh"
 
-namespace maf::wifi {
+namespace automat::wifi {
 
 enum class Band {
   kPrefer2GHz,
@@ -23,4 +23,4 @@ struct AccessPoint {
   ~AccessPoint();
 };
 
-} // namespace maf::wifi
+} // namespace automat::wifi

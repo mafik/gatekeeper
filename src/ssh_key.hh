@@ -6,7 +6,7 @@
 #include "path.hh"
 #include "status.hh"
 
-namespace maf {
+namespace automat {
 
 struct SSHKey {
   static SSHKey FromFile(const Path &, Status &);
@@ -16,4 +16,4 @@ struct SSHKey {
   Str comment;
 };
 
-} // namespace maf
+} // namespace automat

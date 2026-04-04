@@ -2,8 +2,8 @@
 
 #include <memory>
 
-namespace maf {
+namespace automat {
 
 template <typename T> using UniquePtr = std::unique_ptr<T>;
 
-} // namespace maf
+} // namespace automat

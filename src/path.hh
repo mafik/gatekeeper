@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2024 Automat Authors
+// SPDX-License-Identifier: MIT
 #pragma once
 
 // Class for working with paths. Based on python's pathlib.
@@ -5,7 +7,7 @@
 #include "status.hh"
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 struct Path {
 #if defined(_WIN32)
@@ -39,6 +41,8 @@ struct Path {
 
   void Rename(const Path& to, Status&) const;
 
+  void MakeDirs(Status&, bool make_parents = true) const;
+
   // Final path component.
   Str Name() const;
 
@@ -52,6 +56,7 @@ struct Path {
   operator Str() const { return str; }
   operator StrView() const { return str; }
   operator const char*() const { return str.c_str(); }
+  const char* c_str() const { return str.c_str(); }
 };
 
-}  // namespace maf
+}  // namespace automat

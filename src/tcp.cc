@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-namespace maf::tcp {
+namespace automat::tcp {
 
 void Server::Listen(Config config) {
   fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
@@ -226,4 +226,4 @@ void Connection::NotifyWrite(Status &epoll_status) {
 
 const char *Connection::Name() const { return "tcp::Connection"; }
 
-} // namespace maf::tcp
+} // namespace automat::tcp

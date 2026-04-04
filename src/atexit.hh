@@ -4,11 +4,11 @@
 
 #include "fn.hh"
 
-namespace maf {
+namespace automat {
 
 // Register a function to be called at program exit.
 void AtExit(Fn<void()>);
 
 void ExitCleanup();
 
-} // namespace maf
+} // namespace automat

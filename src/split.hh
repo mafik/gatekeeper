@@ -3,8 +3,8 @@
 #include "str.hh"
 #include "vec.hh"
 
-namespace maf {
+namespace automat {
 
 Vec<StrView> SplitOnChars(StrView s, StrView chars);
 
-} // namespace maf
+} // namespace automat

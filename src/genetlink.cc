@@ -8,7 +8,7 @@
 #include "status.hh"
 #include "str.hh"
 
-namespace maf {
+namespace automat {
 
 static void SendGetFamily(Netlink &nl, StrView family, Status &status) {
   struct GetFamily {
@@ -48,7 +48,7 @@ static void SendGetFamily(Netlink &nl, StrView family, Status &status) {
 }
 
 Str ToStr(const GenericNetlink::Cmd &cmd) {
-  Str ret = f("Cmd(%u", cmd.op_id);
+  Str ret = f("Cmd({}", cmd.op_id);
   if (cmd.flags & GENL_CMD_CAP_DO) {
     ret += ", DO";
   }
@@ -155,7 +155,7 @@ GenericNetlink::GenericNetlink(StrView family, int cmd_max, Status &status)
   netlink.epoll_callback = [&](Netlink::MessageType message_type, Attrs attrs) {
     if (message_type != family_id) {
       ERROR << "Unexpected netlink message type: 0x"
-            << f("%04hx", message_type);
+            << f("{:04x}", message_type);
       return;
     }
     Status status;
@@ -200,7 +200,7 @@ void GenericNetlink::Dump(U8 cmd, Netlink::Attr *attr,
         if (message_type != family_id) {
           AppendErrorMessage(status) +=
               "Received unexpected netlink message type: 0x" +
-              f("%04hx", message_type);
+              f("{:04x}", message_type);
           return;
         }
         attrs.RemovePrefixHeader<genlmsghdr>(status);
@@ -220,7 +220,7 @@ void GenericNetlink::AddMembership(StrView group_name, Status &status) {
   }
   if (found_group == nullptr) {
     AppendErrorMessage(status) +=
-        f("Couldn't find multicast group '%s'", group_name);
+        f("Couldn't find multicast group '{}'", group_name);
     return;
   }
 
@@ -228,7 +228,7 @@ void GenericNetlink::AddMembership(StrView group_name, Status &status) {
                        &found_group->id, sizeof(found_group->id));
   if (ret < 0) {
     AppendErrorMessage(status) +=
-        f("Couldn't join netlink group '%s'", group_name);
+        f("Couldn't join netlink group '{}'", group_name);
     return;
   }
 }
@@ -240,7 +240,7 @@ void GenericNetlink::Receive(Fn<void(U8 cmd, Netlink::Attrs)> cb,
         if (message_type != family_id) {
           AppendErrorMessage(status) +=
               "Received unexpected netlink message type: 0x" +
-              f("%04hx", message_type);
+              f("{:04x}", message_type);
           return;
         }
         genlmsghdr &generic_hdr = attrs.RemovePrefixHeader<genlmsghdr>(status);
@@ -256,4 +256,4 @@ void GenericNetlink::Receive(Fn<void(U8 cmd, Netlink::Attrs)> cb,
   }
 }
 
-} // namespace maf
+} // namespace automat

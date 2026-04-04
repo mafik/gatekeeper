@@ -8,7 +8,7 @@
 #include <cstring>
 #include <string>
 
-namespace maf {
+namespace automat {
 
 SSHKey SSHKey::FromFile(const Path &path, Status &status) {
   Vec<> decoded;
@@ -112,4 +112,4 @@ SSHKey SSHKey::FromFile(const Path &path, Status &status) {
   return {};
 }
 
-} // namespace maf
+} // namespace automat

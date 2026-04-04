@@ -3,7 +3,7 @@
 #include "format.hh"
 #include "status.hh"
 
-namespace maf::xdg {
+namespace automat::xdg {
 
 void Open(StrView path_or_url, Status &status) {
   static const bool is_xdg_available = []() {
@@ -14,17 +14,17 @@ void Open(StrView path_or_url, Status &status) {
     AppendErrorMessage(status) += "xdg-open is not available";
     return;
   }
-  Str xdg_open_cmd = f("xdg-open %*s", path_or_url.size(), path_or_url.data());
+  Str xdg_open_cmd = f("xdg-open {}", path_or_url);
   if (auto sudo_user = getenv("SUDO_USER")) {
     if (auto sudo_uid = getenv("SUDO_UID")) {
       xdg_open_cmd =
-          f("sudo -u %s DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%s/bus %s",
+          f("sudo -u {} DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{}/bus {}",
             sudo_user, sudo_uid, xdg_open_cmd.c_str());
     } else {
-      xdg_open_cmd = f("sudo -u %s %s", sudo_user, xdg_open_cmd.c_str());
+      xdg_open_cmd = f("sudo -u {} {}", sudo_user, xdg_open_cmd.c_str());
     }
   }
-  system(xdg_open_cmd.c_str());
+  (void)system(xdg_open_cmd.c_str());
 }
 
-} // namespace maf::xdg
+} // namespace automat::xdg

@@ -6,7 +6,7 @@
 
 #include <strings.h>
 
-namespace maf {
+namespace automat {
 
 Poly1305 Encrypt_AEAD_CHACHA20_POLY1305(Span<char, 32> key,
                                         Span<char, 12> nonce, Span<char> data,
@@ -68,4 +68,4 @@ bool Decrypt_AEAD_CHACHA20_POLY1305(Span<char, 32> key, Span<char, 12> nonce,
   return true;
 }
 
-} // namespace maf
+} // namespace automat

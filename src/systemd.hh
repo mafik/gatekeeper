@@ -3,7 +3,7 @@
 #include "status.hh"
 #include "str.hh"
 
-namespace maf::systemd {
+namespace automat::systemd {
 
 // A RAII class that masks the given unit from systemd.
 struct MaskGuard {
@@ -41,7 +41,7 @@ void Stop();
 
 // Update /etc/systemd/system/<unit>.service.d/override.conf to set the given
 // environment variable.
-void OverrideEnvironment(maf::StrView unit, maf::StrView env,
-                         maf::StrView value, maf::Status &status);
+void OverrideEnvironment(automat::StrView unit, automat::StrView env,
+                         automat::StrView value, automat::Status &status);
 
-} // namespace maf::systemd
+} // namespace automat::systemd
