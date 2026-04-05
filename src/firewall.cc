@@ -1,6 +1,5 @@
 #include "firewall.hh"
 
-#include <cstddef>
 #include <fcntl.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_queue.h>
@@ -8,6 +7,7 @@
 #include <unistd.h>
 
 #include <csignal>
+#include <cstddef>
 #include <optional>
 #include <thread>
 #include <unordered_set>
@@ -64,8 +64,8 @@ static std::string PostroutingRule() {
       "\x01\x00\x63\x6f\x75\x6e\x74\x65\x72\x00\x04\x00\x02\x80\x24\x00\x01\x80"
       "\x0a\x00\x01\x00\x71\x75\x65\x75\x65\x00\x00\x00\x14\x00\x02\x80\x06\x00"
       "\x01\x00\x05\x39\x00\x00\x06\x00\x02\x00\x00\x01\x00\x00"s;
-  *(U32 *)(base.data() + 76) = lan.index;
-  *(U32 *)(base.data() + 172) = lan_network.ip.addr;
+  *(U32*)(base.data() + 76) = lan.index;
+  *(U32*)(base.data() + 172) = lan_network.ip.addr;
   return base;
 }
 
@@ -87,13 +87,13 @@ static std::string PreroutingRule() {
       "\x01\x00\x63\x6f\x75\x6e\x74\x65\x72\x00\x04\x00\x02\x80\x24\x00\x01\x80"
       "\x0a\x00\x01\x00\x71\x75\x65\x75\x65\x00\x00\x00\x14\x00\x02\x80\x06\x00"
       "\x01\x00\x05\x39\x00\x00\x06\x00\x02\x00\x00\x01\x00\x00"s;
-  *(U32 *)(base.data() + 76) = lan.index;
-  *(U32 *)(base.data() + 172) = wan_ip.addr;
+  *(U32*)(base.data() + 76) = lan.index;
+  *(U32*)(base.data() + 172) = wan_ip.addr;
   return base;
 }
 
 struct NetfilterHook {
-  NetfilterHook(Status &status) {
+  NetfilterHook(Status& status) {
     Netlink netlink(NETLINK_NETFILTER, status);
     if (!status.Ok()) {
       status() += "Couldn't establish netlink to Netfilter";
@@ -107,20 +107,19 @@ struct NetfilterHook {
       status() += "Error while creating netfilter table";
       return;
     }
-    NewChain(netlink, family, kTableName, "POSTROUTING",
-             std::make_pair(Hook::POST_ROUTING, -300), std::nullopt, status);
+    NewChain(netlink, family, kTableName, "POSTROUTING", std::make_pair(Hook::POST_ROUTING, -300),
+             std::nullopt, status);
     if (!status.Ok()) {
       status() += "Error while creating POSTROUTING netfilter chain";
       return;
     }
-    NewChain(netlink, family, kTableName, "PREROUTING",
-             std::make_pair(Hook::PRE_ROUTING, -300), std::nullopt, status);
+    NewChain(netlink, family, kTableName, "PREROUTING", std::make_pair(Hook::PRE_ROUTING, -300),
+             std::nullopt, status);
     if (!status.Ok()) {
       status() += "Error while creating PREROUTING netfilter chain";
       return;
     }
-    NewRule(netlink, family, kTableName, "POSTROUTING", PostroutingRule(),
-            status);
+    NewRule(netlink, family, kTableName, "POSTROUTING", PostroutingRule(), status);
     if (!status.Ok()) {
       status() += "Error while creating POSTROUTING netfilter rule";
       status() +=
@@ -129,8 +128,7 @@ struct NetfilterHook {
           "load kernel modules: nfnetlink-queue & nft-queue";
       return;
     }
-    NewRule(netlink, family, kTableName, "PREROUTING", PreroutingRule(),
-            status);
+    NewRule(netlink, family, kTableName, "PREROUTING", PreroutingRule(), status);
     if (!status.Ok()) {
       status() += "Error while creating PREROUTING netfilter rule";
       return;
@@ -139,8 +137,18 @@ struct NetfilterHook {
     // We override it with "accept".
     // Errors can be safely ignored - not all devices have this table.
     Status status_ignore;
-    NewChain(netlink, Family::IPv4, "filter", "FORWARD", std::nullopt, true,
-             status_ignore);
+    NewChain(netlink, Family::IPv4, "filter", "FORWARD", std::nullopt, true, status_ignore);
+    // Some programs (notably Docker) set iptables FORWARD policy to DROP.
+    // The nftables rule above doesn't help when iptables-legacy is in use.
+    // Insert ACCEPT rules for LAN traffic in both directions. Silently
+    // ignored if iptables is unavailable.
+    for (const char* flag : {"-i", "-o"}) {
+      Str iptables_cmd = "iptables -C FORWARD "s + flag + " " + lan.name +
+                         " -j ACCEPT 2>/dev/null || "
+                         "iptables -I FORWARD " +
+                         flag + " " + lan.name + " -j ACCEPT 2>/dev/null";
+      (void)system(iptables_cmd.c_str());
+    }
     DisableOpenWRTFirewall(netlink);
   }
 
@@ -148,7 +156,7 @@ struct NetfilterHook {
   // handling different types of (often malicious) traffic. We take care of all
   // of that in userspace. This function clears all of "fw4" rules so they don't
   // interfere.
-  void DisableOpenWRTFirewall(Netlink &netlink) {
+  void DisableOpenWRTFirewall(Netlink& netlink) {
     Status ok_if_openwrt;
     DelTable(netlink, Family::INET, "fw4", ok_if_openwrt);
     if (ok_if_openwrt.Ok()) {
@@ -158,6 +166,10 @@ struct NetfilterHook {
   }
 
   ~NetfilterHook() {
+    for (const char* flag : {"-i", "-o"}) {
+      Str iptables_cmd = "iptables -D FORWARD "s + flag + " " + lan.name + " -j ACCEPT 2>/dev/null";
+      (void)system(iptables_cmd.c_str());
+    }
     Status status;
     Netlink netlink(NETLINK_NETFILTER, status);
     if (!status.Ok()) {
@@ -180,12 +192,12 @@ enum class ProtocolID : U8 {
 
 Str ToStr(ProtocolID proto) {
   switch (proto) {
-  case ProtocolID::ICMP:
-    return "ICMP";
-  case ProtocolID::TCP:
-    return "TCP";
-  case ProtocolID::UDP:
-    return "UDP";
+    case ProtocolID::ICMP:
+      return "ICMP";
+    case ProtocolID::TCP:
+      return "TCP";
+    case ProtocolID::UDP:
+      return "UDP";
   }
   return f("ProtocolID({})", (int)proto);
 }
@@ -207,8 +219,8 @@ struct IP_Header {
   void UpdateChecksum() {
     checksum = 0;
     U32 sum = 0;
-    U16 *p = (U16 *)this;
-    U16 *end = (U16 *)((char *)this + HeaderLength());
+    U16* p = (U16*)this;
+    U16* end = (U16*)((char*)this + HeaderLength());
     for (; p < end; ++p) {
       sum += Big(*p).big_endian;
     }
@@ -248,7 +260,7 @@ struct UDP_Header : INET_Header {
 
 static_assert(sizeof(UDP_Header) == 8, "UDP_Header should have 8 bytes");
 
-void UpdateLayer4Checksum(IP_Header &ip, U16 &checksum) {
+void UpdateLayer4Checksum(IP_Header& ip, U16& checksum) {
   checksum = 0;
   U32 sum = 0;
   U16 header_len = ip.HeaderLength();
@@ -259,7 +271,7 @@ void UpdateLayer4Checksum(IP_Header &ip, U16 &checksum) {
   sum += ip.destination_ip.halves[1];
   sum += data_len;
   sum += (U16)ip.proto;
-  U8 *buff = (U8 *)&ip + header_len;
+  U8* buff = (U8*)&ip + header_len;
   for (int i = 0; i < (data_len / 2); i++) {
     sum += Big<U16>((buff[i * 2 + 1] << 8) | buff[i * 2]).big_endian;
   }
@@ -279,12 +291,12 @@ struct FullConeNAT {
   // not that much of a saving anyway so let's keep things simple.
   IP lan_host_ip;
 
-  static FullConeNAT &Lookup(ProtocolID protocol, U16 local_port);
+  static FullConeNAT& Lookup(ProtocolID protocol, U16 local_port);
 };
 
 static FullConeNAT nat_table[2][65536];
 
-FullConeNAT &FullConeNAT::Lookup(ProtocolID protocol, U16 local_port) {
+FullConeNAT& FullConeNAT::Lookup(ProtocolID protocol, U16 local_port) {
   int protocol_index = protocol == ProtocolID::TCP ? 0 : 1;
   return nat_table[protocol_index][local_port];
 }
@@ -295,45 +307,39 @@ struct SymmetricNAT : Expirable {
     U16 remote_port;
     U16 local_port;
 
-    bool operator==(const Key &other) const {
+    bool operator==(const Key& other) const {
       return remote_ip == other.remote_ip && remote_port == other.remote_port &&
              local_port == other.local_port;
     }
 
-    Size Hash() const { return *reinterpret_cast<const size_t *>(this); }
+    Size Hash() const { return *reinterpret_cast<const size_t*>(this); }
   } key;
   IP local_ip;
 
   struct HashByRemote {
     using is_transparent = std::true_type;
 
-    Size operator()(const SymmetricNAT *n) const { return n->key.Hash(); }
-    Size operator()(const Key &key) const { return key.Hash(); }
+    Size operator()(const SymmetricNAT* n) const { return n->key.Hash(); }
+    Size operator()(const Key& key) const { return key.Hash(); }
   };
 
   struct EqualByRemote {
     using is_transparent = std::true_type;
 
-    bool operator()(const SymmetricNAT *a, const SymmetricNAT *b) const {
-      return a->key == b->key;
-    }
+    bool operator()(const SymmetricNAT* a, const SymmetricNAT* b) const { return a->key == b->key; }
 
-    bool operator()(const Key &a, const SymmetricNAT *b) const {
-      return a == b->key;
-    }
+    bool operator()(const Key& a, const SymmetricNAT* b) const { return a == b->key; }
   };
 
-  static std::unordered_set<SymmetricNAT *, HashByRemote, EqualByRemote> table;
+  static std::unordered_set<SymmetricNAT*, HashByRemote, EqualByRemote> table;
 
-  SymmetricNAT(Key key, IP local_ip)
-      : Expirable(30min), key(key), local_ip(local_ip) {
+  SymmetricNAT(Key key, IP local_ip) : Expirable(30min), key(key), local_ip(local_ip) {
     table.insert(this);
   }
   ~SymmetricNAT() { table.erase(this); }
 };
 
-std::unordered_set<SymmetricNAT *, SymmetricNAT::HashByRemote,
-                   SymmetricNAT::EqualByRemote>
+std::unordered_set<SymmetricNAT*, SymmetricNAT::HashByRemote, SymmetricNAT::EqualByRemote>
     SymmetricNAT::table;
 
 std::unordered_map<IP, MAC> local_ip_to_mac;
@@ -348,11 +354,10 @@ std::unordered_map<IP, MAC> local_ip_to_mac;
 struct RecordTrafficPipe : epoll::Listener {
   FD write_fd;
 
-  void Setup(Status &status) {
+  void Setup(Status& status) {
     int pipe_fds[2];
     if (pipe(pipe_fds) == -1) {
-      AppendErrorMessage(status) +=
-          "Couldn't create pipes for the firewall loop";
+      AppendErrorMessage(status) += "Couldn't create pipes for the firewall loop";
       return;
     }
     fd = pipe_fds[0];
@@ -368,14 +373,14 @@ struct RecordTrafficPipe : epoll::Listener {
     U32 down;
   };
 
-  void NotifyRead(Status &status) override {
+  void NotifyRead(Status& status) override {
     while (true) {
       RecordTrafficMessage msg;
       SSize read_bytes = read(fd, &msg, sizeof(msg));
-      if (read_bytes == 0) { // EOF
+      if (read_bytes == 0) {  // EOF
         epoll::Del(this, status);
         break;
-      } else if (read_bytes == -1) { // Nothing to read / Error
+      } else if (read_bytes == -1) {  // Nothing to read / Error
         if (errno == EWOULDBLOCK) {
           errno = 0;
           break;
@@ -383,9 +388,9 @@ struct RecordTrafficPipe : epoll::Listener {
         AppendErrorMessage(status) += "read()";
         epoll::Del(this, status);
         break;
-      } else if (read_bytes < sizeof(RecordTrafficMessage)) { // Not enough data
+      } else if (read_bytes < sizeof(RecordTrafficMessage)) {  // Not enough data
         break;
-      } else { // Got a full entry
+      } else {  // Got a full entry
         RecordTraffic(msg.local_host, msg.remote_ip, msg.up, msg.down);
       }
     }
@@ -397,31 +402,28 @@ struct RecordTrafficPipe : epoll::Listener {
     write(write_fd, &msg, sizeof(msg));
   }
 
-  const char *Name() const override { return "firewall::RecordTrafficPipe"; }
+  const char* Name() const override { return "firewall::RecordTrafficPipe"; }
 };
 
 RecordTrafficPipe pipe;
 
-static void LogPacket(U32 packet_id, IP_Header &ip, TCP_Header &tcp,
-                      UDP_Header &udp, Span<> payload, const char *action) {
+static void LogPacket(U32 packet_id, IP_Header& ip, TCP_Header& tcp, UDP_Header& udp,
+                      Span<> payload, const char* action) {
   Str protocol_string = ToStr(ip.proto);
   if (ip.proto == ProtocolID::TCP) {
-    protocol_string +=
-        f(" {:5} -> {:<5}", tcp.source_port.Get(), tcp.destination_port.Get());
+    protocol_string += f(" {:5} -> {:<5}", tcp.source_port.Get(), tcp.destination_port.Get());
   } else if (ip.proto == ProtocolID::UDP) {
-    protocol_string +=
-        f(" {:5} -> {:<5}", udp.source_port.Get(), udp.destination_port.Get());
+    protocol_string += f(" {:5} -> {:<5}", udp.source_port.Get(), udp.destination_port.Get());
   }
   packet_id = Big(packet_id).big_endian;
-  LOG << f("#{:04x} ", packet_id) << f("{:>15}", ToStr(ip.source_ip))
-      << " => " << f("{:<15}", ToStr(ip.destination_ip)) << " ("
-      << protocol_string << "): " << f("{:4}", payload.size()) << " B, "
-      << action;
+  LOG << f("#{:04x} ", packet_id) << f("{:>15}", ToStr(ip.source_ip)) << " => "
+      << f("{:<15}", ToStr(ip.destination_ip)) << " (" << protocol_string
+      << "): " << f("{:4}", payload.size()) << " B, " << action;
 }
 
-void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
-  Netlink::Attr *attrs[NFQA_MAX + 1]{};
-  for (auto &attr : attr_seq) {
+void OnReceive(nfgenmsg& msg, Netlink::Attrs attr_seq) {
+  Netlink::Attr* attrs[NFQA_MAX + 1]{};
+  for (auto& attr : attr_seq) {
     if (attr.type > NFQA_MAX) {
       continue;
     }
@@ -431,8 +433,7 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     ERROR << "NFQA_PACKET_HDR is missing";
     return;
   }
-  nfqnl_msg_packet_hdr &phdr =
-      attrs[NFQA_PACKET_HDR]->As<nfqnl_msg_packet_hdr>();
+  nfqnl_msg_packet_hdr& phdr = attrs[NFQA_PACKET_HDR]->As<nfqnl_msg_packet_hdr>();
 
   netfilter::Verdict verdict(phdr.packet_id, true);
 
@@ -441,7 +442,7 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     return;
   }
   Span<> payload = attrs[NFQA_PAYLOAD]->Span();
-  IP_Header &ip = *(IP_Header *)payload.data();
+  IP_Header& ip = *(IP_Header*)payload.data();
 
   bool from_lan = lan_network.Contains(ip.source_ip);
   bool to_lan = lan_network.Contains(ip.destination_ip);
@@ -449,11 +450,11 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
   bool has_ports = ip.proto == ProtocolID::TCP || ip.proto == ProtocolID::UDP;
   bool packet_modified = false;
 
-  INET_Header &inet = *(INET_Header *)(payload.data() + ip.HeaderLength());
-  TCP_Header &tcp = *(TCP_Header *)(&inet);
-  UDP_Header &udp = *(UDP_Header *)(&inet);
+  INET_Header& inet = *(INET_Header*)(payload.data() + ip.HeaderLength());
+  TCP_Header& tcp = *(TCP_Header*)(&inet);
+  UDP_Header& udp = *(UDP_Header*)(&inet);
 
-  auto &checksum = ip.proto == ProtocolID::TCP ? tcp.checksum : udp.checksum;
+  auto& checksum = ip.proto == ProtocolID::TCP ? tcp.checksum : udp.checksum;
   int socket_type = ip.proto == ProtocolID::TCP ? SOCK_STREAM : SOCK_DGRAM;
 
   Expirable::Expire();
@@ -477,8 +478,7 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
       packet_modified = true;
     } else {
       // If no Symmetric NAT entry exists, try the Full Cone NAT table.
-      FullConeNAT &fullcone =
-          FullConeNAT::Lookup(ip.proto, inet.destination_port);
+      FullConeNAT& fullcone = FullConeNAT::Lookup(ip.proto, inet.destination_port);
       if (fullcone.lan_host_ip.addr != 0) {
         if constexpr (kLogNatPackets) {
           LogPacket(phdr.packet_id, ip, tcp, udp, payload, "fullcone NAT");
@@ -491,7 +491,7 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     if (packet_modified) {
       auto it = local_ip_to_mac.find(ip.destination_ip);
       if (it != local_ip_to_mac.end()) {
-        MAC &mac = it->second;
+        MAC& mac = it->second;
         pipe.FirewallRecordTraffic(mac, ip.source_ip, 0, payload.size());
       }
     }
@@ -500,15 +500,15 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     // We have to modify the source (NAT mangling).
 
     if (attrs[NFQA_HWADDR] != nullptr) {
-      nfqnl_msg_packet_hw &hw = attrs[NFQA_HWADDR]->As<nfqnl_msg_packet_hw>();
-      MAC &mac = *(MAC *)hw.hw_addr;
+      nfqnl_msg_packet_hw& hw = attrs[NFQA_HWADDR]->As<nfqnl_msg_packet_hw>();
+      MAC& mac = *(MAC*)hw.hw_addr;
       local_ip_to_mac[ip.source_ip] = mac;
       pipe.FirewallRecordTraffic(mac, ip.destination_ip, payload.size(), 0);
     }
 
     // Record the original source IP in the Full Cone NAT table.
     // New packets from unknown sources will be sent to this LAN IP.
-    FullConeNAT &fullcone = FullConeNAT::Lookup(ip.proto, inet.source_port);
+    FullConeNAT& fullcone = FullConeNAT::Lookup(ip.proto, inet.source_port);
     fullcone.lan_host_ip = ip.source_ip;
 
     // Record the original source IP in the Symmetric NAT table.
@@ -516,10 +516,9 @@ void OnReceive(nfgenmsg &msg, Netlink::Attrs attr_seq) {
     auto it = SymmetricNAT::table.find<SymmetricNAT::Key>(
         {ip.destination_ip, inet.destination_port, inet.source_port});
     if (it == SymmetricNAT::table.end()) {
-      new SymmetricNAT(SymmetricNAT::Key{ip.destination_ip,
-                                         inet.destination_port,
-                                         inet.source_port},
-                       ip.source_ip);
+      new SymmetricNAT(
+          SymmetricNAT::Key{ip.destination_ip, inet.destination_port, inet.source_port},
+          ip.source_ip);
     } else {
       (*it)->UpdateExpiration(30min);
     }
@@ -560,8 +559,7 @@ void Loop() {
   loop_tid = gettid();
   while (!stop) {
     Status status;
-    queue->ReceiveT<NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET, nfgenmsg>(
-        OnReceive, status);
+    queue->ReceiveT<NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET, nfgenmsg>(OnReceive, status);
     if (!stop && !status.Ok()) {
       status() += "Firewall failed to receive message from kernel";
       ERROR << status;
@@ -569,7 +567,7 @@ void Loop() {
   }
 }
 
-void Start(Status &status) {
+void Start(Status& status) {
   pipe.Setup(status);
   if (!OK(status)) {
     AppendErrorMessage(status) += "Couldn't setup pipe for recording traffic";
@@ -609,14 +607,13 @@ void Start(Status &status) {
   sa.sa_handler = sig_handler;
   sigaction(SIGUSR1, &sa, nullptr);
 
-  if (char *port_forwarding = getenv("PORT_FORWARDING")) {
+  if (char* port_forwarding = getenv("PORT_FORWARDING")) {
     while (true) {
       int pos;
       IP ip;
       U16 port;
-      int toks =
-          sscanf(port_forwarding, "%hhu.%hhu.%hhu.%hhu:%hu%n", &ip.bytes[0],
-                 &ip.bytes[1], &ip.bytes[2], &ip.bytes[3], &port, &pos);
+      int toks = sscanf(port_forwarding, "%hhu.%hhu.%hhu.%hhu:%hu%n", &ip.bytes[0], &ip.bytes[1],
+                        &ip.bytes[2], &ip.bytes[3], &port, &pos);
       if (toks != 5) {
         break;
       }
@@ -639,4 +636,4 @@ void Stop() {
   epoll::Del(&pipe, status_ignore);
 }
 
-} // namespace gatekeeper::firewall
+}  // namespace gatekeeper::firewall
