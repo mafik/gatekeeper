@@ -70,6 +70,33 @@ static std::string PostroutingRule() {
 }
 
 // Equivalent to:
+// ip daddr 10.0.0.8 socket transparent 0 accept
+//
+// This rule is inserted before the PREROUTING queue rule. When a response
+// arrives for one of our own outgoing connections, the kernel finds the
+// matching socket and accepts the packet before it reaches the nfqueue.
+// Without this, stale FullConeNAT entries can hijack responses meant for
+// other apps on the local machine!
+static std::string PreroutingBypassRule() {
+  std::string base =
+      "\x34\x00\x01\x80\x0c\x00\x01\x00\x70\x61\x79\x6c\x6f\x61\x64\x00\x24\x00"
+      "\x02\x80\x08\x00\x01\x00\x00\x00\x00\x01\x08\x00\x02\x00\x00\x00\x00\x01"
+      "\x08\x00\x03\x00\x00\x00\x00\x10\x08\x00\x04\x00\x00\x00\x00\x04\x2c\x00"
+      "\x01\x80\x08\x00\x01\x00\x63\x6d\x70\x00\x20\x00\x02\x80\x08\x00\x01\x00"
+      "\x00\x00\x00\x01\x08\x00\x02\x00\x00\x00\x00\x00\x0c\x00\x03\x80\x08\x00"
+      "\x01\x00\x00\x00\x00\x00\x2c\x00\x01\x80\x0b\x00\x01\x00\x73\x6f\x63\x6b"
+      "\x65\x74\x00\x00\x1c\x00\x02\x80\x08\x00\x01\x00\x00\x00\x00\x00\x08\x00"
+      "\x02\x00\x00\x00\x00\x01\x08\x00\x03\x00\x00\x00\x00\x00\x2c\x00\x01\x80"
+      "\x08\x00\x01\x00\x63\x6d\x70\x00\x20\x00\x02\x80\x08\x00\x01\x00\x00\x00"
+      "\x00\x01\x08\x00\x02\x00\x00\x00\x00\x00\x0c\x00\x03\x80\x05\x00\x01\x00"
+      "\x00\x00\x00\x00\x30\x00\x01\x80\x0e\x00\x01\x00\x69\x6d\x6d\x65\x64\x69"
+      "\x61\x74\x65\x00\x00\x00\x1c\x00\x02\x80\x08\x00\x01\x00\x00\x00\x00\x00"
+      "\x10\x00\x02\x80\x0c\x00\x02\x80\x08\x00\x01\x00\x00\x00\x00\x01"s;
+  *(U32*)(base.data() + 92) = wan_ip.addr;
+  return base;
+}
+
+// Equivalent to:
 // iif != 3 ip daddr 10.0.0.8 notrack counter queue to 1337
 static std::string PreroutingRule() {
   std::string base =
@@ -126,6 +153,14 @@ struct NetfilterHook {
           "Note: the following error is known to happen when Linux lacks "
           "support for packet processing in userspace. Make sure to install & "
           "load kernel modules: nfnetlink-queue & nft-queue";
+      return;
+    }
+    NewRule(netlink, family, kTableName, "PREROUTING", PreroutingBypassRule(), status);
+    if (!status.Ok()) {
+      status() += "Error while creating PREROUTING bypass rule";
+      status() +=
+          "Note: the following error is known to happen when Linux lacks "
+          "support for the nft_socket module";
       return;
     }
     NewRule(netlink, family, kTableName, "PREROUTING", PreroutingRule(), status);
