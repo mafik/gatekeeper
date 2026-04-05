@@ -92,7 +92,7 @@ def run_systemd(env):
         subprocess.run(['journalctl', '_SYSTEMD_INVOCATION_ID=' + p.invocation_id])
         sys.exit(1)
     try:
-        print('Use "journalctl _SYSTEMD_INVOCATION_ID=' + p.invocation_id + '" to see Gatekeeper logs')
+        print('Use "journalctl _SYSTEMD_INVOCATION_ID=' + p.invocation_id + ' -o cat" to see Gatekeeper logs')
         yield p
     finally:
         subprocess.run(['systemctl', 'stop', 'gatekeeper-e2e'])
