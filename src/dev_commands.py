@@ -206,6 +206,57 @@ def test_e2e():
         sys.exit(1)
 
 
+def test_outgoing():
+    '''Verify that FullConeNAT entries don't hijack gateway's own connections.
+
+    Reproduces the bug where:
+    1. LAN client connects to the internet, creating a FullConeNAT entry for port P
+    2. Gateway itself connects to the internet using port P
+    3. The response is hijacked by gatekeeper and sent to the LAN client
+    '''
+    if os.geteuid() != 0:
+        raise Exception('This script must be run as root')
+
+    COLLISION_PORT = 55555
+
+    for i in range(4):
+        setup_veth_namespace(i)
+
+    env = {'LAN': ' '.join([f'veth{i}a' for i in range(4)])}
+    with run_systemd(env), run_dhclient('ns0', 'veth0b'):
+        GATEKEEPER_IP = get_ip_address('lan')
+        if GATEKEEPER_IP is None:
+            print('DHCP issue. Gatekeeper IP is None')
+            sys.exit(1)
+
+        # Step 1: LAN client makes a connection from COLLISION_PORT.
+        # This populates FullConeNAT[TCP][COLLISION_PORT] = <ns0 IP>.
+        # We use curl with --local-port to control the source port.
+        rc = subprocess.call(
+            ['ip', 'netns', 'exec', 'ns0', 'curl', '-s', '-o', '/dev/null',
+             '--local-port', str(COLLISION_PORT),
+             '--connect-timeout', '5', '--max-time', '10',
+             'http://www.google.com/'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if rc != 0:
+            print(f'Setup issue. LAN client curl failed with status {rc}')
+            sys.exit(1)
+
+        # Step 2: Gateway itself connects from the same port.
+        # The outgoing SYN bypasses gatekeeper (source IP is wan_ip, not 10.x/16).
+        # But the SYN-ACK response will be hijacked by the stale FullConeNAT entry.
+        rc = subprocess.call(
+            ['curl', '-s', '-o', '/dev/null',
+             '--local-port', str(COLLISION_PORT),
+             '--connect-timeout', '5', '--max-time', '10',
+             'http://www.google.com/'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    if rc != 0:
+        print(f'FAIL: Gateway outgoing connection failed (status {rc}) — response was likely hijacked by FullConeNAT')
+        sys.exit(1)
+
+
 def test_dhcp():
     NS, A, B = setup_veth_namespace(0)
     subprocess.check_call(['sudo', 'ip', 'netns', 'exec', NS, 'ip', 'link', 'set', B, 'up'])
@@ -257,6 +308,7 @@ def hook_final(srcs, objs, bins, recipe: make.Recipe):
     recipe.add_step(net_reset, [], deps)
     recipe.add_step(test_env, [], deps)
     recipe.add_step(test_e2e, [], deps)
+    recipe.add_step(test_outgoing, [], deps)
     recipe.add_step(test_dhcp, [], deps)
     recipe.add_step(test_dns, [], deps)
     recipe.add_step(test_tcp, [], deps)
