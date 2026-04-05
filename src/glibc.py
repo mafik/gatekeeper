@@ -40,11 +40,23 @@ GLIBC_CONFIGURE_OPTS = [
   '--without-selinux'
 ]
 
-BAD_CFLAGS = ['-fcolor-diagnostics', '-flto', '-Wno-vla-extension', '--gcc-toolchain']
+BAD_CFLAGS = ['-fcolor-diagnostics', '-flto', '-Wno-vla-extension', '--gcc-toolchain', '--gcc-install-dir', '--warning-suppression-mappings', '-Wno-c99-designator']
 
 env = os.environ.copy()
 env['CC'] = 'gcc'
 env['CXX'] = 'g++'
+
+LIBC_A = build.PREFIX / 'lib' / 'libc.a'
+LIBSTDCXX_A = build.PREFIX / 'lib' / 'libstdc++.a'
+
+
+def hook_final(srcs, objs, bins, recipe):
+  '''Make all link steps depend on the locally-built libc and libstdc++.'''
+  lib_paths = {str(LIBC_A), str(LIBSTDCXX_A)}
+  for step in recipe.steps:
+    if step.desc.startswith('Linking '):
+      step.inputs.update(lib_paths)
+
 
 def hook_recipe(recipe):
   # Download
@@ -91,7 +103,7 @@ def hook_recipe(recipe):
     CFLAGS.remove('-O0')
     CFLAGS += ['-O1']
 
-  CFLAGS = ' '.join(CFLAGS)
+  CFLAGS = ' '.join(CFLAGS).replace('-I ', '-I')
 
 
   linux_headers = ['asm', 'asm-generic', 'drm', 'linux', 'misc', 'mtd', 'rdma', 'scsi', 'sound', 'video', 'xen']
