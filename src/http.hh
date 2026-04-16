@@ -1,8 +1,5 @@
 #pragma once
 
-#include "epoll.hh"
-#include "ip.hh"
-
 #include <functional>
 #include <optional>
 #include <set>
@@ -10,17 +7,19 @@
 #include <string_view>
 #include <unordered_map>
 
+#include "epoll.hh"
+#include "ip.hh"
+
 // TODO: move this to automat::epoll::http
 namespace http {
 
 // Request wraps the HTTP request buffer and provides easy access to its
 // contents.
 struct Request {
-
   // Reference to the network buffer of the data received from this connection.
   // It may actually contain more requests queued after this one - so be careful
   // to only parse until the first request separator ("\r\n\r\n").
-  std::string &buffer;
+  std::string& buffer;
 
   // HTTP path.
   //
@@ -45,7 +44,7 @@ struct Request {
 
   // Constructor parses the provided request buffer & populates all af the
   // convenience variables in this class.
-  Request(std::string &request_buffer);
+  Request(std::string& request_buffer);
 
   // Convenient access to the `headers` map.
   std::string_view operator[](std::string_view key);
@@ -54,11 +53,10 @@ struct Request {
 // Wrapper around the HTTP response buffer. Provides methods for easy
 // construction of HTTP responses.
 struct Response {
-
   // Reference to the outgoing network buffer for this connection. It may
   // actually contain other (not yet sent) respones before this one - so be
   // careful not to overwrite them!
-  std::string &buffer;
+  std::string& buffer;
 
   // Flag recording whether the status line for this response has already been
   // written. This ensures that HTTP status line is written only once. It's set
@@ -66,7 +64,7 @@ struct Response {
   bool status_written = false;
 
   // Constructs a Response instance with the given `response_buffer`.
-  Response(std::string &response_buffer);
+  Response(std::string& response_buffer);
 
   // Writes the HTTP status code to the response buffer.
   //
@@ -89,7 +87,7 @@ struct Server;
 // connection.
 struct Connection : automat::epoll::Listener {
   // Pointer to the Server instance that this Connection belongs to.
-  Server *server;
+  Server* server;
 
   // Flag indicating whether this Connection is closed or not.
   bool closed = false;
@@ -125,7 +123,7 @@ struct Connection : automat::epoll::Listener {
 
   // Convenience field which allows the users of this library to store arbitrary
   // data in each Connection.
-  void *user_data;
+  void* user_data;
 
   // Send the given payload as a binary WebSocket message.
   void Send(std::string_view payload, bool flush = true);
@@ -145,14 +143,14 @@ struct Connection : automat::epoll::Listener {
 
   // Reads data whenever it becomes available. Part of the epoll::Listener
   // interface.
-  void NotifyRead(automat::Status &) override;
+  void NotifyRead(automat::Status&) override;
 
   // Writes data whenever it becomes available. Part of the epoll::Listener
   // interface.
-  void NotifyWrite(automat::Status &) override;
+  void NotifyWrite(automat::Status&) override;
 
   // Part of the epoll::Listener interface.
-  const char *Name() const override;
+  const char* Name() const override;
 };
 
 // Server stores the data related to a single HTTP(S) server.
@@ -164,18 +162,18 @@ struct Connection : automat::epoll::Listener {
 // be called.
 struct Server : automat::epoll::Listener {
   // Handler called whenever a HTTP request is made.
-  std::function<void(Response &, Request &)> handler;
+  std::function<void(Response&, Request&)> handler;
 
   // Handler called whenever a new WebSocket connection is created.
-  std::function<void(Connection &, Request &)> on_open;
+  std::function<void(Connection&, Request&)> on_open;
 
   // Handler called whenever a new WebSocket message arrives.
-  std::function<void(Connection &, std::string_view)> on_message;
+  std::function<void(Connection&, std::string_view)> on_message;
 
   // Handler called whenever a WebSocket connection is closed.
-  std::function<void(Connection &)> on_close;
+  std::function<void(Connection&)> on_close;
 
-  std::set<Connection *> connections;
+  std::set<Connection*> connections;
 
   // TODO: Max Websocket Payload Length
   // TODO: Max header length
@@ -195,17 +193,17 @@ struct Server : automat::epoll::Listener {
   //
   // To actually accept new connections, make sure to Poll the `epoll`
   // instance after listening.
-  void Listen(Config config, automat::Status &);
+  void Listen(Config config, automat::Status&);
 
   // Stop listening.
   void StopListening();
 
   // Accepts new connection whenever they arrive. Part of the epoll::Listener
   // interface.
-  void NotifyRead(automat::Status &) override;
+  void NotifyRead(automat::Status&) override;
 
   // Part of the epoll::Listener interface.
-  const char *Name() const override;
+  const char* Name() const override;
 };
 
-} // namespace http
+}  // namespace http

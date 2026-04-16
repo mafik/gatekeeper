@@ -1,8 +1,6 @@
 #include "http.hh"
 
 #include <arpa/inet.h>
-#include <cassert>
-#include <cstring>
 #include <endian.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -10,6 +8,9 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include <cassert>
+#include <cstring>
 
 #include "base64.hh"
 #include "log.hh"
@@ -22,17 +23,17 @@ using namespace automat;
 
 namespace http {
 
-const char *kPathAllowedCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO"
-                                     "PQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@%/";
+const char* kPathAllowedCharacters =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO"
+    "PQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@%/";
 
-Request::Request(std::string &request_buffer) : buffer(request_buffer) {
+Request::Request(std::string& request_buffer) : buffer(request_buffer) {
   size_t method_end = buffer.find(' ');
   if (method_end == std::string::npos) {
     return;
   }
   size_t path_start = method_end + 1;
-  size_t path_end =
-      buffer.find_first_not_of(kPathAllowedCharacters, path_start);
+  size_t path_end = buffer.find_first_not_of(kPathAllowedCharacters, path_start);
   if (path_end == std::string::npos) {
     return;
   }
@@ -43,18 +44,15 @@ Request::Request(std::string &request_buffer) : buffer(request_buffer) {
   path = std::string_view(buffer).substr(path_start, path_len);
 
   size_t pos = buffer.find("\r\n", path_end);
-  if (pos == std::string::npos)
-    return;
+  if (pos == std::string::npos) return;
 
-  std::string_view args =
-      std::string_view(buffer).substr(path_end, pos - path_end);
+  std::string_view args = std::string_view(buffer).substr(path_end, pos - path_end);
 
   // Parse query string
   while (args.starts_with("?") || args.starts_with("&")) {
     args.remove_prefix(1);
     using std::min;
-    size_t key_end = min(min(args.size(), args.find(' ')),
-                         min(args.find('='), args.find('&')));
+    size_t key_end = min(min(args.size(), args.find(' ')), min(args.find('='), args.find('&')));
     if (key_end == 0) {
       continue;
     }
@@ -72,20 +70,15 @@ Request::Request(std::string &request_buffer) : buffer(request_buffer) {
   }
 
   while (true) {
-    if (buffer.substr(pos, 4) == "\r\n\r\n")
-      break;
+    if (buffer.substr(pos, 4) == "\r\n\r\n") break;
     size_t key_start = pos + 2;
-    if (key_start >= buffer.size())
-      break;
+    if (key_start >= buffer.size()) break;
     size_t key_end = buffer.find(": ", key_start);
-    if (key_end == std::string::npos)
-      break;
+    if (key_end == std::string::npos) break;
     size_t val_start = key_end + 2;
-    if (val_start >= buffer.size())
-      break;
+    if (val_start >= buffer.size()) break;
     size_t val_end = buffer.find("\r\n", val_start);
-    if (val_end == std::string::npos)
-      break;
+    if (val_end == std::string::npos) break;
     std::string_view key(&buffer.data()[key_start], key_end - key_start);
     std::string_view val(&buffer.data()[val_start], val_end - val_start);
     headers[key] = val;
@@ -93,15 +86,12 @@ Request::Request(std::string &request_buffer) : buffer(request_buffer) {
   }
 }
 
-std::string_view Request::operator[](std::string_view key) {
-  return headers[key];
-}
+std::string_view Request::operator[](std::string_view key) { return headers[key]; }
 
-Response::Response(std::string &response_buffer) : buffer(response_buffer) {}
+Response::Response(std::string& response_buffer) : buffer(response_buffer) {}
 
 void Response::WriteStatus(std::string_view status) {
-  if (status_written)
-    return;
+  if (status_written) return;
   buffer.append("HTTP/1.1 ", 9);
   buffer.append(status);
   buffer.append("\r\n", 2);
@@ -123,24 +113,23 @@ void Response::Write(std::string_view data) {
 }
 
 // returns number of consumed bytes
-static int ConsumeWebSocketFrame(Connection &c) {
-  if (c.request_buffer.size() < 2)
-    return 0;
+static int ConsumeWebSocketFrame(Connection& c) {
+  if (c.request_buffer.size() < 2) return 0;
   bool fin = c.request_buffer[0] >> 7;
   int opcode = c.request_buffer[0] & 15;
   bool mask = c.request_buffer[1] >> 7;
-  assert(fin); // TODO: message fragmentation
+  assert(fin);  // TODO: message fragmentation
   U64 payload_len = ((int)c.request_buffer[1]) & 127;
   int offset = 2;
   if (payload_len == 126) {
-    if (c.request_buffer.size() < 4) // 2 bytes header + 2 bytes payload len
+    if (c.request_buffer.size() < 4)  // 2 bytes header + 2 bytes payload len
       return 0;
-    payload_len = *(U16 *)(c.request_buffer.data() + offset);
+    payload_len = *(U16*)(c.request_buffer.data() + offset);
     offset += 2;
   } else if (payload_len == 127) {
-    if (c.request_buffer.size() < 10) // 2 bytes header + 8 bytes of payload len
+    if (c.request_buffer.size() < 10)  // 2 bytes header + 8 bytes of payload len
       return 0;
-    payload_len = *(U64 *)(c.request_buffer.data() + offset);
+    payload_len = *(U64*)(c.request_buffer.data() + offset);
     offset += 8;
   }
   if (c.request_buffer.size() < offset + payload_len + (mask ? 4 : 0)) {
@@ -153,7 +142,7 @@ static int ConsumeWebSocketFrame(Connection &c) {
     memcpy(masking_arr, c.request_buffer.data() + offset, 4);
     offset += 4;
   }
-  char *payload_base = c.request_buffer.data() + offset;
+  char* payload_base = c.request_buffer.data() + offset;
   for (int i = 0; i < payload_len; ++i) {
     payload_base[i] ^= masking_arr[i % 4];
   }
@@ -170,8 +159,8 @@ static int ConsumeWebSocketFrame(Connection &c) {
 }
 
 // Returns number of consumed bytes
-static int ConsumeHttpRequest(Connection &c) {
-  const char *kRequestHeaderEnding = "\r\n\r\n";
+static int ConsumeHttpRequest(Connection& c) {
+  const char* kRequestHeaderEnding = "\r\n\r\n";
   size_t pos = c.request_buffer.find(kRequestHeaderEnding);
   if (pos == std::string::npos) {
     // We must read more data to get the full header.
@@ -218,8 +207,8 @@ static int ConsumeHttpRequest(Connection &c) {
   return pos + strlen(kRequestHeaderEnding);
 }
 
-static void UpdateEpoll(Connection &c) {
-  bool &current = c.listening_to_write_availability;
+static void UpdateEpoll(Connection& c) {
+  bool& current = c.listening_to_write_availability;
   bool desired = !c.response_buffer.empty();
   if (current != desired) {
     c.notify_write = desired;
@@ -228,7 +217,7 @@ static void UpdateEpoll(Connection &c) {
   }
 }
 
-static void TryWriting(Connection &c) {
+static void TryWriting(Connection& c) {
   if (c.closed) {
     return;
   }
@@ -238,8 +227,7 @@ static void TryWriting(Connection &c) {
   if (c.write_buffer_full) {
     return;
   }
-  ssize_t count = send(c.fd, c.response_buffer.c_str(),
-                       c.response_buffer.size(), MSG_NOSIGNAL);
+  ssize_t count = send(c.fd, c.response_buffer.c_str(), c.response_buffer.size(), MSG_NOSIGNAL);
 #ifdef DEBUG_HTTP
   LOG << "write " << c.fd << ": " << (int)count << "bytes";
 #endif
@@ -286,14 +274,13 @@ static void TryWriting(Connection &c) {
 
 static char read_buffer[1024 * 1024];
 
-static void TryReading(Connection &c) {
+static void TryReading(Connection& c) {
   ssize_t count = read(c.fd, read_buffer, sizeof(read_buffer));
 #ifdef DEBUG_HTTP
   LOG << "read fd=" << c.fd << ", returned " << (int)count
-      << " bytes, buffer size=" << (int)(c.request_buffer.size() + count)
-      << " bytes";
+      << " bytes, buffer size=" << (int)(c.request_buffer.size() + count) << " bytes";
 #endif
-  if (count == 0) { // EOF
+  if (count == 0) {  // EOF
 #ifdef DEBUG_HTTP
     LOG << " -> closing (EOF)";
 #endif
@@ -336,11 +323,10 @@ static void TryReading(Connection &c) {
   TryWriting(c);
 }
 
-static void AppendWebSocketFrame(Connection &c, U8 opcode,
-                                 std::string_view payload) {
+static void AppendWebSocketFrame(Connection& c, U8 opcode, std::string_view payload) {
   char header[10];
   int header_size;
-  header[0] = (char)(1 << 7 | opcode); // FIN | opcode
+  header[0] = (char)(1 << 7 | opcode);  // FIN | opcode
   U64 len = payload.size();
   if (len < 126) {
     header_size = 2;
@@ -348,11 +334,11 @@ static void AppendWebSocketFrame(Connection &c, U8 opcode,
   } else if (len < 0x10000) {
     header_size = 4;
     header[1] = 126;
-    *(U16 *)(header + 2) = htobe16(len);
+    *(U16*)(header + 2) = htobe16(len);
   } else {
     header_size = 10;
     header[1] = 127;
-    *(U64 *)(header + 2) = htobe64(len);
+    *(U64*)(header + 2) = htobe64(len);
   }
   c.response_buffer.append(header, header_size);
   c.response_buffer.append(payload);
@@ -377,11 +363,10 @@ void Connection::Flush() { TryWriting(*this); }
 void Connection::Close(U16 code, std::string_view reason) {
   if (mode == MODE_WEBSOCKET) {
     char payload[reason.size() + 2];
-    *(U16 *)(payload) = htobe16(code);
+    *(U16*)(payload) = htobe16(code);
     memcpy(payload + 2, reason.data(), reason.size());
     closing = true;
-    AppendWebSocketFrame(*this, 8,
-                         std::string_view(payload, reason.size() + 2));
+    AppendWebSocketFrame(*this, 8, std::string_view(payload, reason.size() + 2));
     TryWriting(*this);
   } else if (response_buffer.empty()) {
     CloseTCP();
@@ -397,7 +382,7 @@ void Connection::CloseTCP() {
   close(fd);
 }
 
-void Connection::NotifyRead(Status &epoll_status) {
+void Connection::NotifyRead(Status& epoll_status) {
   TryReading(*this);
   if (!OK(this->status)) {
     LOG << "Connection error: " << this->status;
@@ -411,7 +396,7 @@ void Connection::NotifyRead(Status &epoll_status) {
   }
 }
 
-void Connection::NotifyWrite(Status &epoll_status) {
+void Connection::NotifyWrite(Status& epoll_status) {
   write_buffer_full = false;
   TryWriting(*this);
   if (!OK(this->status)) {
@@ -426,9 +411,9 @@ void Connection::NotifyWrite(Status &epoll_status) {
   }
 }
 
-const char *Connection::Name() const { return "http::Connection"; }
+const char* Connection::Name() const { return "http::Connection"; }
 
-void Server::Listen(Config config, Status &status) {
+void Server::Listen(Config config, Status& status) {
   fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
               /*protocol*/ 0);
   if (fd == -1) {
@@ -437,8 +422,7 @@ void Server::Listen(Config config, Status &status) {
   }
 
   int opt = 1;
-  if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,
-                 sizeof(opt))) {
+  if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
     AppendErrorMessage(status) += "setsockopt() failed";
     StopListening();
     return;
@@ -456,7 +440,7 @@ void Server::Listen(Config config, Status &status) {
   sockaddr_in address = {.sin_family = AF_INET,
                          .sin_port = Big(config.port).big_endian,
                          .sin_addr = {.s_addr = config.ip.addr}};
-  if (int r = bind(fd, (sockaddr *)&address, sizeof(address)); r < 0) {
+  if (int r = bind(fd, (sockaddr*)&address, sizeof(address)); r < 0) {
     AppendErrorMessage(status) += "bind() failed";
     StopListening();
     return;
@@ -482,12 +466,11 @@ void Server::StopListening() {
   close(fd);
 }
 
-void Server::NotifyRead(Status &status) {
+void Server::NotifyRead(Status& status) {
   while (true) {
     sockaddr_in addr;
     socklen_t addrlen = sizeof(addr);
-    int conn_fd =
-        accept4(fd, (struct sockaddr *)&addr, &addrlen, SOCK_NONBLOCK);
+    int conn_fd = accept4(fd, (struct sockaddr*)&addr, &addrlen, SOCK_NONBLOCK);
     if (conn_fd == -1) {
       if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
         // We have processed all incoming connections.
@@ -502,7 +485,7 @@ void Server::NotifyRead(Status &status) {
       AppendErrorMessage(status) += "setsockopt() failed";
       return;
     }
-    Connection *conn = new Connection();
+    Connection* conn = new Connection();
     connections.insert(conn);
     conn->server = this;
     conn->fd = conn_fd;
@@ -517,8 +500,8 @@ void Server::NotifyRead(Status &status) {
   }
 }
 
-const char *Server::Name() const { return "http::Server"; }
+const char* Server::Name() const { return "http::Server"; }
 
-} // namespace http
+}  // namespace http
 
 // TODO: TCP_NODELAY
