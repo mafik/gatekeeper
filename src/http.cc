@@ -131,6 +131,12 @@ static int ConsumeWebSocketFrame(Connection& c) {
       return 0;
     payload_len = *(U64*)(c.request_buffer.data() + offset);
     offset += 8;
+    if (payload_len & 0x8000000000000000ull) {
+      // Wikipedia says that "MSB must be 0" for 8-byte payload lengths.
+      // Likely somebody is trying to DOS us.
+      c.CloseTCP();
+      return 0;
+    }
   }
   if (c.request_buffer.size() < offset + payload_len + (mask ? 4 : 0)) {
     // The frame is still not complete - we must wait for more data to

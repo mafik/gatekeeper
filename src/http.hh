@@ -175,7 +175,6 @@ struct Server : automat::epoll::Listener {
 
   std::set<Connection*> connections;
 
-  // TODO: Max Websocket Payload Length
   // TODO: Max header length
   // TODO: SSL
   // TODO: per message deflate
