@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
+        uses: KyleMayes/install-llvm-action@v2.0.9
         with:
           version: "21.1.8"
       - name: Update APT repositories
