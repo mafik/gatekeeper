@@ -18,7 +18,7 @@ jobs:
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@v1
         with:
-          version: "21"
+          version: "20"
       - name: Update APT repositories
         run: sudo apt update
       - name: Install dependencies
