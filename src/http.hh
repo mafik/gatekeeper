@@ -173,6 +173,9 @@ struct Server : automat::epoll::Listener {
   // Handler called whenever a WebSocket connection is closed.
   std::function<void(Connection&)> on_close;
 
+  // Checks the 'Origin' header (if present).
+  std::function<bool(std::string_view origin)> allow_websocket_origin;
+
   std::set<Connection*> connections;
 
   // TODO: Max header length

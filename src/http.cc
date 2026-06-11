@@ -183,6 +183,16 @@ static int ConsumeHttpRequest(Connection& c) {
   bool upgrade_header = request["Upgrade"] == "websocket";
   std::string_view websocket_key = request["Sec-WebSocket-Key"];
   if (connection_header && upgrade_header && !websocket_key.empty()) {
+    std::string_view origin = request["Origin"];
+    if (!origin.empty() && c.server->allow_websocket_origin &&
+        !c.server->allow_websocket_origin(origin)) {
+#ifdef DEBUG_HTTP
+      LOG << " -> websocket upgrade rejected (Origin: " << origin << ")";
+#endif
+      response.WriteStatus("403 Forbidden");
+      response.Write("Origin not allowed");
+      return pos + strlen(kRequestHeaderEnding);
+    }
     std::string sha_buf;
     sha_buf += websocket_key;
     sha_buf += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";

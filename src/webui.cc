@@ -1182,6 +1182,26 @@ void Start(Status &status) {
   server.handler = Handler;
   server.on_open = OnWebsocketOpen;
   server.on_close = OnWebsocketClose;
+  server.allow_websocket_origin = [](std::string_view origin) {
+    constexpr std::string_view kHttp = "http://";
+    constexpr std::string_view kHttps = "https://";
+    if (origin.starts_with(kHttp)) {
+      origin.remove_prefix(kHttp.size());
+    } else if (origin.starts_with(kHttps)) {
+      origin.remove_prefix(kHttps.size());
+    } else {
+      return false;
+    }
+    Str port_suffix = ":" + std::to_string(kPort);
+    if (origin.ends_with(port_suffix)) {
+      origin.remove_suffix(port_suffix.size());
+    }
+    Str domain_suffix = "." + kLocalDomain;
+    if (origin.ends_with(domain_suffix)) {
+      origin.remove_suffix(domain_suffix.size());
+    }
+    return origin == ToStr(lan_ip) || origin == etc::hostname;
+  };
   server.Listen(
       http::Server::Config{.ip = lan_ip, .port = kPort, .interface = lan.name},
       status);
