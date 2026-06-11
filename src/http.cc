@@ -149,7 +149,7 @@ static int ConsumeWebSocketFrame(Connection& c) {
     offset += 4;
   }
   char* payload_base = c.request_buffer.data() + offset;
-  for (int i = 0; i < payload_len; ++i) {
+  for (size_t i = 0; i < payload_len; ++i) {
     payload_base[i] ^= masking_arr[i % 4];
   }
   std::string_view sv(payload_base, payload_len);
