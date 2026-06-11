@@ -8,7 +8,7 @@
 namespace automat::elf {
 
 struct Elf64 {
-  using Addr = U32;
+  using Addr = U64;
   struct SectionHeader {
     U32 name;      /* Section name (string tbl index) */
     U32 type;      /* Section type */
@@ -72,7 +72,8 @@ struct Elf32 {
   };
 };
 
-template <typename T> T SafeAdd(T a, T b) {
+template <typename T>
+T SafeAdd(T a, T b) {
   if (a > std::numeric_limits<T>::max() - b) {
     return std::numeric_limits<T>::max();
   }
@@ -80,8 +81,7 @@ template <typename T> T SafeAdd(T a, T b) {
 }
 
 template <typename Elf>
-static Span<> FindSection(Span<> elf_contents, StrView section_name,
-                          Status &status) {
+static Span<> FindSection(Span<> elf_contents, StrView section_name, Status& status) {
   using Header = typename Elf::Header;
   using SectionHeader = typename Elf::SectionHeader;
   using Addr = typename Elf::Addr;
@@ -89,33 +89,33 @@ static Span<> FindSection(Span<> elf_contents, StrView section_name,
     AppendErrorMessage(status) += "File too small to contain an ELF header";
     return {};
   }
-  Header &header = *reinterpret_cast<Header *>(elf_contents.data());
-  Size string_table_header_offset =
-      SafeAdd<Addr>(header.shoff, header.shstrndx * sizeof(SectionHeader));
-  if (SafeAdd<Addr>(string_table_header_offset, sizeof(SectionHeader)) >
+  Header& header = *reinterpret_cast<Header*>(elf_contents.data());
+  Addr string_table_header_offset =
+      SafeAdd<Addr>(header.shoff, Addr(header.shstrndx * sizeof(SectionHeader)));
+  if (SafeAdd<Addr>(string_table_header_offset, Addr(sizeof(SectionHeader))) >
       elf_contents.size()) {
     AppendErrorMessage(status) += "ELF section name table header out of bounds";
     return {};
   }
-  SectionHeader &shstrtab = *reinterpret_cast<SectionHeader *>(
-      elf_contents.data() + string_table_header_offset);
-  if (SafeAdd<Addr>(shstrtab.offset, shstrtab.size) > elf_contents.size()) {
+  SectionHeader& shstrtab =
+      *reinterpret_cast<SectionHeader*>(elf_contents.data() + string_table_header_offset);
+  Addr string_table_end = SafeAdd<Addr>(shstrtab.offset, shstrtab.size);
+  if (string_table_end > elf_contents.size()) {
     AppendErrorMessage(status) += "ELF section name table out of bounds";
     return {};
   }
-  if (elf_contents[std::max<Addr>(1, shstrtab.offset + shstrtab.size) - 1] !=
-      '\0') {
+  if (elf_contents[std::max<Addr>(1, string_table_end) - 1] != '\0') {
     AppendErrorMessage(status) += "ELF section name table not null-terminated";
     return {};
   }
-  char *string_table = elf_contents.data() + shstrtab.offset;
-  if (SafeAdd<Addr>(header.shoff, header.shnum * sizeof(SectionHeader)) >
+  char* string_table = elf_contents.data() + shstrtab.offset;
+  if (SafeAdd<Addr>(header.shoff, Addr(header.shnum * sizeof(SectionHeader))) >
       elf_contents.size()) {
     AppendErrorMessage(status) += "ELF section headers out of bounds";
     return {};
   }
   for (int section_i = 0; section_i < header.shnum; ++section_i) {
-    SectionHeader &section_header = *reinterpret_cast<SectionHeader *>(
+    SectionHeader& section_header = *reinterpret_cast<SectionHeader*>(
         elf_contents.data() + header.shoff + section_i * sizeof(SectionHeader));
     if (section_header.name >= shstrtab.size) {
       AppendErrorMessage(status) += "ELF section name out of bounds";
@@ -123,27 +123,40 @@ static Span<> FindSection(Span<> elf_contents, StrView section_name,
     }
     StrView current_section_name = string_table + section_header.name;
     if (current_section_name == section_name) {
-      return Span<>(elf_contents.data() + section_header.offset,
-                    section_header.size);
+      if (SafeAdd<Addr>(section_header.offset, section_header.size) > elf_contents.size()) {
+        AppendErrorMessage(status) += "ELF section contents out of bounds";
+        return {};
+      }
+      return Span<>(elf_contents.data() + section_header.offset, section_header.size);
     }
   }
   AppendErrorMessage(status) += "Section not found: " + Str(section_name);
   return {};
 }
 
-Span<> FindSection(Span<> elf_contents, StrView section_name, Status &status) {
+Span<> FindSection(Span<> elf_contents, StrView section_name, Status& status) {
   if (elf_contents.size() < 5) {
     AppendErrorMessage(status) += "ELF file too small";
     return {};
   }
+  Span<> section;
   if (elf_contents[4] == 1) {
-    return FindSection<Elf32>(elf_contents, section_name, status);
+    section = FindSection<Elf32>(elf_contents, section_name, status);
   } else if (elf_contents[4] == 2) {
-    return FindSection<Elf64>(elf_contents, section_name, status);
+    section = FindSection<Elf64>(elf_contents, section_name, status);
   } else {
     AppendErrorMessage(status) += "Invalid ELF class";
     return {};
   }
+  if (!OK(status)) {
+    return {};
+  }
+  if (section.data() < elf_contents.data() || section.size() > elf_contents.size() ||
+      (Size)(section.data() - elf_contents.data()) > elf_contents.size() - section.size()) {
+    AppendErrorMessage(status) += "ELF section out of bounds";
+    return {};
+  }
+  return section;
 }
 
 static Note kEmptyNote = {
@@ -152,8 +165,8 @@ static Note kEmptyNote = {
     .type = 0,
 };
 
-Note &Note::FromSpan(Span<> span, Status &status) {
-  Note &note = *reinterpret_cast<Note *>(span.data());
+Note& Note::FromSpan(Span<> span, Status& status) {
+  Note& note = *reinterpret_cast<Note*>(span.data());
   if (span.size() < sizeof(Note)) {
     AppendErrorMessage(status) += "ELF note can't be smaller than 12 bytes";
     return kEmptyNote;
@@ -169,8 +182,8 @@ Note &Note::FromSpan(Span<> span, Status &status) {
   return note;
 }
 
-StrView Note::Name() { return {(char *)(this + 1), (Size)namesz - 1}; }
+StrView Note::Name() { return {(char*)(this + 1), (Size)namesz - 1}; }
 
-Span<> Note::Desc() { return {(char *)(this + 1) + namesz, (Size)descsz}; }
+Span<> Note::Desc() { return {(char*)(this + 1) + namesz, (Size)descsz}; }
 
-} // namespace automat::elf
+}  // namespace automat::elf
