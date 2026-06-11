@@ -23,13 +23,7 @@ static int server_i = 0;
 // Use privileged port for DNS client - to reduce the chance of NAT collision.
 static constexpr U16 kClientPort = 22339;
 
-Big<U16> AllocateRequestId() {
-  // Randomize initial request ID
-  static Big<U16> request_id = random<U16>();
-  // Subsequent request IDs are incremented by 1
-  request_id.Set(request_id + 1);
-  return request_id;
-}
+Big<U16> AllocateRequestId() { return Big<U16>(random<U16>()); }
 
 unordered_set<Entry *, Entry::QuestionHash, Entry::QuestionEqual> Entry::cache;
 
