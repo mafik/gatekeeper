@@ -40,6 +40,9 @@ __pycache__
 
 build
 
+# Dependencies cloned by the build system (FetchFromGit in src/*.py)
+/third_party/
+
 .gdb_history
 
 tests/dhclient
