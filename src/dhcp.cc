@@ -933,7 +933,8 @@ void Server::HandleRequest(string_view buf, IP source_ip, U16 port) {
     if (auto it = entries_by_ip.find(packet.client_ip);
         it != entries_by_ip.end()) {
       auto *entry = *it;
-      if (entry->mac == packet.effective_mac()) {
+      if (entry->mac == packet.effective_mac() &&
+          entry->expiration != steady_clock::time_point::max()) {
         delete entry;
       }
     }
