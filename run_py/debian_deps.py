@@ -50,7 +50,7 @@ def check_and_install():
         except EOFError:
             print("Got EOF - batch job detected. Continuing with the installation.")
         command = ["apt-get", "-y", "install"] + list(missing_packages)
-        if os.geteuid() != 0:  # non-root users need `sudo` to install stuff
+        if os.geteuid() != 0:  # non-root users need `sudo` to install packages
             command = ["sudo"] + command
         print(" ".join(command) + "\n")
         run(command, check=True)
